@@ -1,0 +1,1187 @@
+
+
+Write complete V5 with all new features
+bash
+
+cat > /mnt/user-data/outputs/wspa_command_v5.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>JK Gaming — W.S.P.A. Command</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#020d18;--bg2:#041525;--bg3:#071e32;--panel:#071e32;--panel2:#0a2540;
+  --border:#0e3d5c;--border2:#1a5c8a;
+  --accent:#00d4ff;--accent2:#ff4444;--text:#c8e8f8;--text2:#7ab8d4;--text3:#3a7a9c;
+  --red:#ff3333;--yellow:#ffaa00;--green:#33ff88;--blue:#00aaff;--purple:#aa44ff;--gold:#ffd700;--pink:#ff88cc;
+  --font-head:'Orbitron',monospace;--font-mono:'Share Tech Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:12px;overflow:hidden;height:100vh}
+.scanline{position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,0.012) 2px,rgba(0,212,255,0.012) 4px);pointer-events:none;z-index:9999}
+
+/* ── MENU ── */
+.menu{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500;gap:10px}
+.jk-label{font-family:var(--font-head);font-size:10px;color:var(--text3);letter-spacing:4px;margin-bottom:4px}
+.menu-logo{font-family:var(--font-head);font-size:28px;font-weight:900;color:var(--accent);letter-spacing:4px;text-shadow:0 0 28px var(--accent)}
+.menu-sub{font-size:10px;color:var(--text3);letter-spacing:3px;margin-bottom:8px}
+.menu-pts{font-family:var(--font-head);font-size:13px;color:var(--gold);letter-spacing:2px}
+.menu-input{background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:13px;padding:9px 16px;border-radius:3px;outline:none;width:240px;text-align:center}
+.menu-input:focus{border-color:var(--accent)}
+.mbtn{background:transparent;font-family:var(--font-head);font-size:10px;letter-spacing:2px;padding:9px 28px;cursor:pointer;border-radius:2px;transition:.15s;margin:3px;border:1px solid var(--accent);color:var(--accent)}
+.mbtn:hover{background:rgba(0,212,255,.1)}
+.mbtn:disabled{opacity:.35;cursor:default}
+.mbtn.gold{border-color:var(--gold);color:var(--gold)}.mbtn.gold:hover{background:rgba(255,215,0,.1)}
+.mbtn.red{border-color:var(--red);color:var(--red)}.mbtn.red:hover{background:rgba(255,51,51,.1)}
+.mbtn.green{border-color:var(--green);color:var(--green)}.mbtn.green:hover{background:rgba(51,255,136,.1)}
+.mbtn.purple{border-color:var(--purple);color:var(--purple)}.mbtn.purple:hover{background:rgba(170,68,255,.1)}
+
+/* ── FULL SCREEN PANELS ── */
+.full-panel{position:fixed;inset:0;background:var(--bg2);z-index:300;display:flex;flex-direction:column}
+.full-panel-header{background:var(--bg3);border-bottom:1px solid var(--border2);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.full-panel-title{font-family:var(--font-head);font-size:14px;color:var(--accent);letter-spacing:2px}
+.full-panel-body{flex:1;overflow-y:auto;padding:16px 20px}
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tab{background:transparent;border:1px solid var(--border);color:var(--text3);font-family:var(--font-head);font-size:9px;letter-spacing:1px;padding:6px 14px;cursor:pointer;border-radius:2px;transition:.15s}
+.tab.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.06)}
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.shop-card{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:12px;position:relative}
+.shop-card.owned{border-color:var(--green);opacity:.7}
+.shop-card-name{font-family:var(--font-head);font-size:10px;color:var(--text);margin-bottom:4px}
+.shop-card-meta{font-size:9px;color:var(--text3);margin-bottom:8px}
+.shop-card-price{font-family:var(--font-head);font-size:11px;color:var(--gold);margin-bottom:8px}
+.shop-buy-btn{width:100%;padding:6px;background:transparent;border:1px solid var(--gold);color:var(--gold);font-family:var(--font-head);font-size:8px;cursor:pointer;border-radius:2px;transition:.15s}
+.shop-buy-btn:hover{background:rgba(255,215,0,.1)}
+.shop-buy-btn:disabled{opacity:.4;cursor:default;border-color:var(--border);color:var(--text3)}
+.codex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.codex-card{background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:10px;cursor:pointer;transition:.15s}
+.codex-card:hover{border-color:var(--border2)}
+.codex-card.locked-codex{opacity:.5}
+.codex-card-title{font-family:var(--font-head);font-size:10px;color:var(--text);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center}
+.codex-card-body{font-size:9px;color:var(--text3);line-height:1.6}
+.codex-unlock-cost{font-size:8px;color:var(--gold)}
+.codex-section{font-family:var(--font-head);font-size:9px;color:var(--accent);letter-spacing:2px;margin:12px 0 6px;border-bottom:1px solid var(--border);padding-bottom:4px}
+
+/* ── APP ── */
+.app{display:grid;grid-template-rows:48px 1fr 38px;height:100vh}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border2);display:flex;align-items:center;padding:0 10px;gap:10px;flex-wrap:wrap}
+.topbar-logo{font-family:var(--font-head);font-size:10px;font-weight:900;color:var(--accent);letter-spacing:2px;text-shadow:0 0 10px var(--accent);white-space:nowrap}
+.topbar-divider{width:1px;height:22px;background:var(--border2);flex-shrink:0}
+.topbar-stat{font-size:10px;color:var(--text2);white-space:nowrap}.topbar-stat b{color:var(--accent);font-family:var(--font-head)}
+.topbar-director{font-size:10px;color:var(--gold);font-family:var(--font-head);white-space:nowrap}
+.topbar-alert{font-size:10px;color:var(--accent2);animation:blink 1.2s infinite;white-space:nowrap}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.exit-btn{margin-left:auto;background:transparent;border:1px solid var(--red);color:var(--red);font-family:var(--font-head);font-size:8px;padding:3px 8px;cursor:pointer;border-radius:2px;transition:.15s;flex-shrink:0}
+.exit-btn:hover{background:rgba(255,51,51,.1)}
+.main{display:grid;grid-template-columns:225px 1fr 252px;overflow:hidden}
+/* ── HERO PANEL ── */
+.heroes-panel{background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;padding:8px}
+.panel-header{font-family:var(--font-head);font-size:9px;letter-spacing:2px;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:5px;margin-bottom:7px}
+.hero-card{background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:7px 9px;margin-bottom:5px;cursor:pointer;transition:all .15s;position:relative;overflow:visible}
+.hero-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;transition:.2s}
+.hero-card:hover::before,.hero-card.expanded::before{opacity:1}
+.hero-card:hover,.hero-card.expanded{border-color:var(--border2);background:var(--panel2)}
+.hero-card.tank-card{border-left:2px solid #4488ff}.hero-card.cannon-card{border-left:2px solid #ff8844}.hero-card.support-card{border-left:2px solid #44ff88}.hero-card.villain-card{border-left:2px solid var(--purple)}
+.hero-card.shop-locked{opacity:.4;cursor:default;border-style:dashed;border-color:var(--gold)}
+.hero-card.game-locked{opacity:.4;cursor:default;border-style:dashed}
+.hero-card.kia-card{border-color:var(--accent2);opacity:.45;cursor:default;overflow:hidden}
+.hero-card.kia-card::after{content:'K.I.A.';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-20deg);font-family:var(--font-head);font-size:18px;font-weight:900;color:var(--red);opacity:.35;pointer-events:none}
+.hero-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.hero-name-text{font-family:var(--font-head);font-size:10px;font-weight:700;color:var(--text)}
+.hero-name-text.john-name{color:var(--gold)}.hero-name-text.villain-name{color:#cc88ff}
+.hero-badge{font-size:7px;padding:1px 4px;border-radius:2px;font-family:var(--font-mono);flex-shrink:0}
+.badge-ready{background:rgba(51,255,136,.12);color:var(--green);border:1px solid rgba(51,255,136,.3)}
+.badge-deployed{background:rgba(255,170,0,.12);color:var(--yellow);border:1px solid rgba(255,170,0,.3)}
+.badge-resting{background:rgba(0,170,255,.12);color:var(--blue);border:1px solid rgba(0,170,255,.3)}
+.badge-exhausted{background:rgba(255,100,0,.12);color:#ff8844;border:1px solid rgba(255,100,0,.3)}
+.badge-kia{background:rgba(255,51,51,.12);color:var(--red);border:1px solid rgba(255,51,51,.3)}
+.badge-shop{background:rgba(255,215,0,.12);color:var(--gold);border:1px solid rgba(255,215,0,.3)}
+.badge-locked{background:rgba(100,100,100,.12);color:#666;border:1px solid rgba(100,100,100,.3)}
+.hero-meta{font-size:10px;color:var(--text3);margin-bottom:4px}
+.stat-row{display:flex;align-items:center;gap:4px;margin-top:2px}
+.sl{font-size:8px;color:var(--text3);width:16px;flex-shrink:0}
+.bt{flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:1px;overflow:hidden}
+.bf{height:100%;border-radius:1px;transition:width .6s}
+.xp-row{display:flex;align-items:center;gap:4px;margin-top:2px}
+.xp-bar-track{flex:1;height:2px;background:rgba(255,215,0,.1);border-radius:1px;overflow:hidden}
+.xp-bar-fill{height:100%;background:var(--gold);border-radius:1px;transition:width .6s}
+.xp-label{font-size:7px;color:var(--text3);width:16px;flex-shrink:0}
+.level-up-flash{animation:lvFlash 1.2s ease-out forwards}
+@keyframes lvFlash{0%{box-shadow:0 0 0 0 rgba(255,215,0,.9)}100%{box-shadow:0 0 20px 6px rgba(255,215,0,0)}}
+.hero-detail{margin-top:7px;padding-top:7px;border-top:1px solid var(--border);font-size:11px;color:var(--text3);line-height:1.65}
+.hero-detail b{color:var(--text2)}.detail-section{margin-bottom:5px}
+.romance-tag{color:var(--pink);font-size:10px}.disdain-tag{color:var(--red);font-size:10px}
+.speech-bubble{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:5px 9px;font-size:9px;color:var(--accent);z-index:100;pointer-events:none;animation:bPop .3s ease-out;max-width:190px;white-space:normal;text-align:center}
+.speech-bubble::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--border2)}
+@keyframes bPop{from{opacity:0;transform:translateX(-50%) scale(.8)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+/* ── MAP ── */
+.map-area{position:relative;background:#020a12;overflow:hidden}
+.map-svg{width:100%;height:100%}
+.pulse-ring{animation:pulseRing 2s infinite}
+@keyframes pulseRing{0%,100%{opacity:.9}50%{opacity:.15}}
+/* ── THREAT PANEL ── */
+.threats-panel{background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column}
+.threat-list{flex:1;overflow-y:auto;padding:8px}
+.threat-card{background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:7px;margin-bottom:6px;cursor:pointer;transition:border-color .15s}
+.threat-card:hover{border-color:var(--border2)}.threat-card.sel{border-color:var(--accent)}
+.threat-card.priority-purple{border-left:3px solid var(--purple)}.threat-card.priority-red{border-left:3px solid var(--red)}
+.threat-card.priority-orange{border-left:3px solid #ff7722}.threat-card.priority-yellow{border-left:3px solid var(--yellow)}
+.threat-name{font-family:var(--font-head);font-size:10px;color:var(--text);margin-bottom:1px}
+.threat-loc{font-size:9px;color:var(--text3);margin-bottom:3px}
+.threat-meta-row{display:flex;gap:5px;font-size:8px;flex-wrap:wrap;align-items:center}
+.t-timer{color:var(--accent2)}
+.deploy-btn{width:100%;padding:6px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--font-head);font-size:9px;letter-spacing:1px;cursor:pointer;transition:.15s;margin-top:5px;border-radius:2px}
+.deploy-btn:hover{background:rgba(0,212,255,.1)}.deploy-btn:disabled{border-color:var(--border);color:var(--text3);cursor:default}
+.threat-desc{font-size:9px;color:var(--text3);margin:5px 0;line-height:1.5}
+/* ── LOG ── */
+.mission-log{background:var(--bg2);border-top:1px solid var(--border);padding:4px 12px;display:flex;align-items:center;gap:8px;overflow:hidden}
+.log-prefix{font-family:var(--font-head);font-size:9px;color:var(--accent);flex-shrink:0}
+.log-text{font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.log-time{font-size:9px;color:var(--text3);flex-shrink:0}
+/* ── MODALS ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(2,13,24,.92);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:18px;width:100%;max-width:460px;max-height:88vh;overflow-y:auto}
+.modal-title{font-family:var(--font-head);font-size:13px;color:var(--accent);margin-bottom:3px}
+.modal-sub{font-size:10px;color:var(--text3);margin-bottom:12px}
+.modal-narration{font-size:11px;color:var(--text);line-height:1.75;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:11px;margin-bottom:12px;min-height:55px}
+.modal-outcome{font-family:var(--font-head);font-size:12px;margin-bottom:12px}
+.outcome-success{color:var(--green)}.outcome-partial{color:var(--yellow)}.outcome-failure{color:var(--red)}
+.modal-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
+.mstat{background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:7px}
+.mstat-label{color:var(--text3);font-size:9px;margin-bottom:2px}.mstat-val{font-family:var(--font-head);font-size:11px}
+.mstat-xp{font-size:8px;color:var(--gold);margin-top:2px}
+.modal-notice{border-radius:3px;padding:7px 9px;margin-bottom:10px;font-size:10px}
+.notice-red{background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.3);color:var(--red)}
+.notice-gold{background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.3);color:var(--gold)}
+.notice-green{background:rgba(51,255,136,.08);border:1px solid rgba(51,255,136,.3);color:var(--green)}
+.notice-purple{background:rgba(170,68,255,.08);border:1px solid rgba(170,68,255,.3);color:var(--purple)}
+.notice-pink{background:rgba(255,136,204,.08);border:1px solid rgba(255,136,204,.3);color:var(--pink)}
+.notice-orange{background:rgba(255,120,34,.08);border:1px solid rgba(255,120,34,.3);color:#ff8844}
+.modal-close{width:100%;padding:7px;background:transparent;border:1px solid var(--border2);color:var(--text2);font-family:var(--font-head);font-size:9px;letter-spacing:1px;cursor:pointer;border-radius:2px;transition:.15s}
+.modal-close:hover{background:var(--panel2);color:var(--text)}
+.hero-select-list{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.hsi{background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:7px 9px;cursor:pointer;transition:.15s;display:flex;justify-content:space-between;align-items:center}
+.hsi:hover{border-color:var(--border2)}.hsi.picked{border-color:var(--accent);background:rgba(0,212,255,.05)}.hsi.unavailable{opacity:.4;cursor:default}
+.hsi-warn{font-size:7px;color:var(--yellow);margin-top:2px}
+.confirm-btn{width:100%;padding:8px;background:rgba(0,212,255,.07);border:1px solid var(--accent);color:var(--accent);font-family:var(--font-head);font-size:9px;letter-spacing:1px;cursor:pointer;border-radius:2px;transition:.15s;margin-bottom:7px}
+.confirm-btn:hover{background:rgba(0,212,255,.15)}.confirm-btn:disabled{opacity:.4;cursor:default}
+.suicide-warn{background:rgba(255,100,34,.1);border:1px solid rgba(255,100,34,.4);border-radius:3px;padding:7px;margin-bottom:10px;font-size:9px;color:#ff8844}
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+const {useState,useEffect,useRef,useMemo}=React;
+
+// ─── PERSISTENCE ──────────────────────────────────────────────────────────────
+function loadBank(){try{return parseInt(localStorage.getItem("wspa_bank")||"0",10);}catch(e){return 0;}}
+function saveBank(n){try{localStorage.setItem("wspa_bank",String(n));}catch(e){}}
+function loadOwned(){try{return JSON.parse(localStorage.getItem("wspa_owned")||"[]");}catch(e){return[];}}
+function saveOwned(a){try{localStorage.setItem("wspa_owned",JSON.stringify(a));}catch(e){}}
+function loadCodex(){try{return JSON.parse(localStorage.getItem("wspa_codex")||"[]");}catch(e){return[];}}
+function saveCodex(a){try{localStorage.setItem("wspa_codex",JSON.stringify(a));}catch(e){}}
+
+// ─── CAREER ───────────────────────────────────────────────────────────────────
+const CAREER={beginner:{mult:1.0,label:"BEGINNER",next:"intermediate"},intermediate:{mult:1.05,label:"INTER.",next:"veteran"},veteran:{mult:1.11,label:"VETERAN",next:null}};
+function xpToLevel(h){return h.baseHP;}
+
+// ─── PRIORITY ─────────────────────────────────────────────────────────────────
+const P_ORDER=["yellow","orange","red"];
+const P_LABELS={purple:"SUPERVILLAIN",red:"PRIORITY ONE",orange:"DANGEROUS",yellow:"LOW"};
+const P_COLORS={purple:"#aa44ff",red:"#ff3333",orange:"#ff7722",yellow:"#ffdd00"};
+function escalate(p){const i=P_ORDER.indexOf(p);return i>=0&&i<P_ORDER.length-1?P_ORDER[i+1]:p;}
+
+// ─── SHOP-LOCKED HEROES (require 200pts from bank) ───────────────────────────
+const SHOP_LOCK_TITLES=["The Anchor","Greywulf","Ironside","Pyrexa","Seraph"];
+const SHOP_PRICE=200;
+
+// ─── CATCHPHRASES ─────────────────────────────────────────────────────────────
+const CP={
+  "The Crimson Knight":["For faith and the fallen!","The sword of virtue never dulls.","God's grace and iron will.","Stand firm — knights do not run.","Rome wasn't defended in a day, but I'll try."],
+  "The Sportsman":["Game on.","First place. Always.","Champions adapt.","Peanuts are the only thing that scares me.","I've trained for every sport — including this one."],
+  "Morgana":["Magic is just medicine with better effects.","I've healed worse.","The night is mine.","Even witches have office hours.","Stay behind me."],
+  "IceBerg":["Cool as ever, brother.","Stay frosty — literally.","God first, ice second.","Oh BLESS your heart for trying.","Heat me up, I dare you."],
+  "The Flip":["I'd rather be digging.","Titanium skin, iron patience.","I do this under protest.","Another day, another paycheck for my excavation.","Don't make me teleport you somewhere unpleasant."],
+  "Cassonik":["I already saw this coming.","Predictable.","I've run seventeen scenarios. This one works.","The odds are in our favor. Barely.","Don't panic."],
+  "Mycenzo":["My stone skin has never broken.","The Vatican trained me for worse.","Loyalty is its own armor.","Stand still. I'll handle it.","Very well."],
+  "Pyrexa":["HAHAHAHA — oh wait, am I on fire again?","Fire solves most problems.","Is it hot in here or is that me?","More collateral damage? Probably fine!","Let's turn it up!"],
+  "The Conductor":["Sound travels faster than you think.","Calibrating…","Ears open. Everything else shut.","Resonance achieved.","I'll hit every frequency until something breaks."],
+  "Greywulf":["Don't call me Fido.","I track. I hunt. I finish.","Full moon or not, I'll manage.","The wolf remembers every trail.","Don't touch my ears."],
+  "The Anchor":["I have stood through centuries. You will not move me.","The earth holds still. So do I.","Patience is the warrior's greatest weapon.","Come. I am not going anywhere.","I have seen worse."],
+  "Dr. Voidance":["Which dimension am I in? Doesn't matter.","Pocket reality: deployed.","The void is my home.","Phase-shifting engaged.","Hold on — I need a moment in dimension 4B."],
+  "Ironside":["Command aura: online.","Fall in line or fall behind.","Strategic deployment: confirmed.","The armor has never failed me.","This is not my first engagement."],
+  "Shadowmere":["You didn't see me.","Shadows remember everything.","In and out. No one notices.","Silence is my preferred weapon.","The dark doesn't scare me — I own it."],
+  "Seraph":["I have seen your kind struggle before. You will persevere.","Light endures.","Even fallen stars leave light behind.","Do not be afraid. I am here.","The celestial record will reflect this day."],
+  "John":["Interesting. Very interesting.","I've seen worse on my home world.","Earth is... growing on me.","Let me try talking to them first.","I prefer resolution over violence. Usually."],
+  "Adrenaline Junkie":["Okay fine — this is fun. A little.","Electric! And not by choice.","Let's just get it over with.","I'm only here because The Flip asked nicely.","Charged up."],
+  "Captain Shamrock":["For Ireland and all that!","The shield holds! It always holds!","Every hero goes home on my watch.","The Shamrock never wilts!","Boyscout honor."],
+  "Hydrothylre":["Nobody appreciates a fish king.","I hate the surface. So dry.","Jean Pierre Shrimperson does not lose. Not today.","I'm doing this for the Shrimpersons.","In the ocean I am magnificent."],
+  "Dinosia":["I read twelve papers on this threat type.","RAWR — that was professional, I promise.","My van has better intel than your HQ.","Science and dinosaurs. The perfect combo.","Did you know velociraptors had feathers?"],
+  "El Infinite":["This is perfect material for my thesis!","I'm the most qualified person here, statistically.","Does anyone else smell academic greatness?","Wait — is my contribution being tracked?","I've already drafted the abstract in my head."],
+  "The Gummy Bear":["Nobody gets hurt on my watch.","Gelatin: nature's armor.","Soft on the outside, harder to kill than you'd think.","Absorbing damage since day one.","Would anyone like ice cream after this?"],
+  "Titanaboa":["Sssso many prey…","The hunger guidesss me.","Constriction isss communication.","I wasss a sscientist once.","Feed…"],
+  "Ariadus":["The web never liesss.","Eight eyesss see everything.","My web, my rules.","The sssspider does not apologize.","Sskittering is underrated."],
+  "Maniac":["DESTRUCTION.","Burn it. All of it.","CHAOS FIRST.","Nothing matters. Everything ends.","Order is the enemy."],
+  "Silphana":["The Mace hungers.","I was once like you. Never again.","The darkness provides.","Virtue is a weakness I abandoned.","Humanity forfeited my loyalty."],
+  "Niera":["Disappoint me. I dare you.","You're either useful or you're in my way.","Standards exist for a reason.","I fight harder than I judge. Barely.","Impressive. Don't let it go to your head."],
+  "Argos":["Money is power. Power is everything.","My suit cost more than your country.","My lawyers are faster than you.","Mediocrity is so... peasant.","Exquisite. As expected."],
+  "Scylla":["A thousand years of rage.","The Hammer remembers every betrayal.","I was a queen. I am a storm.","Humanity never learns.","You are nothing but another name on my list."],
+  "Golgotha":["Art is eternal. Unlike you.","Do not bleed on the upholstery.","My clade has existed longer than your civilization.","Refined, as always.","I have watched empires collapse with more grace."],
+  "Mrs. Peanut":["THEY WILL PAY FOR WHAT THEY'VE DONE TO US.","Every jar… every tin… I remember.","Allergy season has never been so personal.","Peanut dust rising.","No mercy. None."],
+  "Chupacabra":["El Chupacabra no forgives.","The hunt never ends.","They run. I am faster.","Blood calls to blood.","Fear me."],
+  "Swirrlous":["The planet deserves better!","I changed causes three times today. Still right.","Eco-terrorism is just passionate environmentalism.","Don't cut down trees near me.","Illusions hurt no one. Unlike you people."],
+};
+const ROM_QUIPS=["Fighting beside you makes this worth it. 💕","Stay safe out there — for me.","You make the impossible feel possible. 💕","Side by side, like always.","I'd follow you anywhere. Even here."];
+const DIS_QUIPS=["Try not to get in my way.","I'm here for the mission, not for you.","Don't speak to me until this is over.","Do your job and stay out of mine.","Not. Now."];
+const READY_QUIPS=["Back at full strength! Ready to deploy.","Fully recovered. What did I miss?","Healed up and reporting for duty.","100%. Let's go.","Ready when you are, Director."];
+function getRandQuip(h,rom,dis,deployed){
+  const r=Math.random();
+  if(deployed&&r<0.25){const rk=Object.keys(rom||{}).find(k=>k.split(",").map(Number).includes(h.id));if(rk)return ROM_QUIPS[Math.floor(Math.random()*ROM_QUIPS.length)];}
+  if(deployed&&r<0.45){if(dis&&dis[h.id]?.length>0)return DIS_QUIPS[Math.floor(Math.random()*DIS_QUIPS.length)];}
+  const hq=CP[h.title];if(hq)return hq[Math.floor(Math.random()*hq.length)];
+  return "Moving out.";
+}
+
+// ─── STATIC RELATIONSHIPS ─────────────────────────────────────────────────────
+const STATIC_REL={"The Crimson Knight|John":"romantically involved","John|The Crimson Knight":"dating","The Sportsman|Morgana":"married","Morgana|The Sportsman":"married","IceBerg|John":"close friends","The Flip|Adrenaline Junkie":"mentor/mentee","The Flip|Dinosia":"research collaborators"};
+function getRelNotes(heroes,rom,dis){
+  const notes=[];const seen=new Set();
+  heroes.forEach(h=>{heroes.forEach(h2=>{
+    if(h.id===h2.id)return;
+    const key=`${h.title}|${h2.title}`;
+    if(STATIC_REL[key]&&!seen.has(key)){seen.add(key);seen.add(`${h2.title}|${h.title}`);notes.push(`${h.title} and ${h2.title} are ${STATIC_REL[key]}.`);}
+    const rk=[h.id,h2.id].sort().join(",");
+    if(rom[rk]&&!seen.has("r"+rk)){seen.add("r"+rk);notes.push(`${h.title} and ${h2.title} are romantically involved.`);}
+    if(dis[h.id]?.includes(h2.id)&&!seen.has("d"+h.id+h2.id)){seen.add("d"+h.id+h2.id);notes.push(`${h.title} deeply disdains ${h2.title}.`);}
+  });});return notes;
+}
+
+// ─── HERO DEFINITIONS ─────────────────────────────────────────────────────────
+const ALL_HERO_DEFS=[
+  // BASE HEROES
+  {id:1,title:"The Crimson Knight",realName:"Mary Kantor",basePower:8.3,baseHP:86,career:"beginner",cls:"cannon",regenSec:30,functionalAt:40,romanceStatus:"Dating John",romanceLocked:true,personality:"A charming, gregarious Catholic knight. Tenacious defender of the innocent. Member of the Order of Virtue Knights Templar.",abilities:"Flight, strength, durability, Magical Sword of Virtue. 2× strength in Europe/Middle East. 100× strength in Rome.",weaknesses:"Weak against the Order of Darkness. The Mace of the Corrupted deals 10× damage.",affiliates:["Mycenzo","IceBerg","Cassonik","John"],specialAbility:"Unlocks John at Veteran rank.",baseAvail:true,color:"#ff8844"},
+  {id:2,title:"The Sportsman",realName:"Arthur Wick",basePower:4.1,baseHP:67,career:"intermediate",cls:"cannon",regenSec:50,functionalAt:5,romanceStatus:"Married to Morgana",romanceLocked:true,personality:"Devoted sports enthusiast who mastered every major sport into combat. Works well with others.",abilities:"Superhuman marksmanship, spear & archery, tactical acrobatics.",weaknesses:"Low durability. Extremely susceptible to magic. Deathly allergic to peanuts (Mrs. Peanut deals 5× damage).",affiliates:["Adrenaline Junkie","The Flip","Morgana"],specialAbility:"Once-in-a-Lifetime Shot: 1-in-20 instant-kill crit vs non-titan threats.",critChance:0.05,baseAvail:true,color:"#ff8844"},
+  {id:3,title:"Morgana",realName:"Morgana",basePower:6.4,baseHP:74,career:"intermediate",cls:"support",regenSec:5,functionalAt:40,romanceStatus:"Married to The Sportsman",romanceLocked:true,personality:"By day a kind doctor, by night a powerful witch using her gifts for good.",abilities:"Expert healing, magic, telepathy.",weaknesses:"Average human durability.",affiliates:["The Sportsman"],specialAbility:"At Veteran rank: full team heal every 5 minutes.",healCooldownMax:300,healCooldown:0,baseAvail:true,color:"#44ff88"},
+  {id:4,title:"IceBerg",realName:"Borgus B. Borgus",basePower:6.7,baseHP:67,career:"veteran",cls:"cannon",regenSec:45,functionalAt:10,personality:"Devout Protestant. Loves church, gaming, and close friends. Known for colorful language.",abilities:"Water manipulation, ice/liquid conversion, icicle blades, drowning immunity, above-average durability.",weaknesses:"Heat. Liquid nitrogen. Altitude.",affiliates:["John","The Flip","Adrenaline Junkie"],specialAbility:"All heroes deployed alongside IceBerg gain +10 HP for the mission.",baseAvail:true,color:"#00aaff"},
+  {id:5,title:"The Flip",realName:"Dr. Stee Phen",basePower:6.1,baseHP:95,career:"intermediate",cls:"tank",regenSec:30,functionalAt:20,personality:"Stoic anthropologist who does hero work reluctantly. Uses salary to fund archaeology expeditions.",abilities:"Short-distance teleportation, body conversion to titanium.",weaknesses:"Temperature gradients. Water.",affiliates:["Adrenaline Junkie","The Sportsman","Dinosia"],specialAbility:"At Veteran rank: immediately unlocks Adrenaline Junkie.",baseAvail:true,color:"#4488ff"},
+  {id:6,title:"Cassonik",realName:"Cassandra Onik",basePower:7.2,baseHP:80,career:"intermediate",cls:"support",regenSec:20,functionalAt:25,personality:"Former intelligence analyst turned precognitive strategist. Cool-headed.",abilities:"Precognition, battlefield telepathy, probability manipulation.",weaknesses:"Physical combat. Mental fatigue.",affiliates:["The Crimson Knight","Seraph"],specialAbility:"Oracle: reveals a threat's hidden modifier before deployment.",baseAvail:true,color:"#44ff88"},
+  {id:7,title:"Mycenzo",realName:"Mikel Cenzo",basePower:7.8,baseHP:78,career:"intermediate",cls:"tank",regenSec:35,functionalAt:20,personality:"Stoic Italian brawler. Former Vatican guard with divine stone skin. Deeply loyal.",abilities:"Stone skin immunity, earth tremor fists, near-invulnerability to physical damage.",weaknesses:"Energy attacks bypass stone skin. Extremely slow.",affiliates:["The Crimson Knight","IceBerg"],specialAbility:"Immovable Object: absorbs first 20 HP of damage.",baseAvail:true,color:"#4488ff"},
+  {id:8,title:"Pyrexa",realName:"Dani Solara",basePower:6.9,baseHP:72,career:"beginner",cls:"cannon",regenSec:40,functionalAt:15,personality:"Reckless pyromaniac with a heart of gold. Laughs constantly.",abilities:"Full body flame ignition, fire jets, heat immunity, aerial fire propulsion.",weaknesses:"Water. Low durability without flames.",affiliates:["Adrenaline Junkie","Morgana"],specialAbility:"Combustion: 15% chance of bonus explosion on kaiju/vehicle threats.",shopLocked:true,baseAvail:true,color:"#ff8844"},
+  {id:9,title:"The Conductor",realName:"Dr. Amara Nwosu",basePower:5.8,baseHP:69,career:"intermediate",cls:"support",regenSec:25,functionalAt:20,personality:"Brilliant Nigerian physicist who manipulates sound waves. Calm, methodical.",abilities:"Sound wave blasts, sonic shields, echolocation, vibration disorientation.",weaknesses:"Vacuum nullifies all powers. Susceptible to magic.",affiliates:["Morgana","The Sportsman"],specialAbility:"Resonance: boosts a deployed tank's HP by 15.",baseAvail:true,color:"#44ff88"},
+  {id:10,title:"Greywulf",realName:"Harlan Cross",basePower:7.5,baseHP:88,career:"beginner",cls:"tank",regenSec:20,functionalAt:30,personality:"Gruff Montana ranger turned werewolf. Deeply uncomfortable with his condition.",abilities:"Werewolf form: extreme strength, speed, regeneration, heightened senses.",weaknesses:"Silver. Full moon renders uncontrollable.",affiliates:["The Flip","Cassonik"],specialAbility:"Pack Instinct: +0.5 power when teamed with 2+ heroes.",shopLocked:true,baseAvail:true,color:"#4488ff"},
+  {id:11,title:"The Anchor",realName:"Solomon Vrey",basePower:8.1,baseHP:100,career:"beginner",cls:"tank",regenSec:55,functionalAt:40,personality:"Ancient Zulu warrior who cannot die of old age. Wise, deliberate.",abilities:"Absolute physical endurance, gravity manipulation, immovable stance.",weaknesses:"Painfully slow. Cannot fly. Weak to electricity.",affiliates:["Mycenzo","The Crimson Knight"],specialAbility:"Cannot be one-shot regardless of multipliers.",shopLocked:true,baseAvail:true,color:"#4488ff"},
+  {id:12,title:"Dr. Voidance",realName:"Priya Mehta",basePower:7.0,baseHP:58,career:"intermediate",cls:"cannon",regenSec:30,functionalAt:10,personality:"Theoretical physicist split across dimensions. Frequently distracted by other realities.",abilities:"Dimensional pocket deployment, void blasts, matter phase-shifting.",weaknesses:"Very low HP. Split focus causes missed shots.",affiliates:["The Flip"],specialAbility:"Phase Through: 20% chance of dodging all damage.",baseAvail:true,color:"#ff8844"},
+  {id:13,title:"Ironside",realName:"Marcus Thorn",basePower:6.5,baseHP:92,career:"veteran",cls:"tank",regenSec:40,functionalAt:35,personality:"Decorated military general with experimental nano-armor. Stern and tactical.",abilities:"Nano-armor plating, enhanced strength, EMP pulse, tactical command aura.",weaknesses:"EMP can backfire. Susceptible to heat.",affiliates:["The Anchor","Cassonik"],specialAbility:"Command Aura: +0.3 power to all deployed teammates.",shopLocked:true,baseAvail:true,color:"#4488ff"},
+  {id:14,title:"Shadowmere",realName:"Lena Voss",basePower:6.3,baseHP:63,career:"beginner",cls:"cannon",regenSec:22,functionalAt:15,personality:"German assassin turned hero. Precise, private, deadly.",abilities:"Shadow manipulation, silent movement, darkness blasts, perfect marksmanship.",weaknesses:"Powerless in total light.",affiliates:["The Anchor"],specialAbility:"Lone Wolf Bonus: +0.4 power when deployed solo.",baseAvail:true,color:"#ff8844"},
+  {id:15,title:"Seraph",realName:"Unknown",basePower:8.6,baseHP:70,career:"beginner",cls:"cannon",regenSec:18,functionalAt:20,personality:"Ancient celestial being. Calm, otherworldly, occasionally cryptic.",abilities:"Divine energy blasts, healing light, flight, temporal slow field.",weaknesses:"Dark magic. Corruption-based attacks.",affiliates:["The Crimson Knight","Cassonik"],specialAbility:"Celestial Aura: +1.0 power for both when fighting alongside The Crimson Knight.",shopLocked:true,baseAvail:true,color:"#ff8844"},
+  // UNLOCKABLE IN-GAME
+  {id:50,title:"John",realName:"Unknown",basePower:9.9,baseHP:100,career:"beginner",cls:"tank",regenSec:5,functionalAt:40,romanceStatus:"Dating The Crimson Knight",romanceLocked:true,personality:"A mystery hero of extraterrestrial origin. He appeared after The Crimson Knight vouched for him. Extremely gentle with villains — prefers to talk them into doing good. Enjoys discussing his homeworld, which may be destroyed, a galaxy-spanning empire, or a different dimension entirely, depending on the source.",abilities:"Super strength, super speed, flight, super durability, mirages, self-transfiguration.",weaknesses:"Extremely powerful physical and magical blasts. Cautious nature occasionally delays action.",affiliates:["The Crimson Knight","IceBerg"],specialAbility:"Redemption: 20% chance per villain mission to redeem them. 20% chance to redeem BOTH on team-up missions.",secretTrait:"If The Crimson Knight turns villain, John turns with her. They appear together as a US-based team-up threat requiring 10 heroes with power >5 to stop. Unparalleled Strength: attacks deal 3× damage; incoming damage is always halved.",isJohn:true,gameLocked:true,unlockCondition:"Unlocked when The Crimson Knight reaches Veteran rank.",redemptionCooldown:0,color:"#ffd700"},
+  {id:51,title:"Adrenaline Junkie",realName:"Andrew Maxis",basePower:6.7,baseHP:67,career:"beginner",cls:"support",regenSec:25,functionalAt:15,personality:"Introverted adrenaline junkie and video game developer. Lone wolf.",abilities:"Electricity control, extensive tech suits.",weaknesses:"Electrical dampeners. Large crowds.",affiliates:["The Flip"],specialAbility:"Mecha Suit: +20 HP to self. Energizes teammates.",mechaBonus:20,gameLocked:true,unlockCondition:"Unlocked when The Flip reaches Veteran rank.",color:"#44ff88"},
+  {id:52,title:"Captain Shamrock",realName:"Amos Morris",basePower:5.2,baseHP:74,career:"beginner",cls:"tank",regenSec:50,functionalAt:15,personality:"Bright, enthusiastic Irish boyscout. Deeply patriotic.",abilities:"High durability and strength with the Shield of Shamrock — an immensely powerful magic shield.",weaknesses:"Normal human when separated from the shield.",affiliates:["The Flip"],specialAbility:"Guardian: saves any dying hero on his mission, leaving them at 1 HP. Cannot save himself.",gameLocked:true,unlockCondition:"Unlocked after defeating The Loch Ness Monster.",color:"#44bb44"},
+  {id:53,title:"Hydrothylre",realName:"Jean Pierre Shrimperson",basePower:3.4,baseHP:40,career:"beginner",cls:"tank",regenSec:35,functionalAt:5,personality:"Emo and depressed sentient fish-humanoid. King of the Shrimperson race.",abilities:"Oceanic mastery, summons whales and sharks. Power Level and HP double in ocean.",weaknesses:"Electricity. Low moisture. Fire. High temperatures.",affiliates:[],specialAbility:"Delegation: all incoming damage halved when fighting aquatic threats.",gameLocked:true,unlockCondition:"Unlocked after any ocean victory.",color:"#0088cc"},
+  {id:54,title:"Dinosia",realName:"Rebekka Elken",basePower:6.2,baseHP:55,career:"beginner",cls:"tank",regenSec:35,functionalAt:20,personality:"Science nerd who loves dinosaurs. Lives out of a van.",abilities:"Transforms into any dinosaur for flight, strength, or speed as needed.",weaknesses:"Susceptible to magic. Weight class disadvantages.",affiliates:["The Crimson Knight","John","The Flip"],specialAbility:"Helps The Flip with archaeology — no combat bonus, great personal joy.",gameLocked:true,unlockCondition:"Unlocked after defeating a Kaiju threat.",color:"#88cc44"},
+  {id:55,title:"El Infinite",realName:"Giovanni Pabloni",basePower:8.3,baseHP:83,career:"beginner",cls:"cannon",regenSec:40,functionalAt:3,personality:"Arrogant yet shockingly inept Masters student from California.",abilities:"Flight, super speed, extreme perception.",weaknesses:"Extremely low durability, sensory overload. No one enjoys working with him.",affiliates:[],specialAbility:"Masters Revoked: his thesis plagiarism saddens him but removes all active disdains against him.",secretTrait:"Cannot contribute to a win unless 5+ heroes are deployed on the same mission.",gameLocked:true,unlockCondition:"Unlocked after winning a battle in Rome.",color:"#ff8844"},
+  {id:56,title:"The Gummy Bear",realName:"Josh Justice",basePower:4.3,baseHP:80,career:"beginner",cls:"tank",regenSec:10,functionalAt:1,personality:"Kind, warm former vet who now runs an ice cream shop. Doesn't seem interested in hurting anyone.",abilities:"Can turn body parts gelatinous, absorbing damage. Difficult to harm.",weaknesses:"Temperature variation. Water.",affiliates:["The Flip","Adrenaline Junkie"],specialAbility:"Cushion: halves all damage received by other heroes on his missions.",gameLocked:true,unlockCondition:"Unlocked after any victory in North America.",color:"#ffcc44"},
+];
+
+// ─── VILLAINS ─────────────────────────────────────────────────────────────────
+const VILLAIN_DEFS=[
+  {id:100,title:"Titanaboa",realName:"Dr. Janice Molle",basePower:7.4,baseHP:85,career:"beginner",cls:"tank",regenSec:25,functionalAt:30,personality:"100-foot sentient boa constrictor — once a kind researcher, now driven by predatory instinct.",abilities:"Extreme strength, durability, venomous bite, constriction.",weaknesses:"Needs calories. Reduced intelligence.",affiliates:["Ariadus"],specialAbility:"Can return to human form at will.",redeemable:true,threatType:"kaiju",loc:"Amazon Basin",x:132,y:205,reward:35},
+  {id:101,title:"Ariadus",realName:"Amon St. Lauraine",basePower:6.4,baseHP:67,career:"beginner",cls:"support",regenSec:20,functionalAt:15,personality:"Absorbed a spider's personality into his DNA.",abilities:"Web creation, extreme strength, dexterity, venom, wall-climbing.",weaknesses:"Vulnerable to all elements and magic.",affiliates:["Titanaboa","Swirrlous","Chupacabra"],specialAbility:"Has learned to control his instincts.",redeemable:true,threatType:"bio",loc:"New York, USA",x:100,y:108,reward:22},
+  {id:102,title:"Maniac",realName:"Unknown",basePower:8.2,baseHP:88,career:"veteran",cls:"tank",regenSec:50,functionalAt:1,personality:"Chaos entity. Seeks only destruction. Lone Wolf.",abilities:"Extreme durability/strength, fire/magma control, wind control, flight.",weaknesses:"Susceptible to magic.",specialAbility:"TRUE POWER HIDDEN: sensors under-read this threat.",hiddenPower:true,redeemable:false,threatType:"military",loc:"Unknown",x:300,y:160,reward:60},
+  {id:103,title:"Silphana",realName:"Alexandria Aeros",basePower:8.0,baseHP:65,career:"beginner",cls:"tank",regenSec:35,functionalAt:20,personality:"Former WSPA asset who joined the Knights of Darkness.",abilities:"The Mace of the Corrupted, high durability, speed, strength, dark magic.",weaknesses:"Power waning due to corruption.",affiliates:[],specialAbility:"Mace of the Corrupted deals 10× damage to The Crimson Knight.",redeemable:true,threatType:"military",loc:"Eastern Europe",x:290,y:75,reward:55},
+  {id:104,title:"Chupacabra",realName:"Diego Monterrey",basePower:4.2,baseHP:50,career:"beginner",cls:"tank",regenSec:45,functionalAt:20,personality:"Former vigilante consumed by bloodlust.",abilities:"15-foot chupacabra form: extreme speed, durability, strength.",weaknesses:"Limited form duration. Weak to religious imagery.",affiliates:["Ariadus"],specialAbility:"Form Limit: after 3 hours loses 5 HP/min.",redeemable:true,threatType:"bio",loc:"Mexico City",x:80,y:148,reward:20},
+  {id:105,title:"Swirrlous",realName:"Amanda Corrous",basePower:3.2,baseHP:25,career:"beginner",cls:"cannon",regenSec:35,functionalAt:14,personality:"Eco-terrorist leader. Avoids killing. Highly emotionally reactive.",abilities:"Large illusions, small precision explosions.",weaknesses:"Extremely low durability.",affiliates:["Ariadus","The Flip"],specialAbility:"Advisor: offers tactical deployment advice instead of fighting.",redeemable:true,threatType:"military",loc:"Pacific Northwest",x:58,y:92,reward:12},
+  {id:106,title:"Niera",realName:"Allison Basque",basePower:7.9,baseHP:89,career:"beginner",cls:"tank",regenSec:34,functionalAt:5,personality:"Ruthless combat extremist. Loyal to those who earn her respect.",abilities:"Extreme durability, extreme physical prowess, possible magic.",weaknesses:"Susceptible to persuasion. Vulnerable to illusions.",affiliates:["The Crimson Knight","John"],specialAbility:"Dedication: all heroes alongside her gain +20 HP.",redeemable:true,threatType:"military",loc:"Brussels",x:240,y:72,reward:40},
+  {id:107,title:"Argos",realName:"Anton Vosser",basePower:8.3,baseHP:87,career:"beginner",cls:"cannon",regenSec:45,functionalAt:20,personality:"Wealthy crime lord with purchased powers. Arrogant and sophisticated.",abilities:"Powerful mech suit, naturally high durability and strength.",weaknesses:"Ego, vanity, overreliance on wealth.",affiliates:[],specialAbility:"Money Talks: at Veteran rank, resets HP to full every 10 minutes.",redeemable:false,threatType:"military",loc:"Monaco",x:246,y:86,reward:50},
+  {id:108,title:"Scylla",realName:"Hadria Andressa",basePower:5.2,baseHP:48,career:"beginner",cls:"cannon",regenSec:45,functionalAt:25,personality:"Ancient warrior queen betrayed centuries ago, seeking revenge against humanity.",abilities:"High strength, telekinesis, Hammer of the Sun.",weaknesses:"Weak to water and cold.",affiliates:[],specialAbility:"Orbital Strike: usable only against other supervillains.",redeemable:true,threatType:"mystic",loc:"Mediterranean",x:262,y:96,reward:38},
+  {id:109,title:"Golgotha",realName:"Elizia Walter",basePower:4.4,baseHP:58,career:"beginner",cls:"support",regenSec:35,functionalAt:30,personality:"Gothic vampire empress from the middle ages. Refined, elegant, champions art.",abilities:"Flight, bat transformation, mild hypnosis over underlings, mild durability.",weaknesses:"High temperatures. Fire. Sunlight. Weaker during daytime.",affiliates:["Dinosia"],specialAbility:"Birthright: fights at 2× strength on the European continent.",redeemable:true,threatType:"mystic",loc:"Transylvania",x:280,y:76,reward:30},
+  {id:110,title:"Mrs. Peanut",realName:"N/A",basePower:1.3,baseHP:55,career:"beginner",cls:"support",regenSec:1,functionalAt:1,personality:"A sentient human-sized peanut horrified by the mass slaughter of her kin.",abilities:"Shoots peanuts from fingers, spreads peanut dust. All damage ×100 against peanut allergy heroes. ×5 damage to The Sportsman.",weaknesses:"Anything.",affiliates:[],specialAbility:"Inner Peace: retires to raise a family upon redemption. Permanently removed from villain pool.",isPeanut:true,redeemable:true,threatType:"bio",loc:"Peanut Fields, Georgia",x:90,y:125,reward:8},
+];
+
+// ─── THREAT POOL ─────────────────────────────────────────────────────────────
+const ALL_THREATS=[
+  {id:201,name:"KAIJU: GORGOZAR",loc:"Tokyo, Japan",x:432,y:118,priority:"red",type:"kaiju",desc:"Massive amphibious kaiju emerging from Tokyo Bay. OMEGA priority.",maxTimer:180,reward:50,isKaiju:true},
+  {id:202,name:"Rogue AI Overthrow",loc:"Silicon Valley, USA",x:68,y:130,priority:"orange",type:"tech",desc:"Autonomous AI seizing defense infrastructure.",maxTimer:280,reward:30,isNorthAmerica:true},
+  {id:203,name:"Demonic Outbreak",loc:"Rome, Italy",x:258,y:88,priority:"orange",type:"mystic",desc:"Demonic entities breaching near the Vatican.",maxTimer:300,reward:35,isRome:true},
+  {id:204,name:"Plague Outbreak",loc:"Central Africa",x:268,y:192,priority:"orange",type:"bio",desc:"Engineered pathogen spreading through civilian populations.",maxTimer:320,reward:28},
+  {id:205,name:"KAIJU: LOBSTROCITY",loc:"Pacific Ocean",x:488,y:155,priority:"orange",type:"kaiju",desc:"Enormous crustacean kaiju rampaging through shipping lanes.",maxTimer:240,reward:40,isOcean:true,isKaiju:true},
+  {id:206,name:"Seven-Headed Dragon",loc:"Transylvania, Romania",x:282,y:78,priority:"red",type:"mystic",desc:"Ancient seven-headed dragon awakened from slumber.",maxTimer:200,reward:55},
+  {id:207,name:"Order of Darkness",loc:"Jerusalem, Israel",x:302,y:120,priority:"red",type:"mystic",desc:"The corrupted Knights Templar mobilising for a major assault.",maxTimer:250,reward:50,recurring:true},
+  {id:208,name:"Seven Deadly Sins Cult",loc:"Paris, France",x:234,y:76,priority:"orange",type:"military",desc:"A cult performing dangerous rituals across the city.",maxTimer:340,reward:30},
+  {id:209,name:"Arcanoxum Mega Bear",loc:"Antarctica",x:310,y:310,priority:"red",type:"kaiju",desc:"A prehistoric mega-predator awakened beneath the ice.",maxTimer:220,reward:52,isKaiju:true},
+  {id:210,name:"Radioactive Chimpanzees",loc:"Congo, Africa",x:270,y:205,priority:"yellow",type:"bio",desc:"Infected radioactive super-chimpanzees rampaging.",maxTimer:360,reward:22},
+  {id:211,name:"Division 7 Strike",loc:"WSPA HQ",x:155,y:138,priority:"red",type:"military",desc:"A former WSPA splinter group attempting to destroy our operations.",maxTimer:200,reward:48,recurring:true},
+  {id:212,name:"FELIOS: Monster of the Deep",loc:"North Atlantic",x:195,y:112,priority:"orange",type:"kaiju",desc:"Ancient deep-sea entity ascending toward coastal cities.",maxTimer:260,reward:42,isOcean:true,isKaiju:true},
+  {id:213,name:"Cult of the Bleeding Lance",loc:"Istanbul, Turkey",x:295,y:102,priority:"yellow",type:"mystic",desc:"Extremist religious cult performing mass rituals.",maxTimer:380,reward:25},
+  {id:214,name:"Rogue Billionaire",loc:"Dubai, UAE",x:318,y:132,priority:"yellow",type:"military",desc:"A billionaire deploying private armies at random.",maxTimer:400,reward:20},
+  {id:215,name:"Hurricane Category 6",loc:"Gulf of Mexico",x:96,y:148,priority:"orange",type:"disaster",desc:"Superpowered hurricane threatening coastal populations.",maxTimer:180,reward:25,isOcean:true,isNorthAmerica:true},
+  {id:216,name:"KAIJU: WOLFGAR",loc:"Siberia, Russia",x:358,y:72,priority:"orange",type:"kaiju",desc:"Colossal wolf-creature carving a path toward Moscow.",maxTimer:230,reward:38,isKaiju:true},
+  {id:217,name:"Chaos Guild vs Order of Chaos",loc:"Eastern Europe",x:285,y:82,priority:"yellow",type:"military",desc:"Two warring factions tearing apart infrastructure — both hate us.",maxTimer:350,reward:24},
+  {id:218,name:"Reality-Warping Board Game",loc:"Tokyo, Japan",x:428,y:122,priority:"red",type:"mystic",desc:"A sentient board game trapping civilians in alternate realities.",maxTimer:210,reward:50},
+  {id:219,name:"Sentient Video Game Villain",loc:"Seoul, Korea",x:422,y:112,priority:"orange",type:"tech",desc:"An AI character has built itself a physical body.",maxTimer:270,reward:34},
+  {id:220,name:"KAIJU: MOLGRATH",loc:"Tokyo, Japan",x:440,y:126,priority:"red",type:"kaiju",desc:"Magma-armored titan emerging from Mt. Fuji.",maxTimer:160,reward:58,isKaiju:true},
+  {id:221,name:"KAIJU: KONGOLOX",loc:"Mumbai, India",x:348,y:145,priority:"orange",type:"kaiju",desc:"Colossal gorilla kaiju tearing through the coastline.",maxTimer:200,reward:45,isKaiju:true},
+  {id:222,name:"THE LOCH NESS MONSTER",loc:"Loch Ness, Scotland",x:220,y:58,priority:"orange",type:"kaiju",desc:"The legendary leviathan has finally surfaced.",maxTimer:250,reward:40,isOcean:true,isKaiju:true,unlockHero:"Captain Shamrock"},
+  {id:223,name:"BARGHUUUL THE DESTROYER",loc:"Sahara Desert",x:260,y:140,priority:"red",type:"mystic",desc:"Ancient cosmic destroyer. Reality warps in its presence.",maxTimer:180,reward:65},
+  {id:224,name:"THE GREAT WORM",loc:"Australian Outback",x:432,y:228,priority:"orange",type:"kaiju",desc:"A really, really, really big worm. Structures collapsing continent-wide.",maxTimer:240,reward:42,isKaiju:true},
+  {id:225,name:"Human-Sized Ant Swarm",loc:"Brazil",x:130,y:195,priority:"yellow",type:"bio",desc:"Thousands of human-sized ants swarming settlements.",maxTimer:360,reward:22},
+  {id:226,name:"Undead Mummy of Karseth",loc:"Cairo, Egypt",x:272,y:135,priority:"orange",type:"mystic",desc:"An undead mummy wielding ancient magic has risen.",maxTimer:280,reward:35},
+  {id:227,name:"ALIEN INVASION",loc:"Multiple Cities",x:280,y:170,priority:"red",type:"military",desc:"Extraterrestrial forces attacking New York, London, Tokyo, and Sydney simultaneously.",maxTimer:160,reward:70},
+  {id:228,name:"Cult of Fashion",loc:"Milan, Italy",x:254,y:86,priority:"yellow",type:"military",desc:"A bizarre fashion cult brainwashing civilians with designer gear.",maxTimer:400,reward:15},
+  {id:229,name:"Fire Worshippers",loc:"Iceland",x:208,y:48,priority:"yellow",type:"mystic",desc:"A fire-worshipping sect has summoned a genuine flame entity.",maxTimer:380,reward:20},
+  {id:230,name:"KAIJU: NESSIE'S COUSIN",loc:"Pacific Ocean",x:460,y:190,priority:"orange",type:"kaiju",desc:"A distant relative of the Loch Ness Monster. Less shy.",maxTimer:240,reward:38,isOcean:true,isKaiju:true},
+  {id:231,name:"North American Blackout",loc:"New York, USA",x:100,y:108,priority:"orange",type:"tech",desc:"Coordinated cyberattack plunging the eastern seaboard into darkness.",maxTimer:260,reward:28,isNorthAmerica:true},
+  {id:232,name:"Landslide",loc:"Andean Mountains",x:120,y:200,priority:"yellow",type:"disaster",desc:"A catastrophic landslide endangering mountain communities.",maxTimer:400,reward:14},
+  {id:233,name:"Genetically Modified Super Ticks",loc:"Appalachia, USA",x:92,y:120,priority:"yellow",type:"bio",desc:"An outbreak of genetically modified super ticks. Their bite causes unpredictable mutations.",maxTimer:380,reward:18,isNorthAmerica:true},
+  {id:234,name:"Super Mega Extra Evil Ebola",loc:"Central Africa",x:262,y:200,priority:"red",type:"bio",desc:"A terrifyingly advanced hemorrhagic pathogen spreading at unnatural speed.",maxTimer:200,reward:55},
+  {id:235,name:"Mild Zombie Apocalypse",loc:"New Orleans, USA",x:88,y:138,priority:"orange",type:"bio",desc:"A zombie outbreak — mild as far as apocalypses go, but still extremely inconvenient.",maxTimer:320,reward:30,isNorthAmerica:true},
+  {id:236,name:"Nudist Colony War",loc:"Southern France",x:232,y:92,priority:"yellow",type:"military",desc:"A militant nudist colony has declared war on the clothed world. The threat is more organised than expected.",maxTimer:420,reward:12},
+  {id:237,name:"Baton Rouge Restoration Cult",loc:"Baton Rouge, USA",x:86,y:132,priority:"yellow",type:"military",desc:"A local cult dedicated to some incomprehensible form of civic restoration.",maxTimer:400,reward:10,isNorthAmerica:true},
+  {id:238,name:"The Order Of The Fungus",loc:"Pacific Northwest, USA",x:56,y:96,priority:"orange",type:"bio",desc:"A mycological collective of humans who have willingly merged with a sentient fungal network.",maxTimer:300,reward:28,isNorthAmerica:true},
+  {id:239,name:"Rogue Violent Bigfoot Gang",loc:"Rocky Mountains, USA",x:70,y:108,priority:"yellow",type:"military",desc:"A band of rogue and extremely violent Bigfoot specimens terrorizing hiking trails.",maxTimer:380,reward:15,isNorthAmerica:true},
+  {id:240,name:"The Dangerous Fae King",loc:"Ireland",x:198,y:60,priority:"red",type:"mystic",desc:"An ancient and capricious Fae King has opened his court to the mortal world — with lethal consequences.",maxTimer:220,reward:52},
+  {id:241,name:"Gnome Outbreak",loc:"Bavaria, Germany",x:256,y:72,priority:"yellow",type:"mystic",desc:"A gnome outbreak. They're not individually dangerous but there are so many of them.",maxTimer:400,reward:10},
+  {id:242,name:"The Mogollon Monster",loc:"Arizona, USA",x:68,y:122,priority:"yellow",type:"military",desc:"The legendary Mogollon Monster has emerged from the wilderness and is extremely annoyed.",maxTimer:380,reward:14,isNorthAmerica:true},
+  {id:243,name:"The Swamp Monster",loc:"Florida Everglades, USA",x:92,y:140,priority:"orange",type:"bio",desc:"A primordial swamp creature of immense size and unclear motivations.",maxTimer:300,reward:24,isNorthAmerica:true},
+  {id:244,name:"The Ningen",loc:"Antarctic Ocean",x:290,y:300,priority:"orange",type:"kaiju",desc:"A massive, humanoid deep-sea creature of unknown origin has been spotted near Antarctica.",maxTimer:280,reward:35,isOcean:true,isKaiju:true},
+  {id:245,name:"The OhNohMi",loc:"Himalayas",x:360,y:115,priority:"orange",type:"mystic",desc:"A cryptid creature from the deep Himalayan peaks has descended into populated valleys. Nobody is sure what it wants.",maxTimer:290,reward:28},
+  {id:246,name:"The Chaotic Order Of Organized Chaos",loc:"Brussels, Belgium",x:238,y:70,priority:"orange",type:"military",desc:"An organisation dedicated to organised chaos. They are extremely well-organised about it.",maxTimer:310,reward:26},
+  {id:247,name:"Good Guys R Us (Bioterror)",loc:"San Francisco, USA",x:56,y:118,priority:"red",type:"bio",desc:"A well-meaning but extraordinarily naive activist group of college students has accidentally committed bioterrorism while trying to help.",maxTimer:200,reward:44,isNorthAmerica:true},
+  {id:248,name:"The Card King",loc:"Las Vegas, USA",x:64,y:126,priority:"red",type:"mystic",desc:"A dark monster summoned by shuffling a deck of cards in a precise order. Someone in Vegas found out the hard way.",maxTimer:210,reward:48,isNorthAmerica:true},
+  {id:249,name:"Alemeus the Alien Divorcee",loc:"Washington D.C., USA",x:96,y:116,priority:"yellow",type:"military",desc:"An alien committing crimes just so someone will show up and listen to him talk about his divorce and the children he lost custody of.",maxTimer:440,reward:8,isNorthAmerica:true},
+  {id:250,name:"The Order Of Greg",loc:"Ohio, USA",x:94,y:114,priority:"yellow",type:"military",desc:"A death cult dedicated to bringing their beloved friend Greg back from the dead. Greg is alive. He just moved away and doesn't call as much.",maxTimer:450,reward:8,isNorthAmerica:true},
+  {id:251,name:"Undead King George III + Redcoat Legion",loc:"Boston, USA",x:104,y:108,priority:"red",type:"mystic",desc:"The undead ghost of King George III and his legion of undead Redcoats are attempting to retake America.",maxTimer:200,reward:55,isNorthAmerica:true},
+  {id:252,name:"Division 8",loc:"Unknown",x:165,y:145,priority:"red",type:"military",desc:"A splinter faction of Division 7, dedicated to destroying both the world and Division 7. Outstanding commitment.",maxTimer:190,reward:50,recurring:true},
+  {id:253,name:"The Definitely Good Guys Friendship Guild",loc:"Geneva, Switzerland",x:248,y:80,priority:"orange",type:"military",desc:"Definitely not good people, but they understand marketing. Sophisticated branding, villainous intent.",maxTimer:290,reward:28},
+  {id:254,name:"Frenzied Venomous Rabid Snails",loc:"French Riviera",x:238,y:90,priority:"yellow",type:"bio",desc:"Frenzied, venomous, rabid snails. Faster than you'd think, but not like super fast.",maxTimer:420,reward:10},
+  {id:255,name:"MEGALODON (on steroids)",loc:"Pacific Ocean",x:475,y:165,priority:"red",type:"kaiju",desc:"The prehistoric apex predator, back, and on steroids. The ocean is no longer safe.",maxTimer:200,reward:55,isOcean:true,isKaiju:true},
+  {id:256,name:"Lizard People from Underground",loc:"Beneath Denver, USA",x:72,y:116,priority:"orange",type:"military",desc:"An advanced subterranean lizard civilisation has emerged and is deeply unimpressed by the surface world.",maxTimer:280,reward:32,isNorthAmerica:true},
+  {id:257,name:"Feral Bug People (Deeper Underground)",loc:"Beneath Kansas, USA",x:80,y:118,priority:"orange",type:"bio",desc:"Feral insectoid humanoids from even deeper underground than the lizard people. They are very upset about the lizard people.",maxTimer:270,reward:30,isNorthAmerica:true},
+  {id:258,name:"The Homunculus Liberation Front",loc:"Vienna, Austria",x:256,y:74,priority:"yellow",type:"military",desc:"A liberation movement for artificially-created humanoids. Their demands are surprisingly reasonable but their methods are not.",maxTimer:360,reward:18},
+  {id:259,name:"The Samsquanch",loc:"Canadian Wilderness",x:76,y:80,priority:"orange",type:"military",desc:"A superpowered man who dresses as Sasquatch to incite an interspecies war between humans and cryptids.",maxTimer:300,reward:26,isNorthAmerica:true},
+  {id:260,name:"The Baddest Baddies",loc:"Monaco",x:248,y:88,priority:"orange",type:"military",desc:"An elite villain unit who define themselves as glamorously evil. Extraordinarily well-dressed. Very dangerous.",maxTimer:290,reward:32},
+  {id:261,name:"Silver Meadows HOA",loc:"Phoenix, Arizona, USA",x:66,y:124,priority:"yellow",type:"military",desc:"An extremely vicious homeowners association. They have somehow acquired military-grade enforcement capabilities.",maxTimer:400,reward:10,isNorthAmerica:true},
+];
+
+// Fisher-Yates shuffle
+function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+// ─── STAT CALCULATIONS ────────────────────────────────────────────────────────
+function effStats(hero,rom,dis){
+  const m=CAREER[hero.career]?.mult||1;
+  let power=hero.basePower*m;
+  let maxHP=Math.round(hero.baseHP*m)+(hero.mechaBonus||0);
+  let regenSec=hero.regenSec;
+  if(rom){Object.keys(rom).forEach(k=>{const ids=k.split(",").map(Number);if(ids.includes(hero.id)){power*=1.1;maxHP=Math.round(maxHP*1.1);regenSec=Math.max(1,Math.floor(regenSec/2));}});}
+  if(dis&&dis[hero.id]?.length>0)power*=0.85;
+  // John unparalleled strength — not used directly here but flagged
+  return{power,maxHP,regenSec};
+}
+function canDeploy(h){return h.status!=="deployed"&&h.status!=="gameLocked"&&h.status!=="shopLocked"&&h.status!=="kia"&&h.status!=="exhausted";}
+function isSuicide(hero,allH,pids){
+  if(pids.length!==1)return false;
+  const{maxHP}=effStats(hero,{},{});
+  if(hero.currentHP>=10)return false;
+  const full=allH.filter(h=>h.status==="ready"&&!pids.includes(h.id));
+  return full.filter(h=>{const{maxHP:m}=effStats(h,{},{});return h.currentHP>=m;}).length>=2;
+}
+function rollMission(heroes,threat,rom,dis){
+  if(heroes.some(h=>h.isJohn)){
+    // John secret: CK+John team-up threat needs 10 heroes pw>5
+    if(threat.isCKJohnTeamUp)return heroes.length>=10&&heroes.filter(h=>effStats(h,rom,dis).power>5).length>=10?"success":"failure";
+    return"success";
+  }
+  if(heroes.some(h=>h.title==="El Infinite")&&heroes.length<5)return Math.random()<0.25?"partial":"failure";
+  const stats=heroes.map(h=>effStats(h,rom,dis));
+  let avgP=stats.reduce((a,s)=>a+s.power,0)/stats.length;
+  const classes=new Set(heroes.map(h=>h.cls));
+  if(classes.size>1)avgP*=1.04;
+  heroes.forEach(h=>{heroes.forEach(h2=>{if(h.id!==h2.id&&h.affiliates?.includes(h2.title))avgP*=1.04;});});
+  if(heroes.length===1&&heroes[0].title==="Shadowmere")avgP+=0.4;
+  if(heroes.length>=2&&heroes.some(h=>h.title==="Greywulf"))avgP+=0.5;
+  if(heroes.some(h=>h.title==="Ironside"))avgP+=0.3;
+  if(threat.isOcean&&heroes.some(h=>h.title==="Hydrothylre"))avgP+=3.4;
+  if(heroes.some(h=>h.title==="Captain Shamrock"))avgP+=1.0;
+  let bonus=0;
+  if(threat.type==="kaiju")bonus+=0.08;
+  if(threat.type==="mystic"&&heroes.some(h=>["Seraph","Morgana","The Crimson Knight"].includes(h.title)))bonus+=0.12;
+  if(threat.type==="tech"&&heroes.some(h=>["Adrenaline Junkie","Dr. Voidance"].includes(h.title)))bonus+=0.1;
+  if(threat.type==="military"&&heroes.some(h=>["Ironside","The Sportsman"].includes(h.title)))bonus+=0.1;
+  // Golgotha europe bonus
+  const euroLocs=["Europe","Italy","France","Germany","Belgium","Monaco","Switzerland","Austria","Romania","Transylvania","Scotland","Ireland","Iceland"];
+  if(heroes.some(h=>h.title==="Golgotha")&&euroLocs.some(e=>threat.loc?.includes(e)))bonus+=0.15;
+  let disP=0;
+  heroes.forEach(h=>{if(dis[h.id])heroes.forEach(h2=>{if(dis[h.id].includes(h2.id))disP+=0.07;});});
+  const diff=threat.priority==="red"?-0.18:threat.priority==="orange"?-0.10:threat.priority==="yellow"?-0.02:-0.22;
+  const chance=Math.min(0.93,Math.min(1,avgP/10)+bonus+diff-disP);
+  if(heroes.some(h=>h.critChance&&Math.random()<h.critChance)&&!["red","purple"].includes(threat.priority))return"success";
+  const r=Math.random();
+  if(r<chance*0.55)return"success";
+  if(r<chance)return"partial";
+  return"failure";
+}
+function calcDmg(outcome,hero){
+  if(hero.isJohn){const base=outcome==="success"?[3,10]:outcome==="partial"?[8,20]:[15,30];const raw=Math.floor(Math.random()*(base[1]-base[0])+base[0]);return{health:Math.floor(raw/2)};}// John dmg halved
+  const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
+  return{health:Math.floor(Math.random()*(base[1]-base[0])+base[0])};
+}
+
+const WIN1=500,WIN2=1000,VILLAIN_TEAM_SCORE=120;
+
+// ─── CODEX DATA (for info section) ───────────────────────────────────────────
+function buildCodexEntries(){
+  const entries=[];
+  ALL_HERO_DEFS.forEach(h=>entries.push({id:"h_"+h.id,category:"hero",name:h.title,realName:h.realName,cls:h.cls,power:h.basePower,hp:h.baseHP,personality:h.personality,abilities:h.abilities,weaknesses:h.weaknesses,special:h.specialAbility,secret:h.secretTrait}));
+  VILLAIN_DEFS.forEach(v=>entries.push({id:"v_"+v.id,category:"villain",name:v.title,realName:v.realName,cls:v.cls,power:v.basePower,hp:v.baseHP,personality:v.personality,abilities:v.abilities,weaknesses:v.weaknesses,special:v.specialAbility}));
+  ALL_THREATS.forEach(t=>entries.push({id:"t_"+t.id,category:"threat",name:t.name,loc:t.loc,priority:t.priority,type:t.type,desc:t.desc,reward:t.reward}));
+  return entries;
+}
+const CODEX_ENTRIES=buildCodexEntries();
+
+function sc(v,m){const p=v/m;return p>0.6?"#33ff88":p>0.3?"#ffaa00":"#ff3333";}
+function clsColor(cls){return cls==="tank"?"#4488ff":cls==="support"?"#44ff88":"#ff8844";}
+function threatColor(t){return P_COLORS[t.priority]||"#ffaa00";}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+function App(){
+  const [bank,setBank]=useState(loadBank);
+  const [ownedShop,setOwnedShop]=useState(loadOwned);
+  const [codexUnlocked,setCodexUnlocked]=useState(loadCodex);
+
+  const [screen,setScreen]=useState("menu");// menu|shop|codex|game|gameover
+  const [nameInput,setNameInput]=useState("");
+  const [directorName,setDirectorName]=useState("");
+  const [gameOver,setGameOver]=useState(null);
+  const [gameOverReason,setGameOverReason]=useState("");
+  const [extMode,setExtMode]=useState(false);
+
+  // In-game state
+  const [heroes,setHeroes]=useState([]);
+  const [villains,setVillains]=useState([]);
+  const [threats,setThreats]=useState([]);
+  const [threatQueue,setThreatQueue]=useState([]);
+  const [selThreat,setSelThreat]=useState(null);
+  const [depMap,setDepMap]=useState({});
+  const [log,setLog]=useState("");
+  const [logTime,setLogTime]=useState("00:00");
+  const [modal,setModal]=useState(null);
+  const [depModal,setDepModal]=useState(null);
+  const [picked,setPicked]=useState([]);
+  const [score,setScore]=useState(0);
+  const [expandedHero,setExpandedHero]=useState(null);
+  const [rom,setRom]=useState({});
+  const [dis,setDis]=useState({});
+
+  const tick=useRef(0);
+  const hRef=useRef(heroes);hRef.current=heroes;
+  const vRef=useRef(villains);vRef.current=villains;
+  const scoreRef=useRef(score);scoreRef.current=score;
+  const romRef=useRef(rom);romRef.current=rom;
+  const disRef=useRef(dis);disRef.current=dis;
+  const extRef=useRef(extMode);extRef.current=extMode;
+  const tqRef=useRef(threatQueue);tqRef.current=threatQueue;
+
+  // Shop: codex state
+  const [codexTab,setCodexTab]=useState("hero");
+  const [shopMsg,setShopMsg]=useState("");
+
+  function saveAndUpdateBank(n){setBank(n);saveBank(n);}
+  function saveAndUpdateOwned(a){setOwnedShop(a);saveOwned(a);}
+  function saveAndUpdateCodex(a){setCodexUnlocked(a);saveCodex(a);}
+
+  function buyShopHero(title){
+    if(bank<SHOP_PRICE||ownedShop.includes(title))return;
+    const nb=bank-SHOP_PRICE;saveAndUpdateBank(nb);
+    const no=[...ownedShop,title];saveAndUpdateOwned(no);
+    setShopMsg(`✓ ${title} purchased! They will be available in your next game.`);
+  }
+  function buyCodexEntry(id){
+    if(bank<1||codexUnlocked.includes(id))return;
+    const nb=bank-1;saveAndUpdateBank(nb);
+    const nc=[...codexUnlocked,id];saveAndUpdateCodex(nc);
+  }
+
+  function buildInitHeroes(){
+    return ALL_HERO_DEFS.map(h=>{
+      const isShopLocked=h.shopLocked&&!ownedShop.includes(h.title);
+      const isGameLocked=h.gameLocked;
+      const status=isShopLocked?"shopLocked":isGameLocked?"gameLocked":"ready";
+      const{maxHP}=effStats({...h,status:"ready"},{},{});
+      return{...h,currentHP:maxHP,status,regenTimer:0,xp:0,levelUpFlash:false,speechBubble:null,romancePartner:null};
+    });
+  }
+
+  function startGame(ext=false){
+    const n=directorName||nameInput.trim();
+    if(!n)return;
+    setDirectorName(n);
+    const ih=buildInitHeroes();
+    setHeroes(ih);
+    setVillains(VILLAIN_DEFS.map(v=>({...v,defeated:false,redeemed:false})));
+    const shuffled=shuffle(ALL_THREATS);
+    setThreats(shuffled.slice(0,4).map(t=>({...t,timer:t.maxTimer})));
+    setThreatQueue(shuffled.slice(4));
+    setDepMap({});setRom({});setDis({});setModal(null);setDepModal(null);setPicked([]);
+    setScore(0);setSelThreat(null);setGameOver(null);setGameOverReason("");
+    setExtMode(ext);setLog(`Welcome, Director ${n}. WSPA Command online.`);setLogTime("00:00");
+    tick.current=0;
+    setScreen("game");
+  }
+
+  function exitToMenu(keepScore=false){
+    // If player won 500+ but quits before 1000, keep the 500 milestone
+    if(keepScore&&score>=WIN1){const nb=bank+WIN1;saveAndUpdateBank(nb);}
+    setScreen("menu");setGameOver(null);
+  }
+
+  function continueToTier2(){setExtMode(true);setGameOver(null);setLog(`Continuing to 1000 points! The world still needs you, Director.`);}
+
+  function handleWin(){
+    const pts=extMode?WIN2:WIN1;
+    const nb=bank+pts;saveAndUpdateBank(nb);
+    setGameOver("win");setScreen("gameover");
+  }
+
+  useEffect(()=>{
+    if(screen!=="game"||gameOver)return;
+    const iv=setInterval(()=>{
+      tick.current++;const t=tick.current;
+      setLogTime(`${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`);
+
+      // Regen
+      setHeroes(prev=>prev.map(h=>{
+        if(["deployed","gameLocked","shopLocked","kia"].includes(h.status))return h;
+        const{maxHP,regenSec:rs}=effStats(h,romRef.current,disRef.current);
+        if(h.currentHP>=maxHP)return h.status==="ready"?h:{...h,status:"ready"};
+        const nt=(h.regenTimer||0)+1;
+        if(nt>=rs){
+          const nHP=Math.min(maxHP,h.currentHP+1);
+          const st=nHP>=maxHP?"ready":nHP<(h.functionalAt||0)?"exhausted":"resting";
+          const bubble=nHP>=maxHP?READY_QUIPS[Math.floor(Math.random()*READY_QUIPS.length)]:null;
+          return{...h,currentHP:nHP,regenTimer:0,status:st,speechBubble:bubble};
+        }
+        return{...h,regenTimer:nt};
+      }));
+
+      // Cooldowns & specials
+      setHeroes(prev=>prev.map(h=>{
+        let u={...h};
+        if(h.healCooldown>0)u.healCooldown=h.healCooldown-1;
+        if(h.levelUpFlash)u.levelUpFlash=false;
+        if(h.speechBubble&&Math.random()<0.04)u.speechBubble=null;
+        if(h.status==="deployed"&&!h.speechBubble&&Math.random()<0.005)u.speechBubble=getRandQuip(h,romRef.current,disRef.current,true);
+        if(h.title==="Morgana"&&h.career==="veteran"&&h.status!=="deployed"&&t>0&&t%300===0){
+          setHeroes(p2=>p2.map(h2=>{if(["kia","gameLocked","shopLocked"].includes(h2.status))return h2;const{maxHP}=effStats(h2,romRef.current,disRef.current);return{...h2,currentHP:maxHP,status:"ready",regenTimer:0};}));
+          setLog("✨ Morgana veteran pulse — all heroes restored!");
+        }
+        if(h.title==="The Flip"&&h.career==="veteran"){
+          const aj=prev.find(x=>x.title==="Adrenaline Junkie");
+          if(aj&&aj.status==="gameLocked"){setHeroes(p2=>p2.map(x=>x.title==="Adrenaline Junkie"?{...x,status:"ready",gameLocked:false}:x));setLog("⭐ The Flip is VETERAN — Adrenaline Junkie unlocked!");}
+        }
+        return u;
+      }));
+
+      // Threat timers — escalate (but on FAILURE do not reset)
+      setThreats(prev=>{
+        let gameEnd=null;
+        const updated=prev.map(th=>{
+          if(th.timer>0)return{...th,timer:th.timer-1};
+          if(th.priority==="red"||th.priority==="purple"){gameEnd=th;return th;}
+          const np=escalate(th.priority);
+          setLog(`⚠ ${th.name} escalated to ${P_LABELS[np]}!`);
+          return{...th,priority:np,timer:th.maxTimer,maxTimer:Math.max(60,th.maxTimer-30)};
+        });
+        if(gameEnd){setGameOver("lose");setGameOverReason(`${gameEnd.name} reached Priority ONE with no response.`);}
+        return updated;
+      });
+
+      // Villain team-up
+      if(t>0&&t%180===0&&scoreRef.current>=VILLAIN_TEAM_SCORE){
+        const av=vRef.current.filter(v=>!v.defeated&&!v.redeemed);
+        if(av.length>=2&&Math.random()<0.25){
+          const v1=av[Math.floor(Math.random()*av.length)];
+          const v2pool=av.filter(v=>v.id!==v1.id);
+          if(v2pool.length>0){
+            const v2=v2pool[Math.floor(Math.random()*v2pool.length)];
+            const tt={id:Date.now(),name:`VILLAIN TEAM-UP: ${v1.title} & ${v2.title}`,loc:v1.loc,x:Math.round((v1.x+v2.x)/2),y:Math.round((v1.y+v2.y)/2),priority:"purple",type:"military",desc:`${v1.title} and ${v2.title} have allied. Combined threat is severe.`,timer:200,maxTimer:200,reward:v1.reward+v2.reward,villainId:v1.id,villainId2:v2.id,recurring:true,isTeamUp:true};
+            setThreats(p=>{if(p.length>=7)return p;return[...p,tt];});
+            setLog(`🔴 VILLAIN TEAM-UP: ${v1.title} & ${v2.title} have allied!`);
+          }
+        }
+      }
+
+      // Steady threat spawn — always try to keep 4-6 active threats
+      if(t>0&&t%55===0){
+        setThreats(prev=>{
+          if(prev.length>=6)return prev;
+          const av=vRef.current.filter(v=>!v.defeated&&!v.redeemed&&!prev.some(p=>p.villainId===v.id));
+          if(av.length>0&&Math.random()<0.28){
+            const v=av[Math.floor(Math.random()*av.length)];
+            const nt={id:Date.now(),name:v.title,loc:v.loc,x:v.x,y:v.y,priority:"purple",type:v.threatType||"military",desc:v.personality.slice(0,80)+"…",timer:220,maxTimer:220,reward:v.reward,recurring:true,villainId:v.id};
+            setLog(`⚠ VILLAIN: ${v.title} — ${v.loc}`);
+            return[...prev,nt];
+          }
+          // Pull from queue (already shuffled), or re-shuffle if exhausted
+          setThreatQueue(q=>{
+            let queue=[...q];
+            if(queue.length===0){queue=shuffle(ALL_THREATS);}
+            const pick=queue[0];
+            const rest=queue.slice(1);
+            setThreats(p2=>{if(p2.length>=6)return p2;return[...p2,{...pick,timer:pick.maxTimer,id:Date.now()}];});
+            setLog(`⚠ NEW THREAT: ${pick.name} — ${pick.loc}`);
+            return rest;
+          });
+          return prev;
+        });
+      }
+
+      const target=extRef.current?WIN2:WIN1;
+      if(scoreRef.current>=target)handleWin();
+    },1000);
+    return()=>clearInterval(iv);
+  },[screen,gameOver]);
+
+  function openDep(t){setDepModal(t);setPicked([]);}
+  function toggleH(id){const h=hRef.current.find(x=>x.id===id);if(!h||!canDeploy(h))return;setPicked(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);}
+
+  async function confirmDep(){
+    if(!depModal||!picked.length)return;
+    const threat=depModal;
+    const assigned=hRef.current.filter(h=>picked.includes(h.id));
+    setDepModal(null);
+    const iceP=assigned.some(h=>h.title==="IceBerg");
+    const gummyP=assigned.some(h=>h.title==="The Gummy Bear");
+    setHeroes(prev=>prev.map(h=>{
+      if(!picked.includes(h.id))return h;
+      const{maxHP}=effStats(h,romRef.current,disRef.current);
+      const hpBoost=(iceP&&h.title!=="IceBerg")?10:0;
+      const bubble=Math.random()<0.55?getRandQuip(h,romRef.current,disRef.current,true):null;
+      return{...h,status:"deployed",currentHP:Math.min(maxHP+hpBoost,h.currentHP+hpBoost),speechBubble:bubble};
+    }));
+    setDepMap(prev=>({...prev,[threat.id]:picked}));
+    setLog(`⚡ ${assigned.map(h=>h.title).join(" & ")} deployed to ${threat.loc}...`);
+
+    setTimeout(async()=>{
+      const outcome=rollMission(assigned,threat,romRef.current,disRef.current);
+      let narration="Awaiting field report...";
+      try{
+        const relNotes=getRelNotes(assigned,romRef.current,disRef.current);
+        const villain=threat.villainId?vRef.current.find(v=>v.id===threat.villainId):null;
+        let extra="";
+        if(assigned.some(h=>h.isJohn))extra="John is powerful but gentle — he prefers talking villains down, but will fight if needed.";
+        if(villain)extra+=` Villain: ${villain.title}: ${villain.personality?.slice(0,55)}.`;
+        if(relNotes.length)extra+=` Relationships: ${relNotes.join(" ")}`;
+        const prompt=`WSPA debrief narrator. ONE vivid paragraph (65-80 words). Heroes: ${assigned.map(h=>h.title+" ("+h.cls+")").join(", ")}. Location: ${threat.loc}. Threat: ${threat.name}. Outcome: ${outcome==="success"?"VICTORY":outcome==="partial"?"PARTIAL SUCCESS":"FAILURE"}. ${extra} Cinematic, use hero names, weave in relationships naturally.`;
+        const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:250,messages:[{role:"user",content:prompt}]})});
+        const data=await res.json();narration=data.content?.[0]?.text||narration;
+      }catch(e){narration=`${assigned[0].title} engaged ${threat.name} at ${threat.loc}. Outcome: ${outcome}. (Connect internet for AI narration.)`;}
+
+      const damages={};let anyKIA=false;let turnedVillain=null;let redeemedVillains=[];const levelUps=[];let newRomMsg=null;let newDisMsg=null;let unlockMsg=null;
+      const newRom={...romRef.current};const newDis={...disRef.current};
+
+      // John redemption
+      const johnHero=assigned.find(h=>h.isJohn);
+      if(johnHero&&outcome!=="failure"){
+        const cands=[];
+        if(threat.villainId){const v=vRef.current.find(x=>x.id===threat.villainId);if(v&&v.redeemable&&!v.redeemed)cands.push(v);}
+        if(threat.isTeamUp&&threat.villainId2){const v2=vRef.current.find(x=>x.id===threat.villainId2);if(v2&&v2.redeemable&&!v2.redeemed)cands.push(v2);}
+        cands.forEach(villain=>{
+          if(Math.random()<0.2){
+            redeemedVillains.push(villain);
+            setHeroes(hp=>{
+              const already=hp.find(x=>x.id===villain.id);
+              if(already)return hp.map(x=>x.id===villain.id?{...x,status:"resting",gameLocked:false,redeemed:true}:x);
+              const{maxHP}=effStats(villain,romRef.current,disRef.current);
+              return[...hp,{...villain,currentHP:maxHP,status:"resting",gameLocked:false,redeemed:true,xp:0,speechBubble:null}];
+            });
+            setVillains(prev=>prev.map(v=>v.id===villain.id?{...v,redeemed:true}:v));
+          }
+        });
+      }
+
+      const pts=outcome!=="failure"?(outcome==="success"?threat.reward:Math.floor(threat.reward/2)):0;
+      const allSnap=hRef.current;
+
+      setHeroes(prev=>prev.map(h=>{
+        if(!picked.includes(h.id))return h;
+        let d=calcDmg(outcome,h);
+        // Mrs. Peanut 5x vs Sportsman
+        if(threat.villainId===110&&h.title==="The Sportsman")d={health:Math.min(d.health*5,(effStats(h,romRef.current,disRef.current).maxHP))};
+        damages[h.id]=d;
+        const{maxHP}=effStats(h,romRef.current,disRef.current);
+        if(h.isJohn){return{...h,currentHP:Math.max(h.functionalAt,h.currentHP-d.health),status:h.currentHP-d.health<=h.functionalAt?"resting":"ready",speechBubble:null};}
+        let nHP=Math.max(0,h.currentHP-d.health);
+        if(gummyP&&h.title!=="The Gummy Bear")nHP=Math.max(0,h.currentHP-Math.floor(d.health/2));
+        const shamrock=assigned.find(x=>x.title==="Captain Shamrock");
+        if(nHP===0&&shamrock&&h.id!==shamrock.id)nHP=1;
+        if(nHP===0){
+          anyKIA=true;
+          if(isSuicide(h,allSnap,picked)&&Math.random()<0.25&&!h.isJohn){turnedVillain=h;return{...h,currentHP:0,status:"kia",turnedVillain:true};}
+          // CK turns: John also turns
+          if(h.title==="The Crimson Knight"){
+            setHeroes(p2=>p2.map(j=>j.isJohn?{...j,currentHP:0,status:"kia",turnedVillain:true}:j));
+            // Create team-up threat
+            const jh=allSnap.find(x=>x.isJohn);
+            const ckJohnThreat={id:Date.now(),name:"ROGUE: THE CRIMSON KNIGHT & JOHN",loc:"United States",x:88,y:118,priority:"purple",type:"military",desc:"The Crimson Knight has turned, and John has followed. They are now operating as a team in the United States. Requires 10 heroes with power level above 5 to stop.",timer:300,maxTimer:300,reward:100,isCKJohnTeamUp:true};
+            setThreats(p2=>[...p2.filter(x=>x.isCKJohnTeamUp!==true),ckJohnThreat]);
+            setLog("🔴 CATASTROPHIC: The Crimson Knight AND John have gone rogue!");
+          }
+          return{...h,currentHP:0,status:"kia",speechBubble:null};
+        }
+        const st=nHP<(h.functionalAt||0)?"exhausted":nHP<maxHP?"resting":"ready";
+        const thresh=xpToLevel(h);const nXP=(h.xp||0)+pts;
+        let nc=h.career;let didLv=false;
+        if(nXP>=thresh&&CAREER[h.career]?.next){nc=CAREER[h.career].next;didLv=true;levelUps.push({title:h.title,to:nc});
+          if(h.title==="The Crimson Knight"&&nc==="veteran"){setHeroes(p2=>p2.map(j=>j.isJohn?{...j,status:"ready",gameLocked:false}:j));setLog("⭐ Crimson Knight is VETERAN — John unlocked!");}
+        }
+        return{...h,currentHP:nHP,status:st,regenTimer:0,xp:didLv?nXP-thresh:nXP,career:nc,levelUpFlash:didLv,speechBubble:null};
+      }));
+
+      // Romance — any hero can romance any other (5%, single partner only)
+      if(assigned.length>=2&&Math.random()<0.05){
+        const elig=assigned.filter(h=>!h.romanceLocked&&!h.romancePartner);
+        if(elig.length>=2){
+          const a=elig[Math.floor(Math.random()*elig.length)];
+          const bp=elig.filter(x=>x.id!==a.id&&!x.romancePartner);
+          if(bp.length){
+            const b=bp[Math.floor(Math.random()*bp.length)];
+            const rk=[a.id,b.id].sort().join(",");
+            if(!newRom[rk]){
+              newRom[rk]=true;
+              // Mark partners so they can't romance again
+              setHeroes(p2=>p2.map(h=>h.id===a.id?{...h,romancePartner:b.id}:h.id===b.id?{...h,romancePartner:a.id}:h));
+              newRomMsg=`💕 ${a.title} and ${b.title} have developed romantic feelings!`;
+            }
+          }
+        }
+      }
+      // Disdain
+      assigned.forEach(h=>{
+        if(Math.random()<0.04){
+          const others=assigned.filter(x=>x.id!==h.id&&!(h.affiliates||[]).includes(x.title));
+          const el=others.filter(x=>{const rk=[h.id,x.id].sort().join(",");return!newRom[rk]&&!x.romanceLocked;});
+          if(el.length){const target=el[Math.floor(Math.random()*el.length)];const cur=newDis[h.id]||[];if(!cur.includes(target.id)&&cur.length<2){newDis[h.id]=[...cur,target.id];newDisMsg=`😤 ${h.title} has developed a disdain for ${target.title}.`;}}
+        }
+      });
+      setRom(newRom);setDis(newDis);
+
+      // Unlocks
+      if(outcome!=="failure"){
+        if(threat.unlockHero){setHeroes(prev=>prev.map(h=>h.title===threat.unlockHero?{...h,gameLocked:false,status:"ready"}:h));unlockMsg=`🔓 ${threat.unlockHero} unlocked!`;}
+        if(threat.isOcean)setHeroes(prev=>prev.map(h=>h.title==="Hydrothylre"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
+        if(threat.isKaiju)setHeroes(prev=>prev.map(h=>h.title==="Dinosia"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
+        if(threat.isRome)setHeroes(prev=>prev.map(h=>h.title==="El Infinite"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
+        if(threat.isNorthAmerica)setHeroes(prev=>prev.map(h=>h.title==="The Gummy Bear"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
+        if(threat.villainId)setVillains(prev=>prev.map(v=>v.id===threat.villainId?{...v,defeated:true}:v));
+        if(threat.isTeamUp&&threat.villainId2)setVillains(prev=>prev.map(v=>v.id===threat.villainId2?{...v,defeated:true}:v));
+        setThreats(prev=>prev.filter(t=>t.id!==threat.id));
+        setScore(s=>s+pts);
+      }
+      // On failure: do NOT reset timer
+      setDepMap(prev=>{const n={...prev};delete n[threat.id];return n;});
+      setModal({threat,heroes:assigned,outcome,narration,damages,anyKIA,turnedVillain,redeemedVillains,levelUps,xpEarned:pts,newRomMsg,newDisMsg,unlockMsg});
+      setLog(`Debrief: ${threat.name} — ${outcome.toUpperCase()}${anyKIA?" ⚠ HERO LOST":""}${turnedVillain?` 🔴 ${turnedVillain.title} TURNED`:""}${levelUps.length?" ⭐ LVL UP":""}${newRomMsg?" 💕":""}`);
+    },4000+Math.random()*2000);
+  }
+
+  // Sort heroes: available by power desc, then locked/KIA at bottom
+  const sortedHeroes=useMemo(()=>{
+    const active=heroes.filter(h=>!["shopLocked","gameLocked","kia"].includes(h.status));
+    const shopL=heroes.filter(h=>h.status==="shopLocked");
+    const gameL=heroes.filter(h=>h.status==="gameLocked");
+    const kia=heroes.filter(h=>h.status==="kia");
+    const sort=arr=>[...arr].sort((a,b)=>effStats(b,rom,dis).power-effStats(a,rom,dis).power);
+    return[...sort(active),...sort(shopL),...sort(gameL),...kia];
+  },[heroes,rom,dis]);
+
+  const allDeployable=heroes.filter(canDeploy);
+  const target=extMode?WIN2:WIN1;
+
+  // ── MENU ──
+  if(screen==="menu")return React.createElement("div",{className:"menu"},
+    React.createElement("div",{className:"jk-label"},"JK GAMING PRESENTS"),
+    React.createElement("div",{className:"menu-logo"},"W.S.P.A."),
+    React.createElement("div",{className:"menu-sub"},"WORLD SECURITY & PROTECTION AGENCY"),
+    React.createElement("div",{className:"menu-pts"},`BANK: ${bank} PTS`),
+    React.createElement("div",{style:{textAlign:"center",marginTop:4}},
+      React.createElement("div",{style:{fontSize:10,color:"var(--text3)",marginBottom:4}},"ENTER YOUR NAME, DIRECTOR"),
+      React.createElement("input",{className:"menu-input",value:nameInput,onChange:e=>setNameInput(e.target.value),onKeyDown:e=>e.key==="Enter"&&nameInput.trim()&&startGame(),placeholder:"Director Name...",autoFocus:true})
+    ),
+    React.createElement("button",{className:"mbtn",onClick:()=>startGame(),disabled:!nameInput.trim()},"▶ BEGIN COMMAND"),
+    React.createElement("button",{className:"mbtn gold",onClick:()=>setScreen("shop")},"🛒 HERO SHOP"),
+    React.createElement("button",{className:"mbtn purple",onClick:()=>setScreen("codex")},"📖 INFORMATION CODEX"),
+    shopMsg&&React.createElement("div",{style:{fontSize:9,color:"var(--green)",textAlign:"center",maxWidth:300}},shopMsg)
+  );
+
+  // ── SHOP ──
+  if(screen==="shop")return React.createElement("div",{className:"full-panel"},
+    React.createElement("div",{className:"full-panel-header"},
+      React.createElement("div",{className:"full-panel-title"},"🛒 HERO SHOP"),
+      React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+        React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--gold)"}},"BANK: "+bank+" PTS"),
+        React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("menu")},"← BACK")
+      )
+    ),
+    React.createElement("div",{className:"full-panel-body"},
+      React.createElement("div",{style:{fontSize:10,color:"var(--text3)",marginBottom:12}},`Purchase locked heroes for ${SHOP_PRICE} points each. Purchased heroes are unlocked in all future games.`),
+      React.createElement("div",{className:"shop-grid"},
+        SHOP_LOCK_TITLES.map(title=>{
+          const hdef=ALL_HERO_DEFS.find(h=>h.title===title);
+          if(!hdef)return null;
+          const owned=ownedShop.includes(title);
+          return React.createElement("div",{key:title,className:"shop-card"+(owned?" owned":"")},
+            React.createElement("div",{className:"shop-card-name"},hdef.title),
+            React.createElement("div",{className:"shop-card-meta"},`${hdef.cls.toUpperCase()} · PWR ${hdef.basePower} · HP ${hdef.baseHP}`),
+            React.createElement("div",{style:{fontSize:9,color:"var(--text3)",marginBottom:8,lineHeight:1.5}},hdef.personality.slice(0,80)+"…"),
+            React.createElement("div",{className:"shop-card-price"},owned?"✓ OWNED":bank>=SHOP_PRICE?`${SHOP_PRICE} PTS`:`${SHOP_PRICE} PTS (need ${SHOP_PRICE-bank} more)`),
+            React.createElement("button",{className:"shop-buy-btn",disabled:owned||bank<SHOP_PRICE,onClick:()=>buyShopHero(title)},owned?"OWNED":"PURCHASE")
+          );
+        })
+      )
+    )
+  );
+
+  // ── CODEX ──
+  if(screen==="codex")return React.createElement("div",{className:"full-panel"},
+    React.createElement("div",{className:"full-panel-header"},
+      React.createElement("div",{className:"full-panel-title"},"📖 INFORMATION CODEX"),
+      React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+        React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--gold)"}},"BANK: "+bank+" PTS"),
+        React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("menu")},"← BACK")
+      )
+    ),
+    React.createElement("div",{className:"full-panel-body"},
+      React.createElement("div",{style:{fontSize:9,color:"var(--text3)",marginBottom:10}},"Unlock any entry for 1 point. Entries remain unlocked permanently."),
+      React.createElement("div",{className:"tabs"},
+        ["hero","villain","threat"].map(tab=>React.createElement("button",{key:tab,className:"tab"+(codexTab===tab?" active":""),onClick:()=>setCodexTab(tab)},tab==="hero"?"HEROES":tab==="villain"?"SUPERVILLAINS":"THREATS"))
+      ),
+      React.createElement("div",{className:"codex-grid"},
+        CODEX_ENTRIES.filter(e=>e.category===codexTab).map(e=>{
+          const unlocked=codexUnlocked.includes(e.id);
+          return React.createElement("div",{key:e.id,className:"codex-card"+(unlocked?"":" locked-codex"),onClick:()=>!unlocked&&buyCodexEntry(e.id)},
+            React.createElement("div",{className:"codex-card-title"},
+              React.createElement("span",null,e.name),
+              !unlocked&&React.createElement("span",{className:"codex-unlock-cost"},"1 PT")
+            ),
+            unlocked?React.createElement("div",{className:"codex-card-body"},
+              e.category==="hero"&&React.createElement("div",null,
+                React.createElement("div",null,React.createElement("b",null,"Real Name: "),e.realName),
+                React.createElement("div",null,React.createElement("b",null,"Class: "),e.cls?.toUpperCase()," · PWR ",e.power," · HP ",e.hp),
+                React.createElement("div",null,React.createElement("b",null,"Bio: "),e.personality),
+                React.createElement("div",null,React.createElement("b",null,"Abilities: "),e.abilities),
+                React.createElement("div",null,React.createElement("b",null,"Weaknesses: "),e.weaknesses),
+                e.special&&React.createElement("div",null,React.createElement("b",null,"Special: "),e.special),
+                e.secret&&React.createElement("div",{style:{color:"#ff8844"}},React.createElement("b",null,"⚠ Secret: "),e.secret)
+              ),
+              e.category==="villain"&&React.createElement("div",null,
+                React.createElement("div",null,React.createElement("b",null,"Real Name: "),e.realName),
+                React.createElement("div",null,React.createElement("b",null,"Class: "),e.cls?.toUpperCase()," · PWR ",e.power," · HP ",e.hp),
+                React.createElement("div",null,React.createElement("b",null,"Bio: "),e.personality),
+                React.createElement("div",null,React.createElement("b",null,"Abilities: "),e.abilities),
+                React.createElement("div",null,React.createElement("b",null,"Weaknesses: "),e.weaknesses),
+                e.special&&React.createElement("div",null,React.createElement("b",null,"Special: "),e.special)
+              ),
+              e.category==="threat"&&React.createElement("div",null,
+                React.createElement("div",null,React.createElement("b",null,"Location: "),e.loc),
+                React.createElement("div",null,React.createElement("b",null,"Priority: "),P_LABELS[e.priority]||e.priority," · ",e.type?.toUpperCase()),
+                React.createElement("div",null,e.desc),
+                React.createElement("div",null,React.createElement("b",null,"Reward: "),e.reward+" pts")
+              )
+            ):React.createElement("div",{className:"codex-card-body",style:{color:"var(--text3)",fontStyle:"italic"}},"[LOCKED — click to unlock for 1 pt]")
+          );
+        })
+      )
+    )
+  );
+
+  // ── GAME OVER ──
+  if(screen==="gameover")return React.createElement("div",{className:"menu"},
+    gameOver==="win"?React.createElement(React.Fragment,null,
+      React.createElement("div",{className:"jk-label"},"JK GAMING"),
+      React.createElement("div",{className:"menu-logo",style:{color:"var(--gold)"}},"VICTORY"),
+      React.createElement("div",{className:"menu-sub"},`DIRECTOR ${directorName.toUpperCase()} — EARTH IS SAFE`),
+      React.createElement("div",{style:{fontSize:12,color:"var(--gold)",fontFamily:"var(--font-head)"}},"+"+(extMode?WIN2:WIN1)+" PTS ADDED TO YOUR BANK"),
+      React.createElement("div",{style:{fontSize:12,color:"var(--text2)",textAlign:"center",maxWidth:380,lineHeight:1.8}},extMode?"You reached 1000 points. Legendary Director.":`You secured Earth. Continue for ultimate glory?`),
+      !extMode&&React.createElement("button",{className:"mbtn green",onClick:()=>{continueToTier2();setScreen("game");}},"▶ CONTINUE TO 1000 PTS"),
+      React.createElement("button",{className:"mbtn gold",onClick:()=>{setNameInput(directorName);setScreen("menu");}},extMode?"▶ PLAY AGAIN":"↩ MAIN MENU")
+    ):React.createElement(React.Fragment,null,
+      React.createElement("div",{className:"jk-label"},"JK GAMING"),
+      React.createElement("div",{className:"menu-logo",style:{color:"var(--red)",fontSize:"22px"}},"MISSION FAILED"),
+      React.createElement("div",{className:"menu-sub",style:{color:"var(--red)"}},"YOU HAVE FAILED TO PROTECT THE PLANET."),
+      React.createElement("div",{style:{fontSize:13,color:"var(--gold)",fontFamily:"var(--font-head)"}},"You scored "+score+" points."),
+      React.createElement("div",{style:{fontSize:10,color:"var(--text3)",textAlign:"center",maxWidth:360,lineHeight:1.6,margin:"0 20px"}},gameOverReason),
+      React.createElement("button",{className:"mbtn red",onClick:()=>{setNameInput(directorName);setScreen("menu");}},"↺ TRY AGAIN")
+    )
+  );
+
+  // ── GAME ──
+  if(screen!=="game")return null;
+
+  return React.createElement("div",{className:"app"},
+    React.createElement("div",{className:"topbar"},
+      React.createElement("div",{className:"topbar-logo"},"W.S.P.A. · JK GAMING"),
+      React.createElement("div",{className:"topbar-divider"}),
+      React.createElement("div",{className:"topbar-director"},`DIR. ${directorName.toUpperCase()}`),
+      React.createElement("div",{className:"topbar-divider"}),
+      React.createElement("div",{className:"topbar-stat"},"SCORE ",React.createElement("b",null,`${score}/${target}`)),
+      React.createElement("div",{className:"topbar-stat"},"THREATS ",React.createElement("b",null,threats.length)),
+      React.createElement("div",{className:"topbar-stat"},"READY ",React.createElement("b",null,allDeployable.length)),
+      React.createElement("div",{className:"topbar-stat"},"KIA ",React.createElement("b",{style:{color:"#ff3333"}},heroes.filter(h=>h.status==="kia").length)),
+      threats.some(t=>t.priority==="red"||t.priority==="purple")&&React.createElement("div",{className:"topbar-alert"},"⚠ PRIORITY ONE"),
+      React.createElement("button",{className:"exit-btn",onClick:()=>{if(confirm("Exit to menu? You keep points only if you've already won 500+.")){exitToMenu(true);}}},"> EXIT")
+    ),
+    React.createElement("div",{className:"main"},
+      // HERO PANEL
+      React.createElement("div",{className:"heroes-panel"},
+        React.createElement("div",{className:"panel-header"},"◈ HERO ROSTER"),
+        sortedHeroes.map(h=>{
+          const{power,maxHP}=effStats(h,rom,dis);
+          const hpPct=(h.currentHP/maxHP)*100;
+          const thresh=xpToLevel(h);const xpPct=Math.min(100,((h.xp||0)/thresh)*100);
+          const isExp=expandedHero===h.id;
+          const rk=Object.keys(rom).find(k=>k.split(",").map(Number).includes(h.id));
+          const rpId=rk?Number(rk.split(",").find(x=>Number(x)!==h.id)):null;
+          const rp=rpId?heroes.find(x=>x.id===rpId):null;
+          const disTitles=(dis[h.id]||[]).map(id=>heroes.find(x=>x.id===id)?.title).filter(Boolean);
+          const isShopL=h.status==="shopLocked";const isGameL=h.status==="gameLocked";
+          const cardCls=["hero-card",`${h.cls}-card`,
+            isShopL?"shop-locked":isGameL?"game-locked":"",
+            h.status==="kia"?"kia-card":"",
+            isExp?"expanded":"",
+            h.redeemed?"villain-card":"",
+            h.levelUpFlash?"level-up-flash":""
+          ].filter(Boolean).join(" ");
+          return React.createElement("div",{key:h.id,className:cardCls,style:{position:"relative"},onClick:()=>!isShopL&&!isGameL&&h.status!=="kia"&&setExpandedHero(isExp?null:h.id)},
+            h.speechBubble&&React.createElement("div",{className:"speech-bubble"},h.speechBubble),
+            React.createElement("div",{className:"hero-row"},
+              React.createElement("span",{className:`hero-name-text${h.isJohn?" john-name":""}${h.redeemed?" villain-name":""}`},h.title),
+              React.createElement("span",{className:`hero-badge badge-${isShopL?"shop":isGameL?"locked":h.status==="resting"&&canDeploy(h)?"resting":h.status}`},
+                isShopL?"SHOP":isGameL?"LOCKED":h.status==="ready"?"READY":h.status==="deployed"?"AWAY":h.status==="resting"&&canDeploy(h)?"REST✓":h.status==="resting"?"REST":h.status==="exhausted"?"OUT":"K.I.A."
+              )
+            ),
+            React.createElement("div",{className:"hero-meta"},`${CAREER[h.career]?.label} · ${h.cls.toUpperCase()} · PWR ${power.toFixed(1)}`),
+            !isShopL&&!isGameL&&React.createElement("div",{className:"stat-row"},
+              React.createElement("div",{className:"sl"},"HP"),
+              React.createElement("div",{className:"bt"},React.createElement("div",{className:"bf",style:{width:`${hpPct}%`,background:h.isJohn?"#ffd700":sc(h.currentHP,maxHP)}})),
+              React.createElement("span",{style:{fontSize:8,color:"var(--text3)",marginLeft:3}},`${Math.round(h.currentHP)}/${maxHP}`)
+            ),
+            !isShopL&&!isGameL&&h.status!=="kia"&&CAREER[h.career]?.next&&React.createElement("div",{className:"xp-row"},
+              React.createElement("div",{className:"xp-label"},"XP"),
+              React.createElement("div",{className:"xp-bar-track"},React.createElement("div",{className:"xp-bar-fill",style:{width:`${xpPct}%`}})),
+              React.createElement("span",{style:{fontSize:7,color:"var(--gold)",marginLeft:3}},`${h.xp||0}/${thresh}`)
+            ),
+            isShopL&&React.createElement("div",{style:{fontSize:8,color:"var(--gold)",marginTop:3}},`Unlock in Shop for ${SHOP_PRICE} pts`),
+            isExp&&React.createElement("div",{className:"hero-detail"},
+              React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Real Name: "),h.realName),
+              React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Bio: "),h.personality),
+              React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Abilities: "),h.abilities),
+              React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Weaknesses: "),h.weaknesses),
+              h.specialAbility&&React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Special: "),h.specialAbility),
+              h.secretTrait&&React.createElement("div",{className:"detail-section",style:{color:"#ff8844"}},React.createElement("b",null,"⚠ Secret: "),h.secretTrait),
+              h.affiliates?.length>0&&React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Affiliates: "),h.affiliates.join(", ")),
+              React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Romance: "),React.createElement("span",{className:"romance-tag"},h.romanceStatus||(rp?`💕 ${rp.title}`:"Single"))),
+              disTitles.length>0&&React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Disdains: "),React.createElement("span",{className:"disdain-tag"},`😤 ${disTitles.join(", ")}`)),
+              React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Deployable at: "),`${h.functionalAt} HP · Regen: ${h.regenSec}s/pt`),
+              h.unlockCondition&&React.createElement("div",{className:"detail-section",style:{color:"var(--gold)"}},React.createElement("b",null,"Unlock: "),h.unlockCondition)
+            )
+          );
+        })
+      ),
+      // MAP
+      React.createElement("div",{className:"map-area"},
+        React.createElement("svg",{className:"map-svg",viewBox:"0 0 580 360",xmlns:"http://www.w3.org/2000/svg"},
+          React.createElement("defs",null,
+            React.createElement("filter",{id:"glow"},React.createElement("feGaussianBlur",{stdDeviation:"2.5",result:"cb"}),React.createElement("feMerge",null,React.createElement("feMergeNode",{in:"cb"}),React.createElement("feMergeNode",{in:"SourceGraphic"}))),
+            React.createElement("linearGradient",{id:"sg",x1:"0%",y1:"0%",x2:"100%",y2:"0%"},React.createElement("stop",{offset:"0%",stopColor:"#00d4ff"}),React.createElement("stop",{offset:"100%",stopColor:"#aa44ff"})),
+            React.createElement("linearGradient",{id:"og",x1:"0%",y1:"0%",x2:"0%",y2:"100%"},React.createElement("stop",{offset:"0%",stopColor:"#03192e"}),React.createElement("stop",{offset:"100%",stopColor:"#020d1a"}))
+          ),
+          React.createElement("rect",{width:580,height:360,fill:"url(#og)"}),
+          [90,180,270].map(y=>React.createElement("line",{key:y,x1:0,y1:y,x2:580,y2:y,stroke:"#0a2030",strokeWidth:.4,strokeDasharray:"4,14"})),
+          [116,232,348,464].map(x=>React.createElement("line",{key:x,x1:x,y1:0,x2:x,y2:360,stroke:"#0a2030",strokeWidth:.4,strokeDasharray:"4,14"})),
+          // IMPROVED CONTINENT SHAPES (more recognisable outlines)
+          // North America — wide top, pinched middle, Florida nub
+          React.createElement("path",{d:"M36,22 L50,16 L66,14 L80,16 L94,14 L108,16 L122,18 L134,22 L144,28 L150,36 L156,46 L160,58 L162,70 L162,84 L160,96 L156,108 L150,118 L144,126 L136,134 L126,140 L116,144 L108,150 L100,156 L92,162 L86,168 L82,174 L80,180 L78,186 L74,190 L70,188 L66,182 L62,172 L58,160 L54,148 L50,136 L46,122 L43,108 L40,94 L37,78 L35,62 L35,46 L35,34 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:1}),
+          // Florida peninsula
+          React.createElement("path",{d:"M82,174 L86,180 L88,190 L86,200 L82,204 L78,200 L76,190 L76,180 L78,174 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
+          // Baja California
+          React.createElement("path",{d:"M50,136 L54,140 L56,152 L54,164 L50,168 L46,162 L46,150 L48,140 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
+          // Alaska
+          React.createElement("path",{d:"M36,22 L26,20 L16,24 L10,32 L14,40 L24,42 L34,36 L36,28 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
+          // Greenland
+          React.createElement("path",{d:"M152,8 L168,4 L184,6 L192,14 L192,24 L186,32 L176,36 L164,34 L154,26 L150,16 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
+          // Central America
+          React.createElement("path",{d:"M80,200 L86,206 L90,216 L88,224 L84,228 L80,222 L78,212 L78,204 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
+          // South America — correct wide top, Amazon bulge, narrow tip
+          React.createElement("path",{d:"M88,228 L98,222 L112,218 L126,218 L140,222 L152,230 L160,242 L164,256 L164,272 L160,288 L154,304 L144,318 L130,328 L116,332 L102,328 L90,316 L82,300 L78,282 L78,264 L80,248 L84,236 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:1}),
+          // Europe — Iberia, France/Germany blob, Scandinavia up top
+          React.createElement("path",{d:"M216,28 L228,24 L240,22 L252,24 L260,28 L268,34 L274,42 L276,52 L274,62 L268,70 L260,76 L250,80 L240,80 L230,76 L222,70 L216,62 L212,52 L212,42 L214,34 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:1}),
+          // Iberian Peninsula
+          React.createElement("path",{d:"M214,62 L224,60 L232,64 L236,74 L232,84 L222,86 L214,80 L210,70 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.8}),
+          // Great Britain
+          React.createElement("path",{d:"M206,28 L214,24 L218,30 L216,40 L210,46 L204,42 L202,34 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
+          // Ireland
+          React.createElement("path",{d:"M198,32 L204,28 L208,34 L206,42 L200,44 L196,38 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.5}),
+          // Scandinavia — elongated
+          React.createElement("path",{d:"M240,8 L252,4 L264,8 L270,18 L268,30 L260,38 L250,40 L240,34 L234,24 L234,14 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.8}),
+          // Italy boot
+          React.createElement("path",{d:"M248,72 L256,68 L264,72 L266,82 L262,94 L256,102 L250,98 L246,88 L246,78 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
+          // Balkan/Greece stub
+          React.createElement("path",{d:"M264,76 L272,74 L278,80 L276,90 L270,94 L264,88 L260,80 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.5}),
+          // Africa — recognisable bulge and horn
+          React.createElement("path",{d:"M218,88 L234,84 L250,82 L264,86 L276,92 L284,102 L290,114 L294,128 L294,144 L292,160 L288,178 L280,196 L270,212 L256,224 L240,232 L224,234 L210,226 L200,212 L194,196 L190,178 L190,160 L192,142 L196,124 L202,108 L210,98 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:1}),
+          // Horn of Africa
+          React.createElement("path",{d:"M292,150 L306,148 L318,154 L322,164 L314,170 L300,168 L292,160 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
+          // Madagascar
+          React.createElement("path",{d:"M298,196 L304,190 L310,192 L312,204 L308,216 L300,218 L294,208 L294,198 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.5}),
+          // Middle East / Arabian Peninsula
+          React.createElement("path",{d:"M294,102 L310,98 L328,100 L338,108 L340,120 L334,130 L318,136 L302,132 L292,120 L290,110 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.8}),
+          React.createElement("path",{d:"M306,132 L322,130 L334,138 L336,152 L328,166 L316,170 L304,162 L300,148 L300,138 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
+          // Asia main — correct proportions
+          React.createElement("path",{d:"M278,18 L300,12 L326,8 L354,6 L382,6 L408,10 L432,16 L452,24 L466,34 L474,46 L478,60 L476,74 L470,88 L460,100 L446,110 L428,118 L408,124 L386,126 L364,122 L342,116 L320,108 L300,98 L284,86 L274,72 L270,56 L272,42 L274,30 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:1}),
+          // Indian subcontinent
+          React.createElement("path",{d:"M338,118 L356,114 L370,118 L378,132 L378,148 L370,162 L356,172 L342,170 L330,158 L326,144 L328,130 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.9}),
+          // Sri Lanka
+          React.createElement("ellipse",{cx:358,cy:178,rx:4,ry:6,fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.4}),
+          // Indochina/SE Asia
+          React.createElement("path",{d:"M404,118 L422,114 L438,118 L448,130 L444,144 L430,150 L414,148 L404,136 L400,126 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.8}),
+          // Malay peninsula
+          React.createElement("path",{d:"M418,144 L426,150 L430,162 L428,174 L422,178 L416,172 L414,160 L414,150 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
+          // Borneo
+          React.createElement("path",{d:"M434,154 L452,150 L464,156 L468,170 L462,184 L448,190 L434,184 L426,172 L428,160 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
+          // Japan (elongated island)
+          React.createElement("path",{d:"M458,62 L468,56 L476,60 L478,70 L474,80 L464,84 L456,78 L454,68 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
+          // Korean peninsula
+          React.createElement("path",{d:"M448,82 L458,78 L464,86 L460,96 L452,100 L444,94 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
+          // Taiwan
+          React.createElement("ellipse",{cx:454,cy:110,rx:4,ry:7,fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.4}),
+          // Philippines
+          React.createElement("path",{d:"M462,128 L468,124 L474,130 L472,140 L464,144 L458,138 L460,130 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.5}),
+          // Australia — correct shape
+          React.createElement("path",{d:"M416,200 L438,192 L460,190 L480,194 L494,202 L502,214 L504,230 L500,244 L490,256 L474,264 L456,268 L438,266 L422,256 L410,242 L406,226 L408,212 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:1}),
+          // New Zealand
+          React.createElement("path",{d:"M508,250 L516,244 L522,250 L520,262 L512,268 L506,262 L506,254 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.5}),
+          // Iceland
+          React.createElement("path",{d:"M190,18 L202,14 L214,16 L218,24 L214,30 L202,32 L190,28 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
+          // Antarctica
+          React.createElement("path",{d:"M156,334 L200,328 L248,324 L296,322 L344,324 L392,328 L432,334 L420,344 L380,348 L328,350 L276,350 L224,348 L180,344 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
+
+          // THREAT DOTS
+          ...threats.map(t=>{
+            const c=threatColor(t);const dep=depMap[t.id]&&depMap[t.id].length>0;
+            return React.createElement("g",{key:t.id,filter:"url(#glow)"},
+              React.createElement("circle",{cx:t.x,cy:t.y,r:20,fill:`${c}09`,stroke:c,strokeWidth:.5,className:"pulse-ring"}),
+              React.createElement("circle",{cx:t.x,cy:t.y,r:10,fill:`${c}18`,stroke:c,strokeWidth:1}),
+              React.createElement("circle",{cx:t.x,cy:t.y,r:4,fill:c}),
+              dep&&React.createElement("circle",{cx:t.x,cy:t.y,r:15,fill:"none",stroke:"#00d4ff",strokeWidth:1.5,strokeDasharray:"4,3"}),
+              React.createElement("text",{x:t.x,y:t.y-23,textAnchor:"middle",fontSize:7,fill:c,fontFamily:"'Share Tech Mono',monospace"},t.loc),
+              React.createElement("text",{x:t.x,y:t.y+28,textAnchor:"middle",fontSize:7,fill:"#00d4ff",fontFamily:"'Share Tech Mono',monospace"},`T-${Math.floor(t.timer/60)}:${String(t.timer%60).padStart(2,"0")}`)
+            );
+          }),
+          React.createElement("rect",{x:8,y:342,width:564,height:6,rx:2,fill:"rgba(255,255,255,.04)",stroke:"#0a2a40",strokeWidth:.5}),
+          React.createElement("rect",{x:8,y:342,width:Math.min(564,(score/target)*564),height:6,rx:2,fill:"url(#sg)"}),
+          React.createElement("text",{x:290,y:340,textAnchor:"middle",fontSize:7.5,fill:"var(--text3)",fontFamily:"'Share Tech Mono',monospace"},`SCORE: ${score} / ${target}${extMode?" [EXTENDED]":""}`)
+        )
+      ),
+      // THREATS PANEL
+      React.createElement("div",{className:"threats-panel"},
+        React.createElement("div",{style:{padding:"7px 7px 0"}},React.createElement("div",{className:"panel-header"},"◈ ACTIVE THREATS")),
+        React.createElement("div",{className:"threat-list"},
+          threats.length===0&&React.createElement("div",{style:{fontSize:9,color:"var(--text3)",padding:12,textAlign:"center"}},"No active threats."),
+          threats.map(t=>{
+            const dep=depMap[t.id]&&depMap[t.id].length>0;const c=threatColor(t);
+            return React.createElement("div",{key:t.id,className:`threat-card priority-${t.priority}${selThreat===t.id?" sel":""}`,onClick:()=>setSelThreat(selThreat===t.id?null:t.id)},
+              React.createElement("div",{className:"threat-name"},t.name),
+              React.createElement("div",{className:"threat-loc"},t.loc),
+              React.createElement("div",{className:"threat-meta-row"},
+                React.createElement("span",{className:"t-timer"},`T-${Math.floor(t.timer/60)}:${String(t.timer%60).padStart(2,"0")}`),
+                React.createElement("span",{style:{color:c}},P_LABELS[t.priority]||t.priority),
+                dep&&React.createElement("span",{style:{color:"#00d4ff"}},"● ACTIVE"),
+                React.createElement("span",{style:{color:"var(--gold)"}},`+${t.reward}`)
+              ),
+              selThreat===t.id&&React.createElement("div",null,
+                React.createElement("div",{className:"threat-desc"},t.desc),
+                React.createElement("button",{className:"deploy-btn",disabled:dep||!allDeployable.length,onClick:e=>{e.stopPropagation();openDep(t);}},dep?"HEROES DEPLOYED":"▶ DEPLOY HEROES")
+              )
+            );
+          })
+        )
+      )
+    ),
+    React.createElement("div",{className:"mission-log"},
+      React.createElement("div",{className:"log-prefix"},"INTEL //"),
+      React.createElement("div",{className:"log-text"},log),
+      React.createElement("div",{className:"log-time"},logTime)
+    ),
+    // DEPLOY MODAL
+    depModal&&React.createElement("div",{className:"modal-overlay",onClick:()=>setDepModal(null)},
+      React.createElement("div",{className:"modal",onClick:e=>e.stopPropagation()},
+        React.createElement("div",{className:"modal-title"},`DEPLOY: ${depModal.name}`),
+        React.createElement("div",{className:"modal-sub"},`${depModal.loc} · ${P_LABELS[depModal.priority]||""}`),
+        (()=>{if(picked.length===1){const h=heroes.find(x=>x.id===picked[0]);if(h&&isSuicide(h,heroes,picked))return React.createElement("div",{className:"suicide-warn"},"⚠ SUICIDE MISSION: <10 HP, alone, 2+ heroes at full. 25% chance of turning villain if KIA.");}return null;})(),
+        React.createElement("div",{className:"hero-select-list"},
+          heroes.filter(h=>!["shopLocked","gameLocked","kia"].includes(h.status)).map(h=>{
+            const{power,maxHP}=effStats(h,rom,dis);const dep=canDeploy(h);const pk=picked.includes(h.id);
+            return React.createElement("div",{key:h.id,className:`hsi${pk?" picked":""}${!dep?" unavailable":""}`,onClick:()=>dep&&toggleH(h.id)},
+              React.createElement("div",null,
+                React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:10,color:h.isJohn?"#ffd700":clsColor(h.cls),marginBottom:2}},h.title),
+                React.createElement("div",{style:{fontSize:9,color:"var(--text3)"}},`${h.cls.toUpperCase()} · PWR ${power.toFixed(1)} · HP ${Math.round(h.currentHP)}/${maxHP}`),
+                h.status==="resting"&&dep&&React.createElement("div",{className:"hsi-warn"},"⚠ Not at full HP")
+              ),
+              React.createElement("div",{style:{display:"flex",gap:5,alignItems:"center"}},
+                !dep&&React.createElement("span",{className:`hero-badge badge-${h.status}`},h.status.toUpperCase()),
+                pk&&React.createElement("span",{style:{color:"var(--accent)",fontSize:14}},"✓")
+              )
+            );
+          })
+        ),
+        React.createElement("button",{className:"confirm-btn",disabled:!picked.length,onClick:confirmDep},`▶ DEPLOY ${picked.length} HERO${picked.length!==1?"ES":""}`),
+        React.createElement("button",{className:"modal-close",onClick:()=>setDepModal(null)},"✕ CANCEL")
+      )
+    ),
+    // RESULT MODAL
+    modal&&React.createElement("div",{className:"modal-overlay",onClick:()=>setModal(null)},
+      React.createElement("div",{className:"modal",onClick:e=>e.stopPropagation()},
+        React.createElement("div",{className:"modal-title"},"MISSION DEBRIEF"),
+        React.createElement("div",{className:"modal-sub"},`${modal.threat.name} · ${modal.threat.loc}`),
+        React.createElement("div",{className:`modal-outcome outcome-${modal.outcome}`},modal.outcome==="success"?"▲ MISSION SUCCESS":modal.outcome==="partial"?"◈ PARTIAL SUCCESS":"▼ MISSION FAILED"),
+        React.createElement("div",{className:"modal-narration"},modal.narration),
+        React.createElement("div",{className:"modal-stats"},
+          modal.heroes.map(h=>{
+            const u=heroes.find(x=>x.id===h.id);const d=modal.damages?.[h.id];
+            const{maxHP}=effStats(h,rom,dis);const lv=modal.levelUps?.find(l=>l.title===h.title);
+            return React.createElement("div",{key:h.id,className:"mstat"},
+              React.createElement("div",{className:"mstat-label"},h.title),
+              React.createElement("div",{className:"mstat-val",style:{color:h.isJohn?"#ffd700":u?.status==="kia"?"var(--red)":u?.status==="exhausted"?"var(--yellow)":"var(--green)"}},
+                u?.status==="kia"?"K.I.A.":`HP ${Math.round(u?.currentHP||0)}/${maxHP}`
+              ),
+              d&&React.createElement("div",{style:{fontSize:8,color:"var(--text3)",marginTop:2}},`-${d.health}hp`),
+              modal.xpEarned>0&&!["kia"].includes(u?.status)&&React.createElement("div",{className:"mstat-xp"},`+${modal.xpEarned} XP`),
+              lv&&React.createElement("div",{style:{fontSize:8,color:"var(--gold)",marginTop:2}},`⭐ → ${CAREER[lv.to].label}`)
+            );
+          })
+        ),
+        modal.levelUps?.length>0&&React.createElement("div",{className:"modal-notice notice-gold"},`⭐ LEVEL UP: ${modal.levelUps.map(l=>`${l.title} → ${CAREER[l.to].label}`).join(" · ")}`),
+        modal.newRomMsg&&React.createElement("div",{className:"modal-notice notice-pink"},modal.newRomMsg),
+        modal.newDisMsg&&React.createElement("div",{className:"modal-notice notice-red"},modal.newDisMsg),
+        modal.unlockMsg&&React.createElement("div",{className:"modal-notice notice-green"},`🔓 ${modal.unlockMsg}`),
+        modal.redeemedVillains?.length>0&&React.createElement("div",{className:"modal-notice notice-purple"},`✨ JOHN redeemed: ${modal.redeemedVillains.map(v=>v.title).join(" & ")}! They join the WSPA roster.`),
+        modal.turnedVillain&&React.createElement("div",{className:"modal-notice notice-orange"},`🔴 ${modal.turnedVillain.title} survived and turned villain. They are now a WSPA threat.`),
+        modal.anyKIA&&!modal.turnedVillain&&React.createElement("div",{className:"modal-notice notice-red"},"⚠ HERO LOST IN ACTION. They will not be returning, Director."),
+        React.createElement("button",{className:"modal-close",onClick:()=>setModal(null)},"◈ CLOSE DEBRIEF")
+      )
+    )
+  );
+}
+
+ReactDOM.render(React.createElement(App),document.getElementById("root"));
+</script>
+</body>
+</html>
+HTMLEOF
+echo "V5 complete — $(wc -c < /mnt/user-data/outputs/wspa_command_v5.html) bytes"
