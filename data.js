@@ -17,8 +17,10 @@ const P_COLORS={purple:"#aa44ff",red:"#ff3333",orange:"#ff7722",yellow:"#ffdd00"
 function escalate(p){const i=P_ORDER.indexOf(p);return i>=0&&i<P_ORDER.length-1?P_ORDER[i+1]:p;}
 
 // ─── SHOP-LOCKED HEROES ───────────────────────────────────────────────────────
-const SHOP_LOCK_TITLES=["The Anchor","Greywulf","Ironside","Pyrexa","Seraph"];
+const SHOP_LOCK_TITLES=["The Anchor","Greywulf","Ironside","Pyrexa","Seraph","Big Mack","Scarlett","Corvair","The Dragon of the Daimyo"];
+const SHOP_VILLAIN_TITLES=["The Vicountess","Dr. Stinkenstein","Hydrotheppilies"];
 const SHOP_PRICE=200;
+const SHOP_VILLAIN_PRICE=100;
 
 // ─── CATCHPHRASES ─────────────────────────────────────────────────────────────
 const CP={
@@ -55,7 +57,170 @@ const CP={
   "Mrs. Peanut":["THEY WILL PAY FOR WHAT THEY'VE DONE TO US.","Every jar… every tin… I remember.","Allergy season has never been so personal.","Peanut dust rising.","No mercy. None."],
   "Chupacabra":["El Chupacabra no forgives.","The hunt never ends.","They run. I am faster.","Blood calls to blood.","Fear me."],
   "Swirrlous":["The planet deserves better!","I changed causes three times today. Still right.","Eco-terrorism is just passionate environmentalism.","Don't cut down trees near me.","Illusions hurt no one. Unlike you people."],
+  "Big Mack":["Ready to hit something.","Simple problem, simple solution.","I'm the wrecking ball.","Don't overthink it.","Let's go."],
+  "Scarlett":["You're not sure who I am. Good.","I can be anyone I need to be.","Team player. Always.","Leave the recon to me.","You might not recognize me next time."],
+  "Corvair":["Hi! This is so exciting!","I believe in all of you!","Are we friends? I think we're friends!","Everything is going to be great!","I'm just happy to be here!"],
+  "The Dragon of the Daimyo":["YAAAAS let's GO!","Dragon mode: unlocked!","I practiced this transformation for weeks.","Someone is going to clip this for Twitter.","The character arc is so real right now."],
+  "The Vicountess":["Knowledge is the only currency that matters.","My family comes first.","This is fascinating, from a scientific perspective.","Blood alchemy is just chemistry with flair.","I'm not cruel — I'm curious."],
+  "Dr. Stinkenstein":["Hm. I think I can make that stinkier.","Science of the disgusting variety.","My wife says I need a hobby. This is my hobby.","Weapons of Mass Disgusting. I'm proud of that name.","The nose knows."],
+  "Hydrotheppilies":["We are NOT jokes.","The ocean has more heroes than your history books admit.","K.B. Shrimperson does not yield.","Don't call me the knockoff.","The aquatic world will have its recognition."],
 };
+const JOHN_DEPARTURE_QUOTES=[
+  "I've gotta go help out somewhere else.",
+  "Be right back.",
+  "The Crimson Knight told me I need to do good, so I'm going to go help the Gemumbians.",
+  "The Orions need my help!",
+  "Baglarion the Sun Destroyer needs to be stopped before he finds the Axe of Galaxial Destruction!",
+  "The Mijishi World needs my help!",
+  "The Cloxian dimension needs me to help keep it from self erasing.",
+  "The Cloxians need my help!",
+  "I'm going to pick up a special token of my love for The Crimson Knight back home!",
+  "The Flabermians need my help!",
+  "The Coagulanians are in trouble. I'm going to go help them!",
+  "The Halluxians got into a war with the Enginians and the Tiploplians. I need to broker peace.",
+  "I'm going to go pick up my favorite Ice Cream on Malxinaria Prime. I'll be right back…",
+  "I must go stop Dacernus before he reaches this solar system!",
+];
+const CK_JOHN_DEPARTURE_RESPONSES=[
+  "See you later, alligator.",
+  "Don't be gone for too long! I have tickets to see that new superhero movie!",
+  "Don't get into too much trouble!",
+  "Tell the aliens I say hi!",
+];
+
+// ─── NEWS SOURCES ──────────────────────────────────────────────────────────────
+const NEWS_SOURCES=["The Guardians","Heroes Weekly","Villain Watch","Life and Death Magazine","The Heartthrob Weekly","Gust the Facts"];
+
+// ─── NEWS HEADLINES ───────────────────────────────────────────────────────────
+const HEADLINES={
+  villainDefeatsHeroes:[
+    "Y defeats Earth's strongest heroes!",
+    "Y thwarts our beloved protectors!",
+    "Defenders stalled by ruthless and cunning Y!",
+    "Y comes out on top!",
+    "Can anyone stop Y?",
+    "Y is mere moments from conquering the world!",
+    "'Why Y conquering the world isn't such a bad thing.' — Written by Definitely Not Y",
+    "Top 10 'Hear Me Out's' — #1 is Y",
+    "Y just embarrassed the best we have to offer!",
+    "Who is managing these heroes?",
+    "Generational fumble!",
+  ],
+  threatDefeatsHeroes:[
+    "Natural Disaster bodies superheroes!",
+    "Z eeks out victory over beloved heroes!",
+    "Does Z have a point?",
+    "Why Z is overrated…",
+    "I for one welcome my new Z overlords",
+    "Our heroes can't even defeat Z?",
+  ],
+  heroDies:[
+    "Rest in Peace X, You will be remembered.",
+    "X saved me, now they're gone… A biopic.",
+    "A funeral ceremony for X.",
+    "The President of the United States honors X at memorial.",
+    "Why X was my favorite hero. — A young boy's story.",
+    "Why X was my favorite hero. — A young girl's story.",
+    "Why X was my favorite hero. — An old man's story.",
+    "Why X was my favorite hero. — An old woman's story.",
+    "The President of North Korea Calls US President to offer Condolences over X.",
+    "The President of Russia Calls US President to offer Condolences over X.",
+    "The President of China Calls US President to offer Condolences over X.",
+    "The President of India Calls Pakistani President to mourn X.",
+  ],
+  heroesWinNoRel:[
+    "X and X team up to stop Y!",
+    "X and X save the day!",
+    "Who did more work, X or X?",
+  ],
+  heroesWinDisdain:[
+    "Who needs enemies when X and X have each other?",
+    "Why X is really better than X, an opinion.",
+    "Can we normalize X being better than X?",
+    "We all know X carried X.",
+    "Someone fire X from the team before they get X killed!",
+    "I stan X, not X.",
+    "Why those damn teens need to stop whining about X being better than X. Get over it.",
+  ],
+  heroesWinRomantic:[
+    "The Power couple, X and X, save the world!",
+    "X and X show us the power of love!",
+    "Why shipping X and X is giving hopecore!",
+    "Love, power, and heroism. What more could X and X want?",
+  ],
+  heroesDevelopRelationship:[
+    "Super spice? X and X seen holding hands after battle.",
+    "Naughty hero work? The secret life of X and X.",
+    "The secret lives of our Heroes — X and X.",
+  ],
+  johnRedeemsVillain:[
+    "John shows us no one is beyond saving.",
+    "Can we trust Y to do good?",
+  ],
+  johnStopsVillainOrThreat:[
+    "John might be that guy.",
+    "This guy better never go evil…",
+    "Why The Crimson Knight and John's relationship is saving the world.",
+    "Is this the hero of the future?",
+    "The Golden Boy from far away…",
+    "Who is John?",
+    "I swear John is overrated… Even after this.",
+  ],
+  johnLeavesToOtherPlanets:[
+    "Who will step up to protect us?",
+    "Who could beat John in a fight?",
+    "Top five team ups that could give John a run for his money.",
+    "Why literally no team up could match John and The Crimson Knight.",
+    "Crimson Knight not worried about John after months of disappearance.",
+    "The Crimson Knight is more okay with John being gone than I am! An Opinion Piece.",
+  ],
+  heroWinsSolo:[
+    "X triumphs again!",
+    "Can X be stopped?",
+    "Forget teams, X has got our backs!",
+    "X showed the world what heroism looks like.",
+    "Honestly, who else do we need beside X?",
+    "X kinda embarrassed their teammates today…",
+    "WSPA who? X is talking.",
+    "Right Person for the mission.",
+    "X got lucky!",
+    "X, the brave and the bold.",
+  ],
+  generic:[
+    "X vs Y, who would win?",
+    "We asked our audience their favorite ships, the top answer? X and X.",
+    "Which heroes could beat X?",
+    "Survey says this one supervillain could only be beaten by X.",
+    "Is X overrated? Our answer… It depends…",
+    "Is X a psyop to convince young men to distrust society?",
+    "Is X a psyop to convince young women to distrust society?",
+    "Why liking X makes you a psychopath and liking X makes me cool.",
+    "Why Y is kinda hot, and I'm tired of pretending they're not.",
+    "Stop shipping Y with X! I can't keep liking all of this fanfiction!",
+    "Burning Love: The fanfiction of X and X that has tens of thousands of views.",
+    "Enemies to lovers: Why millions ship X and Y.",
+    "Small Earthquake in the North Pacific.",
+    "Hero X caught listening to their own biopic on audiobook.",
+    "Discovering X: A hero's journey to finding themself.",
+    "Five heroes to beat Y, who are you taking? Why my team isn't complete without X.",
+  ],
+};
+
+function pickHeadline(type,heroes,villainName,threatName){
+  const pool=HEADLINES[type];
+  if(!pool||!pool.length)return null;
+  let h=pool[Math.floor(Math.random()*pool.length)];
+  const heroNames=heroes.filter(x=>x&&x.title).map(x=>x.title);
+  const src=NEWS_SOURCES[Math.floor(Math.random()*NEWS_SOURCES.length)];
+  // Replace X placeholders with hero names
+  let i=0;
+  h=h.replace(/\bX\b/g,()=>heroNames[i++%heroNames.length]||"our heroes");
+  // Replace Y with villain name
+  if(villainName)h=h.replace(/\bY\b/g,villainName);
+  // Replace Z with threat name
+  if(threatName)h=h.replace(/\bZ\b/g,threatName);
+  return `[${src}] ${h}`;
+}
 const ROM_QUIPS=["Fighting beside you makes this worth it. 💕","Stay safe out there — for me.","You make the impossible feel possible. 💕","Side by side, like always.","I'd follow you anywhere. Even here."];
 const DIS_QUIPS=["Try not to get in my way.","I'm here for the mission, not for you.","Don't speak to me until this is over.","Do your job and stay out of mine.","Not. Now."];
 const READY_QUIPS=["Back at full strength! Ready to deploy.","Fully recovered. What did I miss?","Healed up and reporting for duty.","100%. Let's go.","Ready when you are, Director."];
@@ -99,13 +264,18 @@ const ALL_HERO_DEFS=[
   {id:14,title:"Shadowmere",realName:"Lena Voss",basePower:6.3,baseHP:63,career:"beginner",cls:"cannon",regenSec:22,functionalAt:15,personality:"German assassin turned hero. Precise, private, deadly.",abilities:"Shadow manipulation, silent movement, darkness blasts, perfect marksmanship.",weaknesses:"Powerless in total light.",affiliates:["The Anchor"],specialAbility:"Lone Wolf Bonus: +0.4 power when deployed solo.",baseAvail:true,color:"#ff8844"},
   {id:15,title:"Seraph",realName:"Unknown",basePower:8.6,baseHP:70,career:"beginner",cls:"cannon",regenSec:18,functionalAt:20,personality:"Ancient celestial being. Calm, otherworldly, occasionally cryptic.",abilities:"Divine energy blasts, healing light, flight, temporal slow field.",weaknesses:"Dark magic. Corruption-based attacks.",affiliates:["The Crimson Knight","Cassonik"],specialAbility:"Celestial Aura: +1.0 power for both when fighting alongside The Crimson Knight.",shopLocked:true,baseAvail:true,color:"#ff8844"},
   // UNLOCKABLE IN-GAME
-  {id:50,title:"John",realName:"Unknown",basePower:9.9,baseHP:100,career:"beginner",cls:"tank",regenSec:5,functionalAt:40,romanceStatus:"Dating The Crimson Knight",romanceLocked:true,personality:"A mystery hero of extraterrestrial origin. He appeared after The Crimson Knight vouched for him. Extremely gentle with villains — prefers to talk them into doing good. Enjoys discussing his homeworld, which may be destroyed, a galaxy-spanning empire, or a different dimension entirely, depending on the source.",abilities:"Super strength, super speed, flight, super durability, mirages, self-transfiguration.",weaknesses:"Extremely powerful physical and magical blasts. Cautious nature occasionally delays action.",affiliates:["The Crimson Knight","IceBerg"],specialAbility:"Redemption: 20% chance per villain mission to redeem them. 20% chance to redeem BOTH on team-up missions.",secretTrait:"If The Crimson Knight turns villain, John turns with her. They appear together as a US-based team-up threat requiring 10 heroes with power >5 to stop. Unparalleled Strength: attacks deal 3× damage; incoming damage is always halved.",isJohn:true,gameLocked:true,unlockCondition:"Unlocked when The Crimson Knight reaches Veteran rank.",redemptionCooldown:0,color:"#ffd700"},
+  {id:50,title:"John",realName:"Unknown",basePower:9.9,baseHP:100,career:"veteran",cls:"tank",regenSec:5,functionalAt:40,romanceStatus:"Dating The Crimson Knight",romanceLocked:true,personality:"A mystery hero of extraterrestrial origin. He appeared after The Crimson Knight vouched for him. Extremely gentle with villains — prefers to talk them into doing good. Enjoys discussing his homeworld, which may be destroyed, a galaxy-spanning empire, or a different dimension entirely, depending on the source.",abilities:"Super strength, super speed, flight, super durability, mirages, self-transfiguration.",weaknesses:"Extremely powerful physical and magical blasts. Cautious nature occasionally delays action.",affiliates:["The Crimson Knight","IceBerg"],specialAbility:"Redemption: 20% chance per villain mission to redeem them. 20% chance to redeem BOTH on team-up missions.",secretTrait:"If The Crimson Knight turns villain, John turns with her. They appear together as a US-based team-up threat requiring 10 heroes with power >5 to stop. Unparalleled Strength: attacks deal 3× damage; incoming damage is always halved.",isJohn:true,gameLocked:true,unlockCondition:"Unlocked when The Crimson Knight reaches Veteran rank.",redemptionCooldown:0,color:"#ffd700"},
   {id:51,title:"Adrenaline Junkie",realName:"Andrew Maxis",basePower:6.7,baseHP:67,career:"beginner",cls:"support",regenSec:25,functionalAt:15,personality:"Introverted adrenaline junkie and video game developer. Lone wolf.",abilities:"Electricity control, extensive tech suits.",weaknesses:"Electrical dampeners. Large crowds.",affiliates:["The Flip"],specialAbility:"Mecha Suit: +20 HP to self. Energizes teammates.",mechaBonus:20,gameLocked:true,unlockCondition:"Unlocked when The Flip reaches Veteran rank.",color:"#44ff88"},
   {id:52,title:"Captain Shamrock",realName:"Amos Morris",basePower:5.2,baseHP:74,career:"beginner",cls:"tank",regenSec:50,functionalAt:15,personality:"Bright, enthusiastic Irish boyscout. Deeply patriotic.",abilities:"High durability and strength with the Shield of Shamrock — an immensely powerful magic shield.",weaknesses:"Normal human when separated from the shield.",affiliates:["The Flip"],specialAbility:"Guardian: saves any dying hero on his mission, leaving them at 1 HP. Cannot save himself.",gameLocked:true,unlockCondition:"Unlocked after defeating The Loch Ness Monster.",color:"#44bb44"},
   {id:53,title:"Hydrothylre",realName:"Jean Pierre Shrimperson",basePower:3.4,baseHP:40,career:"beginner",cls:"tank",regenSec:35,functionalAt:5,personality:"Emo and depressed sentient fish-humanoid. King of the Shrimperson race.",abilities:"Oceanic mastery, summons whales and sharks. Power Level and HP double in ocean.",weaknesses:"Electricity. Low moisture. Fire. High temperatures.",affiliates:[],specialAbility:"Delegation: all incoming damage halved when fighting aquatic threats.",gameLocked:true,unlockCondition:"Unlocked after any ocean victory.",color:"#0088cc"},
   {id:54,title:"Dinosia",realName:"Rebekka Elken",basePower:6.2,baseHP:55,career:"beginner",cls:"tank",regenSec:35,functionalAt:20,personality:"Science nerd who loves dinosaurs. Lives out of a van.",abilities:"Transforms into any dinosaur for flight, strength, or speed as needed.",weaknesses:"Susceptible to magic. Weight class disadvantages.",affiliates:["The Crimson Knight","John","The Flip"],specialAbility:"Helps The Flip with archaeology — no combat bonus, great personal joy.",gameLocked:true,unlockCondition:"Unlocked after defeating a Kaiju threat.",color:"#88cc44"},
   {id:55,title:"El Infinite",realName:"Giovanni Pabloni",basePower:8.3,baseHP:83,career:"beginner",cls:"cannon",regenSec:40,functionalAt:3,personality:"Arrogant yet shockingly inept Masters student from California.",abilities:"Flight, super speed, extreme perception.",weaknesses:"Extremely low durability, sensory overload. No one enjoys working with him.",affiliates:[],specialAbility:"Masters Revoked: his thesis plagiarism saddens him but removes all active disdains against him.",secretTrait:"Cannot contribute to a win unless 5+ heroes are deployed on the same mission.",gameLocked:true,unlockCondition:"Unlocked after winning a battle in Rome.",color:"#ff8844"},
   {id:56,title:"The Gummy Bear",realName:"Josh Justice",basePower:4.3,baseHP:80,career:"beginner",cls:"tank",regenSec:10,functionalAt:1,personality:"Kind, warm former vet who now runs an ice cream shop. Doesn't seem interested in hurting anyone.",abilities:"Can turn body parts gelatinous, absorbing damage. Difficult to harm.",weaknesses:"Temperature variation. Water.",affiliates:["The Flip","Adrenaline Junkie"],specialAbility:"Cushion: halves all damage received by other heroes on his missions.",gameLocked:true,unlockCondition:"Unlocked after any victory in North America.",color:"#ffcc44"},
+  // ── NEW SHOP HEROES ──
+  {id:57,title:"Big Mack",realName:"Mack",basePower:5.1,baseHP:50,career:"beginner",cls:"cannon",regenSec:39,functionalAt:25,personality:"A dependable brute. He views life in simplistic terms.",abilities:"Able to fire himself in short, powerful bursts at his foes. His high durability makes him an effective wrecking ball, but durability is charged in his blasts.",weaknesses:"After a blast, his durability and strength are reduced, and he can get nauseous.",affiliates:["The Gummy Bear"],specialAbility:"Charged Blasts: his blasts now do extra damage ×1.1.",shopLocked:true,baseAvail:true,color:"#ff8844"},
+  {id:58,title:"Scarlett",realName:"Alexandria Rose",basePower:2.6,baseHP:33,career:"beginner",cls:"support",regenSec:15,functionalAt:15,personality:"A smaller, less durable hero who plays as an excellent team player.",abilities:"Able to shapeshift into any other person she's seen before.",weaknesses:"Human durability. Can only hold a shape for an hour or so.",affiliates:["Adrenaline Junkie"],specialAbility:"Intel: All missions she goes on have a 10% higher success rate.",shopLocked:true,baseAvail:true,color:"#44ff88"},
+  {id:59,title:"Corvair",realName:"Dakota Jasup",basePower:1.1,baseHP:25,career:"beginner",cls:"support",regenSec:10,functionalAt:25,personality:"A bubbly and kind hero who really shouldn't be on our roster. She has mild powers of friendship, and we can't actually tell if it's a superpower or if she's just really positive and friendly.",abilities:"Has the ability to make anyone happier.",weaknesses:"Extremely susceptible to all forms of damage.",affiliates:["The Dragon of the Daimyo"],specialAbility:"Somewhere I Belong: upon reaching veteran, all heroes gain a boost of +0.5 to their power level.",shopLocked:true,baseAvail:true,color:"#44ff88"},
+  {id:60,title:"The Dragon of the Daimyo",realName:"Sakura Kitsune",basePower:7.3,baseHP:66,career:"beginner",cls:"tank",regenSec:50,functionalAt:40,personality:"Loves anime, westerns, dancing, Kpop, Kdrama, and gaming. Is the direct descendant of an emperor, though her magic comes from her mother's line. Extremely bubbly and warm. Enjoys emoting after winning and loves being a media darling.",abilities:"Capable of transforming into a powerful dragon. Water breath.",weaknesses:"Entirely mortal in her human form.",affiliates:["John","The Crimson Knight","Corvair"],specialAbility:"Anime Transformation: her transformation now includes thick plated dragon plate armor. +10 HP to herself.",shopLocked:true,baseAvail:true,color:"#4488ff"},
 ];
 
 // ─── VILLAINS ─────────────────────────────────────────────────────────────────
@@ -121,6 +291,10 @@ const VILLAIN_DEFS=[
   {id:108,title:"Scylla",realName:"Hadria Andressa",basePower:5.2,baseHP:48,career:"beginner",cls:"cannon",regenSec:45,functionalAt:25,personality:"Ancient warrior queen betrayed centuries ago, seeking revenge against humanity.",abilities:"High strength, telekinesis, Hammer of the Sun.",weaknesses:"Weak to water and cold.",affiliates:[],specialAbility:"Orbital Strike: usable only against other supervillains.",redeemable:true,threatType:"mystic",loc:"Mediterranean",x:262,y:96,reward:38},
   {id:109,title:"Golgotha",realName:"Elizia Walter",basePower:4.4,baseHP:58,career:"beginner",cls:"support",regenSec:35,functionalAt:30,personality:"Gothic vampire empress from the middle ages. Refined, elegant, champions art.",abilities:"Flight, bat transformation, mild hypnosis over underlings, mild durability.",weaknesses:"High temperatures. Fire. Sunlight. Weaker during daytime.",affiliates:["Dinosia"],specialAbility:"Birthright: fights at 2× strength on the European continent.",redeemable:true,threatType:"mystic",loc:"Transylvania",x:280,y:76,reward:30},
   {id:110,title:"Mrs. Peanut",realName:"N/A",basePower:1.3,baseHP:55,career:"beginner",cls:"support",regenSec:1,functionalAt:1,personality:"A sentient human-sized peanut horrified by the mass slaughter of her kin.",abilities:"Shoots peanuts from fingers, spreads peanut dust. All damage ×100 against peanut allergy heroes. ×5 damage to The Sportsman.",weaknesses:"Anything.",affiliates:[],specialAbility:"Inner Peace: retires to raise a family upon redemption. Permanently removed from villain pool.",isPeanut:true,redeemable:true,threatType:"bio",loc:"Peanut Fields, Georgia",x:90,y:125,reward:8},
+  // ── SHOP VILLAINS ──
+  {id:111,title:"The Vicountess",realName:"Lyn Calia",basePower:4.9,baseHP:50,career:"beginner",cls:"cannon",regenSec:25,functionalAt:25,personality:"An engineer dedicated to her own personal wealth of knowledge. Blends engineering and blood magic with ruthless curiosity, caring primarily for her family. Married to Dr. Stinkenstein.",abilities:"Blood alchemy, magic, engineering.",weaknesses:"Low durability.",affiliates:["Dr. Stinkenstein"],specialAbility:"More Sustainable Source: able to use cow's blood. This does nothing for her overall abilities, but makes her happier.",shopVillain:true,redeemable:true,threatType:"military",loc:"Unknown",x:260,y:140,reward:30},
+  {id:112,title:"Dr. Stinkenstein",realName:"Coop Calia",basePower:5.1,baseHP:49,career:"beginner",cls:"cannon",regenSec:25,functionalAt:25,personality:"A prominent engineer focused on creating Weapons of Mass Disgusting. Loves his wife The Vicountess. Seems to enjoy his supervillain work for the break it provides from his day job.",abilities:"Creates devices that are extremely stinky.",weaknesses:"Normal human durability.",affiliates:["The Vicountess"],specialAbility:"Uh Oh Stinky: Can neutralize an entire field with his stink tools, increasing his attack by ×1.25 but increasing odds of heroes disdaining him by ×1.1.",shopVillain:true,redeemable:true,threatType:"military",loc:"Unknown",x:270,y:150,reward:30},
+  {id:113,title:"Hydrotheppilies",realName:"K.B. Shrimperson",basePower:5.3,baseHP:49,career:"beginner",cls:"tank",regenSec:40,functionalAt:25,personality:"A gothic shrimperson. Long lost sister of Jean Pierre Shrimperson, bearing witness to historical depictions of ocean-based heroes as jokes and wanting to correct this image.",abilities:"Aquatic powers.",weaknesses:"Weak to fire, high temperatures, electricity.",affiliates:["Hydrothylre"],specialAbility:"Welcome to the Aquatic Jungle: fights at 3× strength underwater.",shopVillain:true,redeemable:true,threatType:"bio",loc:"Ocean",x:300,y:200,reward:32},
 ];
 
 // ─── THREAT POOL ─────────────────────────────────────────────────────────────
@@ -186,6 +360,36 @@ const ALL_THREATS=[
   {id:259,name:"The Samsquanch",loc:"Canadian Wilderness",x:76,y:80,priority:"orange",type:"military",desc:"A superpowered man who dresses as Sasquatch to incite an interspecies war between humans and cryptids.",maxTimer:300,reward:26,isNorthAmerica:true},
   {id:260,name:"The Baddest Baddies",loc:"Monaco",x:248,y:88,priority:"orange",type:"military",desc:"An elite villain unit who define themselves as glamorously evil. Extraordinarily well-dressed. Very dangerous.",maxTimer:290,reward:32},
   {id:261,name:"Silver Meadows HOA",loc:"Phoenix, Arizona, USA",x:66,y:124,priority:"yellow",type:"military",desc:"An extremely vicious homeowners association. They have somehow acquired military-grade enforcement capabilities.",maxTimer:400,reward:10,isNorthAmerica:true},
+  // ── NEW THREATS ──
+  {id:262,name:"BEEHIVE THE SIZE OF RHODE ISLAND",loc:"Rhode Island, USA",x:108,y:106,priority:"red",type:"bio",desc:"A beehive the size of Rhode Island has appeared overnight. The bees are not happy.",maxTimer:190,reward:52,isNorthAmerica:true,isKaiju:true},
+  {id:263,name:"THE ANCIENT GREEK TITAN OCEANUS",loc:"Atlantic Ocean",x:175,y:140,priority:"red",type:"mystic",desc:"The primordial Titan Oceanus has risen from the depths of the Atlantic.",maxTimer:200,reward:60,isOcean:true},
+  {id:264,name:"REAPER: ENTITY OF DARKNESS",loc:"Unknown",x:165,y:145,priority:"red",type:"mystic",desc:"An entity of darkness who deals 45 damage to all support heroes. Avoid deploying support classes.",maxTimer:195,reward:58,reaperEffect:true},
+  {id:265,name:"CALAXES: THE PRECAMBRIAN MONSTER",loc:"Pacific Rim",x:460,y:180,priority:"red",type:"kaiju",desc:"A brutally tough monster from the Precambrian era. Deals 30 damage to all tanks regardless of stats.",maxTimer:200,reward:55,calaxesEffect:true,isKaiju:true},
+  {id:266,name:"ARCHONOIS: THE MAGIC USER",loc:"Eastern Europe",x:288,y:82,priority:"red",type:"mystic",desc:"A magic user poised to deal 30 damage to all cannons regardless of stats.",maxTimer:200,reward:55,archonoisEffect:true},
+  {id:267,name:"TYPHON: FATHER OF MONSTERS",loc:"Mediterranean Sea",x:270,y:106,priority:"purple",type:"mystic",desc:"Typhon, Father of Monsters. Deals 45 damage to ALL heroes regardless of stats. Any individual hero faces lethal risk except John.",maxTimer:180,reward:80,typhonEffect:true},
+  {id:268,name:"GEORGE THE GENTLE",loc:"Appalachia, USA",x:90,y:118,priority:"orange",type:"bio",desc:"An arthropleura from centuries prior, covered in ancient bacteria. Friendly but extremely dangerous to be near.",maxTimer:270,reward:32,isNorthAmerica:true},
+  {id:269,name:"Body Snatching Plants",loc:"Florida, USA",x:94,y:140,priority:"orange",type:"bio",desc:"Aggressive body-snatching plants have begun converting civilians across the southeast.",maxTimer:260,reward:30,isNorthAmerica:true},
+  {id:270,name:"Oversized Mobile Venus Fly Traps",loc:"Carolina Coast, USA",x:96,y:126,priority:"orange",type:"bio",desc:"Oversized mobile venus fly traps have broken containment and are moving inland.",maxTimer:270,reward:28,isNorthAmerica:true},
+  {id:271,name:"A Child With Matter Manipulation",loc:"Midwest, USA",x:82,y:114,priority:"red",type:"mystic",desc:"A child with matter manipulation and a temper. Do not upset them.",maxTimer:210,reward:50,isNorthAmerica:true},
+  {id:272,name:"THE GIANT SQUID",loc:"North Pacific",x:470,y:130,priority:"orange",type:"kaiju",desc:"The legendary Giant Squid has surfaced and is in a terrible mood.",maxTimer:250,reward:38,isOcean:true,isKaiju:true},
+  {id:273,name:"THE COLOSSAL SQUID",loc:"Southern Ocean",x:370,y:290,priority:"red",type:"kaiju",desc:"The Colossal Squid — larger, angrier, and somehow faster.",maxTimer:210,reward:55,isOcean:true,isKaiju:true},
+  {id:274,name:"THE LEVIATHAN",loc:"Deep Atlantic",x:190,y:160,priority:"red",type:"mystic",desc:"The Leviathan stirs in the deep. Biblical proportions.",maxTimer:185,reward:65,isOcean:true},
+  {id:275,name:"LIVYATAN POD",loc:"South Atlantic",x:190,y:220,priority:"orange",type:"kaiju",desc:"A pod of Livyatan — ancient sperm whale predators — has awoken and is hunting.",maxTimer:240,reward:40,isOcean:true,isKaiju:true},
+  {id:276,name:"MOSASAURUS POD",loc:"Gulf of Mexico",x:100,y:155,priority:"orange",type:"kaiju",desc:"A pod of Mosasaurs is rampaging through the Gulf of Mexico.",maxTimer:245,reward:40,isOcean:true,isKaiju:true,isNorthAmerica:true},
+  {id:277,name:"AN IMMORTAL SNAIL (One Guy's Problem)",loc:"New York, USA",x:100,y:108,priority:"yellow",type:"mystic",desc:"An immortal snail is chasing after one guy for some reason. The guy is panicking. This is somehow a city-wide emergency.",maxTimer:420,reward:10,isNorthAmerica:true},
+  {id:278,name:"Deranged Cartoon Creatures",loc:"Los Angeles, USA",x:58,y:130,priority:"orange",type:"mystic",desc:"A very strange person is manifesting semi-sentient and deranged versions of beloved cartoon creatures across Los Angeles.",maxTimer:280,reward:30,isNorthAmerica:true},
+  {id:279,name:"DISEASE CONTAINMENT BREACH: All Extremities Fall Off",loc:"CDC Atlanta, USA",x:90,y:130,priority:"red",type:"bio",desc:"The mosquitoes broke containment of the 'All Extremities Fall Off Disease' research facility. Yes, including that one.",maxTimer:195,reward:58,isNorthAmerica:true},
+  {id:280,name:"Bioweapon: Shareholder Value Apathy",loc:"Wall Street, New York, USA",x:102,y:108,priority:"yellow",type:"bio",desc:"A bioweapon that makes people not care about maximizing shareholder value has been unleashed. Economists are inconsolable.",maxTimer:420,reward:8,isNorthAmerica:true},
+  {id:281,name:"Squirrel Pursuing an Acorn (Massive Collateral Damage)",loc:"Multiple Cities",x:150,y:130,priority:"orange",type:"bio",desc:"A squirrel that keeps causing large calamities as it pursues a single acorn.",maxTimer:280,reward:24},
+  {id:282,name:"Cat Stuck in a Tree",loc:"Des Moines, Iowa, USA",x:82,y:114,priority:"yellow",type:"military",desc:"A cat is stuck in a tree. The situation has somehow escalated.",maxTimer:500,reward:5,isNorthAmerica:true},
+  {id:283,name:"Robot Fraternity: College Hazing Research",loc:"Campus, USA",x:88,y:118,priority:"orange",type:"tech",desc:"A fraternity of robots is attempting to understand college hazing. Their methods are destructive and deeply misguided.",maxTimer:290,reward:24,isNorthAmerica:true},
+  {id:284,name:"METEOR STRIKE",loc:"Incoming",x:165,y:100,priority:"red",type:"disaster",desc:"A meteor is inbound. Impact in T-minus too soon.",maxTimer:180,reward:60},
+  {id:285,name:"TSUNAMI",loc:"Pacific Coast",x:56,y:140,priority:"red",type:"disaster",desc:"A category 6 tsunami is bearing down on the Pacific Coast.",maxTimer:200,reward:50,isOcean:true,isNorthAmerica:true},
+  {id:286,name:"TSUNAMI STRIKING NUCLEAR REACTOR",loc:"Pacific Coast Nuclear Facility",x:58,y:132,priority:"red",type:"disaster",desc:"A tsunami is hitting a nuclear reactor. This is exactly as bad as it sounds.",maxTimer:185,reward:65,isOcean:true,isNorthAmerica:true},
+  {id:287,name:"THE TORTOISE GUILD",loc:"Galapagos Islands",x:110,y:200,priority:"yellow",type:"military",desc:"An ancient and remarkably well-organised guild of giant tortoises with unclear but deeply concerning intentions.",maxTimer:400,reward:12},
+  {id:288,name:"ARCTIC CROSSBREEDING STATION",loc:"Arctic Research Station",x:300,y:20,priority:"red",type:"bio",desc:"An Arctic station researching the crossbreeding of Ebola, the common cold, rabies, and measles. It's gone terribly wrong.",maxTimer:190,reward:62},
+  {id:289,name:"Evil Scientists Convention",loc:"Geneva, Switzerland",x:248,y:80,priority:"orange",type:"military",desc:"All of the world's evil scientists have decided to hold a convention. Attendance is surprisingly high.",maxTimer:270,reward:28},
+  {id:290,name:"EVIL HACKERS",loc:"Unknown",x:165,y:145,priority:"orange",type:"tech",desc:"An elite network of evil hackers is systematically dismantling global infrastructure.",maxTimer:260,reward:32,recurring:true},
 ];
 
 // Fisher-Yates shuffle

@@ -29,6 +29,8 @@ function App(){
   const [dis,setDis]=useState({});
   const [codexTab,setCodexTab]=useState("hero");
   const [shopMsg,setShopMsg]=useState("");
+  const [tickerMsg,setTickerMsg]=useState("◈ W.S.P.A. GLOBAL NEWS TICKER ◈ Monitoring all threats worldwide. Stay alert, Director.");
+  const [johnOffworldTimer,setJohnOffworldTimer]=useState(0); // counts up; 0-120 = on earth, 120-240 = offworld
 
   const tick=useRef(0);
   const hRef=useRef(heroes);hRef.current=heroes;
@@ -38,6 +40,7 @@ function App(){
   const disRef=useRef(dis);disRef.current=dis;
   const extRef=useRef(extMode);extRef.current=extMode;
   const tqRef=useRef(threatQueue);tqRef.current=threatQueue;
+  const johnOffRef=useRef(johnOffworldTimer);johnOffRef.current=johnOffworldTimer;
 
   function saveAndUpdateBank(n){setBank(n);saveBank(n);}
   function saveAndUpdateOwned(a){setOwnedShop(a);saveOwned(a);}
@@ -48,6 +51,12 @@ function App(){
     const nb=bank-SHOP_PRICE;saveAndUpdateBank(nb);
     const no=[...ownedShop,title];saveAndUpdateOwned(no);
     setShopMsg(`✓ ${title} purchased! They will be available in your next game.`);
+  }
+  function buyShopVillain(title){
+    if(bank<SHOP_VILLAIN_PRICE||ownedShop.includes("v_"+title))return;
+    const nb=bank-SHOP_VILLAIN_PRICE;saveAndUpdateBank(nb);
+    const no=[...ownedShop,"v_"+title];saveAndUpdateOwned(no);
+    setShopMsg(`✓ ${title} purchased! They may appear in your next game.`);
   }
   function buyCodexEntry(id){
     if(bank<1||codexUnlocked.includes(id))return;
@@ -71,12 +80,15 @@ function App(){
     setDirectorName(n);
     const ih=buildInitHeroes();
     setHeroes(ih);
-    setVillains(VILLAIN_DEFS.map(v=>({...v,defeated:false,redeemed:false})));
+    const ownedVillainTitles=SHOP_VILLAIN_TITLES.filter(t=>ownedShop.includes("v_"+t));
+    const baseVillains=VILLAIN_DEFS.filter(v=>!v.shopVillain||ownedVillainTitles.includes(v.title));
+    setVillains(baseVillains.map(v=>({...v,defeated:false,redeemed:false})));
     const shuffled=shuffle(ALL_THREATS);
     setThreats(shuffled.slice(0,4).map(t=>({...t,timer:t.maxTimer})));
     setThreatQueue(shuffled.slice(4));
     setDepMap({});setRom({});setDis({});setModal(null);setDepModal(null);setPicked([]);
     setScore(0);setSelThreat(null);setGameOver(null);setGameOverReason("");
+    setJohnOffworldTimer(0);
     setExtMode(ext);setLog(`Welcome, Director ${n}. WSPA Command online.`);setLogTime("00:00");
     tick.current=0;
     setScreen("game");
@@ -102,7 +114,7 @@ function App(){
       setLogTime(`${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`);
 
       setHeroes(prev=>prev.map(h=>{
-        if(["deployed","gameLocked","shopLocked","kia"].includes(h.status))return h;
+        if(["deployed","gameLocked","shopLocked","kia","offworld"].includes(h.status))return h;
         const{maxHP,regenSec:rs}=effStats(h,romRef.current,disRef.current);
         if(h.currentHP>=maxHP)return h.status==="ready"?h:{...h,status:"ready"};
         const nt=(h.regenTimer||0)+1;
@@ -119,7 +131,7 @@ function App(){
         let u={...h};
         if(h.healCooldown>0)u.healCooldown=h.healCooldown-1;
         if(h.levelUpFlash)u.levelUpFlash=false;
-        if(h.speechBubble&&Math.random()<0.04)u.speechBubble=null;
+        if(h.speechBubble&&Math.random()<0.025)u.speechBubble=null;
         if(h.status==="deployed"&&!h.speechBubble&&Math.random()<0.005)u.speechBubble=getRandQuip(h,romRef.current,disRef.current,true);
         if(h.title==="Morgana"&&h.career==="veteran"&&h.status!=="deployed"&&t>0&&t%300===0){
           setHeroes(p2=>p2.map(h2=>{if(["kia","gameLocked","shopLocked"].includes(h2.status))return h2;const{maxHP}=effStats(h2,romRef.current,disRef.current);return{...h2,currentHP:maxHP,status:"ready",regenTimer:0};}));
@@ -131,6 +143,33 @@ function App(){
         }
         return u;
       }));
+
+      // ── JOHN OFFWORLD CYCLE (every 120s away, 120s gone, returns at 90% HP) ──
+      setHeroes(prev=>{
+        const john=prev.find(h=>h.isJohn&&h.status!=="gameLocked"&&h.status!=="kia");
+        if(!john)return prev;
+        const newTimer=(johnOffRef.current||0)+1;
+        setJohnOffworldTimer(newTimer);
+        if(newTimer===120){
+          // John leaves
+          const quote=JOHN_DEPARTURE_QUOTES[Math.floor(Math.random()*JOHN_DEPARTURE_QUOTES.length)];
+          const ckQuote=Math.random()<0.5?CK_JOHN_DEPARTURE_RESPONSES[Math.floor(Math.random()*CK_JOHN_DEPARTURE_RESPONSES.length)]:null;
+          const headline=pickHeadline("johnLeavesToOtherPlanets",[{title:"John"}],null,null);
+          if(headline)setTickerMsg(headline);
+          setLog(`🚀 John: "${quote}"${ckQuote?` · The Crimson Knight: "${ckQuote}"`:"" }`);
+          return prev.map(h=>h.isJohn?{...h,status:"offworld",speechBubble:quote}:
+            (h.title==="The Crimson Knight"&&ckQuote)?{...h,speechBubble:ckQuote}:h);
+        }
+        if(newTimer===240){
+          // John returns at 90% HP
+          setJohnOffworldTimer(0);
+          const{maxHP}=effStats(john,romRef.current,disRef.current);
+          const returnHP=Math.round(maxHP*0.9);
+          setLog(`🌟 John has returned! (90% HP)`);
+          return prev.map(h=>h.isJohn?{...h,status:returnHP<(h.functionalAt||0)?"exhausted":"ready",currentHP:returnHP,speechBubble:"I'm back!"}:h);
+        }
+        return prev;
+      });
 
       setThreats(prev=>{
         let gameEnd=null;
@@ -214,15 +253,13 @@ function App(){
       try{
         const relNotes=getRelNotes(assigned,romRef.current,disRef.current);
         const villain=threat.villainId?vRef.current.find(v=>v.id===threat.villainId):null;
-        let extra="";
-        if(assigned.some(h=>h.isJohn))extra="John is powerful but gentle — he prefers talking villains down, but will fight if needed.";
-        if(villain)extra+=` Villain: ${villain.title}: ${villain.personality?.slice(0,55)}.`;
-        if(relNotes.length)extra+=` Relationships: ${relNotes.join(" ")}`;
-        const prompt=`WSPA debrief narrator. ONE vivid paragraph (65-80 words). Heroes: ${assigned.map(h=>h.title+" ("+h.cls+")").join(", ")}. Location: ${threat.loc}. Threat: ${threat.name}. Outcome: ${outcome==="success"?"VICTORY":outcome==="partial"?"PARTIAL SUCCESS":"FAILURE"}. ${extra} Cinematic, use hero names, weave in relationships naturally.`;
-        const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:250,messages:[{role:"user",content:prompt}]})});
-        const data=await res.json();narration=data.content?.[0]?.text||narration;
-      }catch(e){narration=`${assigned[0].title} engaged ${threat.name} at ${threat.loc}. Outcome: ${outcome}. (Connect internet for AI narration.)`;}
-
+        const loc=threat.loc;const tname=threat.name;
+        const heroList=assigned.map(h=>h.title).join(", ");
+        const outStr=outcome==="success"?"achieved a decisive victory":outcome==="partial"?"secured a partial success":"suffered a defeat";
+        let rel="";if(relNotes.length)rel=" "+relNotes.join(" ");
+        let vNote="";if(villain)vNote=` The threat was spearheaded by ${villain.title}.`;
+        narration=`${heroList} deployed to ${loc} to confront ${tname} and ${outStr}.${vNote}${rel}`;
+      }catch(e){narration=`${assigned[0].title} engaged ${threat.name} at ${threat.loc}. Outcome: ${outcome}.`;}
       const damages={};let anyKIA=false;let turnedVillain=null;let redeemedVillains=[];const levelUps=[];let newRomMsg=null;let newDisMsg=null;let unlockMsg=null;
       const newRom={...romRef.current};const newDis={...disRef.current};
 
@@ -250,7 +287,7 @@ function App(){
 
       setHeroes(prev=>prev.map(h=>{
         if(!picked.includes(h.id))return h;
-        let d=calcDmg(outcome,h);
+        let d=calcDmg(outcome,h,threat);
         if(threat.villainId===110&&h.title==="The Sportsman")d={health:Math.min(d.health*5,(effStats(h,romRef.current,disRef.current).maxHP))};
         damages[h.id]=d;
         const{maxHP}=effStats(h,romRef.current,disRef.current);
@@ -291,6 +328,8 @@ function App(){
               newRom[rk]=true;
               setHeroes(p2=>p2.map(h=>h.id===a.id?{...h,romancePartner:b.id}:h.id===b.id?{...h,romancePartner:a.id}:h));
               newRomMsg=`💕 ${a.title} and ${b.title} have developed romantic feelings!`;
+              const rhl=pickHeadline("heroesDevelopRelationship",[a,b],null,null);
+              if(rhl)setTickerMsg(rhl);
             }
           }
         }
@@ -318,7 +357,24 @@ function App(){
       setDepMap(prev=>{const n={...prev};delete n[threat.id];return n;});
       setModal({threat,heroes:assigned,outcome,narration,damages,anyKIA,turnedVillain,redeemedVillains,levelUps,xpEarned:pts,newRomMsg,newDisMsg,unlockMsg});
       setLog(`Debrief: ${threat.name} — ${outcome.toUpperCase()}${anyKIA?" ⚠ HERO LOST":""}${turnedVillain?` 🔴 ${turnedVillain.title} TURNED`:""}${levelUps.length?" ⭐ LVL UP":""}${newRomMsg?" 💕":""}`);
-    },4000+Math.random()*2000);
+      // ── Generate news headline ──
+      {
+        const villain=threat.villainId?vRef.current.find(v=>v.id===threat.villainId):null;
+        const vname=villain?.title||null;
+        const tname=threat.name;
+        let hline=null;
+        if(anyKIA&&!turnedVillain){const deadH=assigned.filter(h=>hRef.current.find(x=>x.id===h.id)?.status==="kia");if(deadH.length)hline=pickHeadline("heroDies",deadH,vname,tname);}
+        else if(redeemedVillains.length>0)hline=pickHeadline("johnRedeemsVillain",assigned,vname,tname);
+        else if(assigned.some(h=>h.isJohn)&&outcome!=="failure")hline=pickHeadline("johnStopsVillainOrThreat",assigned,vname,tname);
+        else if(outcome==="failure"&&villain)hline=pickHeadline("villainDefeatsHeroes",assigned,vname,tname);
+        else if(outcome==="failure")hline=pickHeadline("threatDefeatsHeroes",assigned,vname,tname);
+        else if(newRomMsg)hline=pickHeadline("heroesWinRomantic",assigned,vname,tname);
+        else if(newDisMsg)hline=pickHeadline("heroesWinDisdain",assigned,vname,tname);
+        else if(assigned.length===1&&outcome!=="failure")hline=pickHeadline("heroWinsSolo",assigned,vname,tname);
+        else if(assigned.length>=2&&outcome!=="failure")hline=pickHeadline("heroesWinNoRel",assigned,vname,tname);
+        if(!hline)hline=pickHeadline("generic",assigned,vname,tname);
+        if(hline)setTickerMsg(hline);
+      }    },4000+Math.random()*2000);
   }
 
   const sortedHeroes=useMemo(()=>{
@@ -359,7 +415,7 @@ function App(){
       )
     ),
     React.createElement("div",{className:"full-panel-body"},
-      React.createElement("div",{style:{fontSize:10,color:"var(--text3)",marginBottom:12}},`Purchase locked heroes for ${SHOP_PRICE} points each. Purchased heroes are unlocked in all future games.`),
+      React.createElement("div",{style:{fontSize:12,color:"var(--text3)",marginBottom:12}},`Purchase locked heroes for ${SHOP_PRICE} points each. Purchased heroes are unlocked in all future games.`),
       React.createElement("div",{className:"shop-grid"},
         SHOP_LOCK_TITLES.map(title=>{
           const hdef=ALL_HERO_DEFS.find(h=>h.title===title);
@@ -368,9 +424,25 @@ function App(){
           return React.createElement("div",{key:title,className:"shop-card"+(owned?" owned":"")},
             React.createElement("div",{className:"shop-card-name"},hdef.title),
             React.createElement("div",{className:"shop-card-meta"},`${hdef.cls.toUpperCase()} · PWR ${hdef.basePower} · HP ${hdef.baseHP}`),
-            React.createElement("div",{style:{fontSize:9,color:"var(--text3)",marginBottom:8,lineHeight:1.5}},hdef.personality.slice(0,80)+"…"),
+            React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:8,lineHeight:1.5}},hdef.personality.slice(0,80)+"…"),
             React.createElement("div",{className:"shop-card-price"},owned?"✓ OWNED":bank>=SHOP_PRICE?`${SHOP_PRICE} PTS`:`${SHOP_PRICE} PTS (need ${SHOP_PRICE-bank} more)`),
             React.createElement("button",{className:"shop-buy-btn",disabled:owned||bank<SHOP_PRICE,onClick:()=>buyShopHero(title)},owned?"OWNED":"PURCHASE")
+          );
+        })
+      ),
+      React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--purple)",letterSpacing:2,margin:"18px 0 8px",borderBottom:"1px solid var(--border)",paddingBottom:4}},"◈ VILLAIN ROSTER — UNLOCK FOR 100 PTS"),
+      React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:10}},"Unlocked villains may appear as threats or become redeemable heroes."),
+      React.createElement("div",{className:"shop-grid"},
+        SHOP_VILLAIN_TITLES.map(title=>{
+          const vdef=VILLAIN_DEFS.find(v=>v.title===title);
+          if(!vdef)return null;
+          const owned=ownedShop.includes("v_"+title);
+          return React.createElement("div",{key:title,className:"shop-card villain-shop-card"+(owned?" owned":"")},
+            React.createElement("div",{className:"shop-card-name",style:{color:"var(--purple)"}},vdef.title),
+            React.createElement("div",{className:"shop-card-meta"},`${vdef.cls.toUpperCase()} · PWR ${vdef.basePower} · HP ${vdef.baseHP}`),
+            React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:8,lineHeight:1.5}},vdef.personality.slice(0,80)+"…"),
+            React.createElement("div",{className:"shop-card-price"},owned?"✓ OWNED":bank>=SHOP_VILLAIN_PRICE?`${SHOP_VILLAIN_PRICE} PTS`:`${SHOP_VILLAIN_PRICE} PTS (need ${SHOP_VILLAIN_PRICE-bank} more)`),
+            React.createElement("button",{className:"shop-buy-btn",style:{borderColor:"var(--purple)",color:"var(--purple)"},disabled:owned||bank<SHOP_VILLAIN_PRICE,onClick:()=>buyShopVillain(title)},owned?"OWNED":"PURCHASE")
           );
         })
       )
@@ -465,6 +537,12 @@ function App(){
       threats.some(t=>t.priority==="red"||t.priority==="purple")&&React.createElement("div",{className:"topbar-alert"},"⚠ PRIORITY ONE"),
       React.createElement("button",{className:"exit-btn",onClick:()=>{if(confirm("Exit to menu? You keep points only if you've already won 500+.")){exitToMenu(true);}}},"► EXIT")
     ),
+    React.createElement("div",{className:"news-ticker-bar"},
+      React.createElement("div",{className:"news-ticker-label"},"NEWS"),
+      React.createElement("div",{className:"news-ticker-track"},
+        React.createElement("div",{key:tickerMsg,className:"news-ticker-text"},tickerMsg)
+      )
+    ),
     React.createElement("div",{className:"main"},
       // HERO PANEL
       React.createElement("div",{className:"heroes-panel"},
@@ -490,8 +568,8 @@ function App(){
             h.speechBubble&&React.createElement("div",{className:"speech-bubble"},h.speechBubble),
             React.createElement("div",{className:"hero-row"},
               React.createElement("span",{className:`hero-name-text${h.isJohn?" john-name":""}${h.redeemed?" villain-name":""}`},h.title),
-              React.createElement("span",{className:`hero-badge badge-${isShopL?"shop":isGameL?"locked":h.status==="resting"&&canDeploy(h)?"resting":h.status}`},
-                isShopL?"SHOP":isGameL?"LOCKED":h.status==="ready"?"READY":h.status==="deployed"?"AWAY":h.status==="resting"&&canDeploy(h)?"REST✓":h.status==="resting"?"REST":h.status==="exhausted"?"OUT":"K.I.A."
+              React.createElement("span",{className:`hero-badge badge-${isShopL?"shop":isGameL?"locked":h.status==="offworld"?"offworld":h.status==="resting"&&canDeploy(h)?"resting":h.status}`},
+                isShopL?"SHOP":isGameL?"LOCKED":h.status==="offworld"?"OFF-WORLD":h.status==="ready"?"READY":h.status==="deployed"?"AWAY":h.status==="resting"&&canDeploy(h)?"REST✓":h.status==="resting"?"REST":h.status==="exhausted"?"OUT":"K.I.A."
               )
             ),
             React.createElement("div",{className:"hero-meta"},`${CAREER[h.career]?.label} · ${h.cls.toUpperCase()} · PWR ${power.toFixed(1)}`),
@@ -619,7 +697,7 @@ function App(){
         React.createElement("div",{className:"modal-sub"},`${depModal.loc} · ${P_LABELS[depModal.priority]||""}`),
         (()=>{if(picked.length===1){const h=heroes.find(x=>x.id===picked[0]);if(h&&isSuicide(h,heroes,picked))return React.createElement("div",{className:"suicide-warn"},"⚠ SUICIDE MISSION: <10 HP, alone, 2+ heroes at full. 25% chance of turning villain if KIA.");}return null;})(),
         React.createElement("div",{className:"hero-select-list"},
-          heroes.filter(h=>!["shopLocked","gameLocked","kia"].includes(h.status)).map(h=>{
+          heroes.filter(h=>!["shopLocked","gameLocked","kia","offworld"].includes(h.status)).map(h=>{
             const{power,maxHP}=effStats(h,rom,dis);const dep=canDeploy(h);const pk=picked.includes(h.id);
             return React.createElement("div",{key:h.id,className:`hsi${pk?" picked":""}${!dep?" unavailable":""}`,onClick:()=>dep&&toggleH(h.id)},
               React.createElement("div",null,

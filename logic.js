@@ -13,7 +13,7 @@ function effStats(hero,rom,dis){
   return{power,maxHP,regenSec};
 }
 
-function canDeploy(h){return h.status!=="deployed"&&h.status!=="gameLocked"&&h.status!=="shopLocked"&&h.status!=="kia"&&h.status!=="exhausted";}
+function canDeploy(h){return h.status!=="deployed"&&h.status!=="gameLocked"&&h.status!=="shopLocked"&&h.status!=="kia"&&h.status!=="exhausted"&&h.status!=="offworld";}
 
 function isSuicide(hero,allH,pids){
   if(pids.length!==1)return false;
@@ -57,7 +57,14 @@ function rollMission(heroes,threat,rom,dis){
   return"failure";
 }
 
-function calcDmg(outcome,hero){
+function calcDmg(outcome,hero,threat){
+  // Special threat damage overrides
+  if(threat){
+    if(threat.reaperEffect&&hero.cls==="support"){return{health:45};}
+    if(threat.calaxesEffect&&hero.cls==="tank"){return{health:30};}
+    if(threat.archonoisEffect&&hero.cls==="cannon"){return{health:30};}
+    if(threat.typhonEffect&&!hero.isJohn){return{health:hero.currentHP};}// instant KO for non-John
+  }
   if(hero.isJohn){const base=outcome==="success"?[3,10]:outcome==="partial"?[8,20]:[15,30];const raw=Math.floor(Math.random()*(base[1]-base[0])+base[0]);return{health:Math.floor(raw/2)};}
   const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
   return{health:Math.floor(Math.random()*(base[1]-base[0])+base[0])};
