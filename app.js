@@ -33,6 +33,7 @@ function App(){
   const [johnOffworldTimer,setJohnOffworldTimer]=useState(0); // counts up; 0-120 = on earth, 120-240 = offworld
 
   const tick=useRef(0);
+  const lastHeadlineTick=useRef(0); // tracks last tick a headline was pushed
   const hRef=useRef(heroes);hRef.current=heroes;
   const vRef=useRef(villains);vRef.current=villains;
   const scoreRef=useRef(score);scoreRef.current=score;
@@ -45,7 +46,7 @@ function App(){
   function saveAndUpdateBank(n){setBank(n);saveBank(n);}
   function saveAndUpdateOwned(a){setOwnedShop(a);saveOwned(a);}
   function saveAndUpdateCodex(a){setCodexUnlocked(a);saveCodex(a);}
-
+  function pushHeadline(msg){lastHeadlineTick.current=tick.current;setTickerMsg(msg);}
   function buyShopHero(title){
     if(bank<SHOP_PRICE||ownedShop.includes(title))return;
     const nb=bank-SHOP_PRICE;saveAndUpdateBank(nb);
@@ -155,7 +156,7 @@ function App(){
           const quote=JOHN_DEPARTURE_QUOTES[Math.floor(Math.random()*JOHN_DEPARTURE_QUOTES.length)];
           const ckQuote=Math.random()<0.5?CK_JOHN_DEPARTURE_RESPONSES[Math.floor(Math.random()*CK_JOHN_DEPARTURE_RESPONSES.length)]:null;
           const headline=pickHeadline("johnLeavesToOtherPlanets",[{title:"John"}],null,null);
-          if(headline)setTickerMsg(headline);
+          if(headline)pushHeadline(headline);
           setLog(`🚀 John: "${quote}"${ckQuote?` · The Crimson Knight: "${ckQuote}"`:"" }`);
           return prev.map(h=>h.isJohn?{...h,status:"offworld",speechBubble:quote}:
             (h.title==="The Crimson Knight"&&ckQuote)?{...h,speechBubble:ckQuote}:h);
@@ -224,6 +225,19 @@ function App(){
 
       const target=extRef.current?WIN2:WIN1;
       if(scoreRef.current>=target)handleWin();
+
+      // ── IDLE HEADLINE: fire generic headline if none pushed for 10+ seconds ──
+      if(t-lastHeadlineTick.current>=10){
+        const all=hRef.current.filter(h=>!["gameLocked","shopLocked","kia"].includes(h.status));
+        const av=vRef.current.filter(v=>!v.defeated&&!v.redeemed);
+        const randH=all[Math.floor(Math.random()*all.length)];
+        const randV=av[Math.floor(Math.random()*av.length)];
+        let idle=GENERIC_IDLE_HEADLINES[Math.floor(Math.random()*GENERIC_IDLE_HEADLINES.length)];
+        if(randH)idle=idle.replace(/\bX\b/g,randH.title);
+        if(randV)idle=idle.replace(/\bY\b/g,randV.title);
+        const src=NEWS_SOURCES[Math.floor(Math.random()*NEWS_SOURCES.length)];
+        pushHeadline(`[${src}] ${idle}`);
+      }
     },1000);
     return()=>clearInterval(iv);
   },[screen,gameOver]);
@@ -264,6 +278,42 @@ function App(){
       const damages={};let anyKIA=false;let turnedVillain=null;let redeemedVillains=[];const levelUps=[];let newRomMsg=null;let newDisMsg=null;let unlockMsg=null;
       const newRom={...romRef.current};const newDis={...disRef.current};
 
+      // ── Blink: 1/5 chance to halve damage to all OTHER teammates ──
+      const blinkPresent=assigned.some(h=>h.title==="Blink");
+      const blinkActivates=blinkPresent&&Math.random()<0.2;
+
+      // ── Dragon of the Daimyo: +10 HP to positive affiliates/romance on same mission, -10 to mutual disdain ──
+      const dragonPresent=assigned.find(h=>h.dragonDaimyoEffect);
+      if(dragonPresent){
+        setHeroes(prev=>prev.map(h=>{
+          if(!picked.includes(h.id)||h.id===dragonPresent.id)return h;
+          const isAffiliate=(dragonPresent.affiliates||[]).includes(h.title);
+          const rk=[dragonPresent.id,h.id].sort().join(",");
+          const isRomance=!!(romRef.current[rk]);
+          const dragonDisdainsH=(disRef.current[dragonPresent.id]||[]).includes(h.id);
+          const hDisdainsDragon=(disRef.current[h.id]||[]).includes(dragonPresent.id);
+          const isMutualDisdain=dragonDisdainsH||hDisdainsDragon;
+          if(isAffiliate||isRomance){const{maxHP}=effStats(h,romRef.current,disRef.current);return{...h,currentHP:Math.min(maxHP,h.currentHP+10)};}
+          if(isMutualDisdain){return{...h,currentHP:Math.max(1,h.currentHP-10)};}
+          return h;
+        }));
+      }
+
+      // ── Skull Crusher friendly fire: 5 extra damage to one random teammate per mission (until special unlocked) ──
+      const skullCrusher=assigned.find(h=>h.skullCrusherFriendlyFire&&h.career==="beginner");
+      if(skullCrusher){
+        const targets=assigned.filter(h=>h.id!==skullCrusher.id);
+        if(targets.length>0){
+          const ffTarget=targets[Math.floor(Math.random()*targets.length)];
+          setHeroes(prev=>prev.map(h=>{
+            if(h.id!==ffTarget.id)return h;
+            const nHP=Math.max(1,h.currentHP-5);
+            return{...h,currentHP:nHP};
+          }));
+          setLog(`⚠ Skull Crusher accidentally hurt ${ffTarget.title} (-5 HP)!`);
+        }
+      }
+
       const johnHero=assigned.find(h=>h.isJohn);
       if(johnHero&&outcome!=="failure"){
         const cands=[];
@@ -288,10 +338,14 @@ function App(){
 
       setHeroes(prev=>prev.map(h=>{
         if(!picked.includes(h.id))return h;
-        let d=calcDmg(outcome,h,threat);
+        let d=calcDmg(outcome,h,threat,assigned);
         if(threat.villainId===110&&h.title==="The Sportsman")d={health:Math.min(d.health*5,(effStats(h,romRef.current,disRef.current).maxHP))};
+        // Silphana redeemed: mace deals 10× damage to villains (she becomes a hero, so the threat she faces IS the villain)
+        if(h.title==="Silphana"&&h.redeemed&&threat.villainId){d={health:Math.max(0,d.health-Math.floor(d.health*9))};} // 10× applied as massive damage bonus — lower her own damage taken
         damages[h.id]=d;
         const{maxHP}=effStats(h,romRef.current,disRef.current);
+        // Apply Blink flashing lights — halve damage to all teammates except Blink herself
+        if(blinkActivates&&h.title!=="Blink")d={health:Math.floor(d.health/2)};
         if(h.isJohn){return{...h,currentHP:Math.max(h.functionalAt,h.currentHP-d.health),status:h.currentHP-d.health<=h.functionalAt?"resting":"ready",speechBubble:null};}
         let nHP=Math.max(0,h.currentHP-d.health);
         if(gummyP&&h.title!=="The Gummy Bear")nHP=Math.max(0,h.currentHP-Math.floor(d.health/2));
@@ -313,8 +367,9 @@ function App(){
         let nc=h.career;let didLv=false;
         if(nXP>=thresh&&CAREER[h.career]?.next){nc=CAREER[h.career].next;didLv=true;levelUps.push({title:h.title,to:nc});
           if(h.title==="The Crimson Knight"&&nc==="veteran"){setHeroes(p2=>p2.map(j=>j.isJohn?{...j,status:"ready",gameLocked:false}:j));setLog("⭐ Crimson Knight is VETERAN — John unlocked!");}
+          if(h.title==="Eclipso"&&nc==="veteran"){setLog("⭐ Eclipso VETERAN — Sees the Value of the Team: team penalty removed!");}
         }
-        return{...h,currentHP:nHP,status:st,regenTimer:0,xp:didLv?nXP-thresh:nXP,career:nc,levelUpFlash:didLv,speechBubble:null};
+        return{...h,currentHP:nHP,status:st,regenTimer:0,xp:didLv?nXP-thresh:nXP,career:nc,levelUpFlash:didLv,speechBubble:null,eclipsoLonelyPenalty:h.eclipsoLonelyPenalty&&nc!=="veteran"?true:false};
       }));
 
       if(assigned.length>=2&&Math.random()<0.05){
@@ -330,7 +385,7 @@ function App(){
               setHeroes(p2=>p2.map(h=>h.id===a.id?{...h,romancePartner:b.id}:h.id===b.id?{...h,romancePartner:a.id}:h));
               newRomMsg=`💕 ${a.title} and ${b.title} have developed romantic feelings!`;
               const rhl=pickHeadline("heroesDevelopRelationship",[a,b],null,null);
-              if(rhl)setTickerMsg(rhl);
+              if(rhl)pushHeadline(rhl);
             }
           }
         }
@@ -350,6 +405,12 @@ function App(){
         if(threat.isKaiju)setHeroes(prev=>prev.map(h=>h.title==="Dinosia"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
         if(threat.isRome)setHeroes(prev=>prev.map(h=>h.title==="El Infinite"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
         if(threat.isNorthAmerica)setHeroes(prev=>prev.map(h=>h.title==="The Gummy Bear"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
+        // Unlock Blink after defeating Cult of Fashion (threat id 228)
+        if(threat.name==="Cult of Fashion")setHeroes(prev=>prev.map(h=>h.title==="Blink"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
+        // Unlock Skull Crusher after North American Blackout (threat id 231)
+        if(threat.name==="North American Blackout")setHeroes(prev=>prev.map(h=>h.title==="Skull Crusher"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
+        // Unlock Eclipso after defeating Blight threat
+        if(threat.name&&threat.name.toLowerCase().includes("blight"))setHeroes(prev=>prev.map(h=>h.title==="Eclipso"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
         if(threat.villainId)setVillains(prev=>prev.map(v=>v.id===threat.villainId?{...v,defeated:true}:v));
         if(threat.isTeamUp&&threat.villainId2)setVillains(prev=>prev.map(v=>v.id===threat.villainId2?{...v,defeated:true}:v));
         setThreats(prev=>prev.filter(t=>t.id!==threat.id));
@@ -374,7 +435,7 @@ function App(){
         else if(assigned.length===1&&outcome!=="failure")hline=pickHeadline("heroWinsSolo",assigned,vname,tname);
         else if(assigned.length>=2&&outcome!=="failure")hline=pickHeadline("heroesWinNoRel",assigned,vname,tname);
         if(!hline)hline=pickHeadline("generic",assigned,vname,tname);
-        if(hline)setTickerMsg(hline);
+        if(hline)pushHeadline(hline);
       }    },4000+Math.random()*2000);
   }
 
@@ -567,31 +628,38 @@ function App(){
           ].filter(Boolean).join(" ");
           return React.createElement("div",{key:h.id,className:cardCls,style:{position:"relative"},onClick:()=>!isShopL&&!isGameL&&h.status!=="kia"&&setExpandedHero(isExp?null:h.id)},
             h.speechBubble&&React.createElement("div",{className:"speech-bubble"},h.speechBubble),
-            React.createElement("div",{className:"hero-row"},
-              React.createElement("span",{className:`hero-name-text${h.isJohn?" john-name":""}${h.redeemed?" villain-name":""}`},h.title),
-              React.createElement("span",{className:`hero-badge badge-${isShopL?"shop":isGameL?"locked":h.status==="offworld"?"offworld":h.status==="resting"&&canDeploy(h)?"resting":h.status}`},
-                isShopL?"SHOP":isGameL?"LOCKED":h.status==="offworld"?"OFF-WORLD":h.status==="ready"?"READY":h.status==="deployed"?"AWAY":h.status==="resting"&&canDeploy(h)?"REST✓":h.status==="resting"?"REST":h.status==="exhausted"?"OUT":"K.I.A."
+            React.createElement("div",{style:{display:"flex",alignItems:"flex-start",gap:0}},
+              React.createElement("div",{style:{flex:1}},
+                React.createElement("div",{className:"hero-row"},
+                  React.createElement("span",{className:`hero-name-text${h.isJohn?" john-name":""}${h.redeemed?" villain-name":""}`},h.title),
+                  React.createElement("span",{className:`hero-badge badge-${isShopL?"shop":isGameL?"locked":h.status==="offworld"?"offworld":h.status==="resting"&&canDeploy(h)?"resting":h.status}`},
+                    isShopL?"SHOP":isGameL?"LOCKED":h.status==="offworld"?"OFF-WORLD":h.status==="ready"?"READY":h.status==="deployed"?"AWAY":h.status==="resting"&&canDeploy(h)?"REST✓":h.status==="resting"?"REST":h.status==="exhausted"?"OUT":"K.I.A."
+                  )
+                ),
+                React.createElement("div",{className:"hero-meta"},`${CAREER[h.career]?.label} · ${h.cls.toUpperCase()} · PWR ${power.toFixed(1)}`),
+                !isShopL&&!isGameL&&React.createElement("div",{className:"stat-row"},
+                  React.createElement("div",{className:"sl"},"HP"),
+                  React.createElement("div",{className:"bt"},React.createElement("div",{className:"bf",style:{width:`${hpPct}%`,background:h.isJohn?"#ffd700":sc(h.currentHP,maxHP)}})),
+                  React.createElement("span",{style:{fontSize:8,color:"var(--text3)",marginLeft:3}},`${Math.round(h.currentHP)}/${maxHP}`)
+                ),
+                !isShopL&&!isGameL&&h.status!=="kia"&&CAREER[h.career]?.next&&React.createElement("div",{className:"xp-row"},
+                  React.createElement("div",{className:"xp-label"},"XP"),
+                  React.createElement("div",{className:"xp-bar-track"},React.createElement("div",{className:"xp-bar-fill",style:{width:`${xpPct}%`}})),
+                  React.createElement("span",{style:{fontSize:7,color:"var(--gold)",marginLeft:3}},`${h.xp||0}/${thresh}`)
+                ),
+                isShopL&&React.createElement("div",{style:{fontSize:8,color:"var(--gold)",marginTop:3}},`Unlock in Shop for ${SHOP_PRICE} pts`)
+              ),
+              React.createElement("div",{className:"hero-pic-placeholder"},
+                h.portrait?React.createElement("img",{src:h.portrait,alt:h.title}):null
               )
             ),
-            React.createElement("div",{className:"hero-meta"},`${CAREER[h.career]?.label} · ${h.cls.toUpperCase()} · PWR ${power.toFixed(1)}`),
-            !isShopL&&!isGameL&&React.createElement("div",{className:"stat-row"},
-              React.createElement("div",{className:"sl"},"HP"),
-              React.createElement("div",{className:"bt"},React.createElement("div",{className:"bf",style:{width:`${hpPct}%`,background:h.isJohn?"#ffd700":sc(h.currentHP,maxHP)}})),
-              React.createElement("span",{style:{fontSize:8,color:"var(--text3)",marginLeft:3}},`${Math.round(h.currentHP)}/${maxHP}`)
-            ),
-            !isShopL&&!isGameL&&h.status!=="kia"&&CAREER[h.career]?.next&&React.createElement("div",{className:"xp-row"},
-              React.createElement("div",{className:"xp-label"},"XP"),
-              React.createElement("div",{className:"xp-bar-track"},React.createElement("div",{className:"xp-bar-fill",style:{width:`${xpPct}%`}})),
-              React.createElement("span",{style:{fontSize:7,color:"var(--gold)",marginLeft:3}},`${h.xp||0}/${thresh}`)
-            ),
-            isShopL&&React.createElement("div",{style:{fontSize:8,color:"var(--gold)",marginTop:3}},`Unlock in Shop for ${SHOP_PRICE} pts`),
             isExp&&React.createElement("div",{className:"hero-detail"},
               React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Real Name: "),h.realName),
               React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Bio: "),h.personality),
               React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Abilities: "),h.abilities),
               React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Weaknesses: "),h.weaknesses),
               h.specialAbility&&React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Special: "),h.specialAbility),
-              h.secretTrait&&React.createElement("div",{className:"detail-section",style:{color:"#ff8844"}},React.createElement("b",null,"⚠ Secret: "),h.secretTrait),
+              h.secretTrait&&!h.hiddenTraits&&React.createElement("div",{className:"detail-section",style:{color:"#ff8844"}},React.createElement("b",null,"⚠ Secret: "),h.secretTrait),
               h.affiliates?.length>0&&React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Affiliates: "),h.affiliates.join(", ")),
               React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Romance: "),React.createElement("span",{className:"romance-tag"},h.romanceStatus||(rp?`💕 ${rp.title}`:"Single"))),
               disTitles.length>0&&React.createElement("div",{className:"detail-section"},React.createElement("b",null,"Disdains: "),React.createElement("span",{className:"disdain-tag"},`😤 ${disTitles.join(", ")}`)),
