@@ -180,7 +180,7 @@ function App(){
           setLog(`⚠ ${th.name} escalated to ${P_LABELS[np]}!`);
           return{...th,priority:np,timer:th.maxTimer,maxTimer:Math.max(60,th.maxTimer-30)};
         });
-        if(gameEnd){setGameOver("lose");setGameOverReason(`${gameEnd.name} reached Priority ONE with no response.`);}
+        if(gameEnd){setGameOver("lose");setGameOverReason(`${gameEnd.name} reached Priority ONE with no response.`);setScreen("gameover");}
         return updated;
       });
 
@@ -199,8 +199,9 @@ function App(){
       }
 
       if(t>0&&t%55===0){
+        const spawnCap=scoreRef.current>=600?Math.round(6*1.21):scoreRef.current>=300?Math.round(6*1.10):6;
         setThreats(prev=>{
-          if(prev.length>=6)return prev;
+          if(prev.length>=spawnCap)return prev;
           const av=vRef.current.filter(v=>!v.defeated&&!v.redeemed&&!prev.some(p=>p.villainId===v.id));
           if(av.length>0&&Math.random()<0.28){
             const v=av[Math.floor(Math.random()*av.length)];
@@ -213,7 +214,7 @@ function App(){
             if(queue.length===0){queue=shuffle(ALL_THREATS);}
             const pick=queue[0];
             const rest=queue.slice(1);
-            setThreats(p2=>{if(p2.length>=6)return p2;return[...p2,{...pick,timer:pick.maxTimer,id:Date.now()}];});
+            setThreats(p2=>{if(p2.length>=spawnCap)return p2;return[...p2,{...pick,timer:pick.maxTimer,id:Date.now()}];});
             setLog(`⚠ NEW THREAT: ${pick.name} — ${pick.loc}`);
             return rest;
           });
@@ -257,7 +258,7 @@ function App(){
         const heroList=assigned.map(h=>h.title).join(", ");
         const outStr=outcome==="success"?"achieved a decisive victory":outcome==="partial"?"secured a partial success":"suffered a defeat";
         let rel="";if(relNotes.length)rel=" "+relNotes.join(" ");
-        let vNote="";if(villain)vNote=` The threat was spearheaded by ${villain.title}.`;
+        let vNote="";if(villain)vNote=` They faced off against ${villain.title}.`;
         narration=`${heroList} deployed to ${loc} to confront ${tname} and ${outStr}.${vNote}${rel}`;
       }catch(e){narration=`${assigned[0].title} engaged ${threat.name} at ${threat.loc}. Outcome: ${outcome}.`;}
       const damages={};let anyKIA=false;let turnedVillain=null;let redeemedVillains=[];const levelUps=[];let newRomMsg=null;let newDisMsg=null;let unlockMsg=null;
@@ -360,8 +361,8 @@ function App(){
       // ── Generate news headline ──
       {
         const villain=threat.villainId?vRef.current.find(v=>v.id===threat.villainId):null;
-        const vname=villain?.title||null;
-        const tname=threat.name;
+        const vname=villain?.title||threat.name;  // Y = villain name or threat name if no villain
+        const tname=threat.name;                  // Z = always threat name
         let hline=null;
         if(anyKIA&&!turnedVillain){const deadH=assigned.filter(h=>hRef.current.find(x=>x.id===h.id)?.status==="kia");if(deadH.length)hline=pickHeadline("heroDies",deadH,vname,tname);}
         else if(redeemedVillains.length>0)hline=pickHeadline("johnRedeemsVillain",assigned,vname,tname);
