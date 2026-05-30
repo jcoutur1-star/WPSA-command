@@ -19,7 +19,7 @@ function canDeploy(h){return h.status!=="deployed"&&h.status!=="gameLocked"&&h.s
 function isSuicide(hero,allH,pids){
   if(pids.length!==1)return false;
   const{maxHP}=effStats(hero,{},{});
-  if(hero.currentHP>=10)return false;
+  if(hero.currentHP>=20)return false;
   const full=allH.filter(h=>h.status==="ready"&&!pids.includes(h.id));
   return full.filter(h=>{const{maxHP:m}=effStats(h,{},{});return h.currentHP>=m;}).length>=2;
 }
