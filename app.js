@@ -30,6 +30,9 @@ function App(){
   const [codexTab,setCodexTab]=useState("hero");
   const [shopMsg,setShopMsg]=useState("");
   const [tickerMsg,setTickerMsg]=useState("◈ W.S.P.A. GLOBAL NEWS TICKER ◈ Monitoring all threats worldwide. Stay alert, Director.");
+  const tickerQueue=useRef([]);
+  const tickerBusy=useRef(false);
+  const TICKER_DURATION=32000; // ms — must match CSS animation duration
   const [johnOffworldTimer,setJohnOffworldTimer]=useState(0); // counts up; 0-120 = on earth, 120-240 = offworld
 
   const tick=useRef(0);
@@ -46,7 +49,20 @@ function App(){
   function saveAndUpdateBank(n){setBank(n);saveBank(n);}
   function saveAndUpdateOwned(a){setOwnedShop(a);saveOwned(a);}
   function saveAndUpdateCodex(a){setCodexUnlocked(a);saveCodex(a);}
-  function pushHeadline(msg){lastHeadlineTick.current=tick.current;setTickerMsg(msg);}
+  function pushHeadline(msg){
+    lastHeadlineTick.current=tick.current;
+    tickerQueue.current.push(msg);
+    if(!tickerBusy.current){
+      tickerBusy.current=true;
+      const advance=()=>{
+        const next=tickerQueue.current.shift();
+        if(!next){tickerBusy.current=false;return;}
+        setTickerMsg(next);
+        setTimeout(advance,TICKER_DURATION);
+      };
+      advance();
+    }
+  }
   function buyShopHero(title){
     if(bank<SHOP_PRICE||ownedShop.includes(title))return;
     const nb=bank-SHOP_PRICE;saveAndUpdateBank(nb);
@@ -152,13 +168,17 @@ function App(){
         const newTimer=(johnOffRef.current||0)+1;
         setJohnOffworldTimer(newTimer);
         if(newTimer===120){
-          // John leaves
+          // John should go offworld — if deployed, queue it for after the mission
+          if(john.status==="deployed"){
+            setLog("🚀 John's offworld cycle triggered — will depart immediately after current mission.");
+            return prev.map(h=>h.isJohn?{...h,pendingOffworld:true}:h);
+          }
           const quote=JOHN_DEPARTURE_QUOTES[Math.floor(Math.random()*JOHN_DEPARTURE_QUOTES.length)];
           const ckQuote=Math.random()<0.5?CK_JOHN_DEPARTURE_RESPONSES[Math.floor(Math.random()*CK_JOHN_DEPARTURE_RESPONSES.length)]:null;
           const headline=pickHeadline("johnLeavesToOtherPlanets",[{title:"John"}],null,null);
           if(headline)pushHeadline(headline);
-          setLog(`🚀 John: "${quote}"${ckQuote?` · The Crimson Knight: "${ckQuote}"`:"" }`);
-          return prev.map(h=>h.isJohn?{...h,status:"offworld",speechBubble:quote}:
+          setLog(`🚀 John: "${quote}"${ckQuote?` · The Crimson Knight: "${ckQuote}"`:""  }`);
+          return prev.map(h=>h.isJohn?{...h,status:"offworld",speechBubble:quote,pendingOffworld:false}:
             (h.title==="The Crimson Knight"&&ckQuote)?{...h,speechBubble:ckQuote}:h);
         }
         if(newTimer===240){
@@ -317,18 +337,20 @@ function App(){
       const johnHero=assigned.find(h=>h.isJohn);
       if(johnHero&&outcome!=="failure"){
         const cands=[];
-        if(threat.villainId){const v=vRef.current.find(x=>x.id===threat.villainId);if(v&&v.redeemable&&!v.redeemed)cands.push(v);}
-        if(threat.isTeamUp&&threat.villainId2){const v2=vRef.current.find(x=>x.id===threat.villainId2);if(v2&&v2.redeemable&&!v2.redeemed)cands.push(v2);}
+        if(threat.villainId){const v=vRef.current.find(x=>x.id===threat.villainId);if(v&&v.redeemable&&!v.redeemed&&v.id!==102)cands.push(v);}
+        if(threat.isTeamUp&&threat.villainId2){const v2=vRef.current.find(x=>x.id===threat.villainId2);if(v2&&v2.redeemable&&!v2.redeemed&&v2.id!==102)cands.push(v2);}
         cands.forEach(villain=>{
           if(Math.random()<0.2){
             redeemedVillains.push(villain);
+            // Mark redeemed in villain list
+            setVillains(prev=>prev.map(v=>v.id===villain.id?{...v,redeemed:true}:v));
+            // Add or update hero roster
+            const{maxHP:rdMaxHP}=effStats(villain,romRef.current,disRef.current);
             setHeroes(hp=>{
               const already=hp.find(x=>x.id===villain.id);
-              if(already)return hp.map(x=>x.id===villain.id?{...x,status:"resting",gameLocked:false,redeemed:true}:x);
-              const{maxHP}=effStats(villain,romRef.current,disRef.current);
-              return[...hp,{...villain,currentHP:maxHP,status:"resting",gameLocked:false,redeemed:true,xp:0,speechBubble:null}];
+              if(already)return hp.map(x=>x.id===villain.id?{...x,status:"resting",gameLocked:false,redeemed:true,currentHP:rdMaxHP}:x);
+              return[...hp,{...villain,currentHP:rdMaxHP,status:"resting",gameLocked:false,redeemed:true,xp:0,speechBubble:null,defeated:false}];
             });
-            setVillains(prev=>prev.map(v=>v.id===villain.id?{...v,redeemed:true}:v));
           }
         });
       }
@@ -346,20 +368,28 @@ function App(){
         const{maxHP}=effStats(h,romRef.current,disRef.current);
         // Apply Blink flashing lights — halve damage to all teammates except Blink herself
         if(blinkActivates&&h.title!=="Blink")d={health:Math.floor(d.health/2)};
-        if(h.isJohn){return{...h,currentHP:Math.max(h.functionalAt,h.currentHP-d.health),status:h.currentHP-d.health<=h.functionalAt?"resting":"ready",speechBubble:null};}
+        if(h.isJohn){const johnNewHP=Math.max(h.functionalAt,h.currentHP-d.health);if(h.pendingOffworld){const quote=JOHN_DEPARTURE_QUOTES[Math.floor(Math.random()*JOHN_DEPARTURE_QUOTES.length)];const ckQuote=Math.random()<0.5?CK_JOHN_DEPARTURE_RESPONSES[Math.floor(Math.random()*CK_JOHN_DEPARTURE_RESPONSES.length)]:null;const headline=pickHeadline("johnLeavesToOtherPlanets",[{title:"John"}],null,null);if(headline)pushHeadline(headline);setLog(`🚀 John finished the mission — then departed. "${quote}"${ckQuote?` · Crimson Knight: "${ckQuote}"`:"" }`);return{...h,currentHP:johnNewHP,status:"offworld",speechBubble:quote,pendingOffworld:false};}return{...h,currentHP:johnNewHP,status:johnNewHP<=h.functionalAt?"resting":"ready",speechBubble:null};}
         let nHP=Math.max(0,h.currentHP-d.health);
         if(gummyP&&h.title!=="The Gummy Bear")nHP=Math.max(0,h.currentHP-Math.floor(d.health/2));
         const shamrock=assigned.find(x=>x.title==="Captain Shamrock");
         if(nHP===0&&shamrock&&h.id!==shamrock.id)nHP=1;
         if(nHP===0){
           anyKIA=true;
-          if(isSuicide(h,allSnap,picked)&&Math.random()<0.25&&!h.isJohn){turnedVillain=h;return{...h,currentHP:0,status:"kia",turnedVillain:true};}
-          if(h.title==="The Crimson Knight"){
-            setHeroes(p2=>p2.map(j=>j.isJohn?{...j,currentHP:0,status:"kia",turnedVillain:true}:j));
-            const ckJohnThreat={id:Date.now(),name:"ROGUE: THE CRIMSON KNIGHT & JOHN",loc:"United States",x:88,y:118,priority:"purple",type:"military",desc:"The Crimson Knight has turned, and John has followed. They are now operating as a team in the United States. Requires 10 heroes with power level above 5 to stop.",timer:300,maxTimer:300,reward:100,isCKJohnTeamUp:true};
+          if(isSuicide(h,allSnap,picked)&&Math.random()<0.25&&!h.isJohn&&h.title!=="The Crimson Knight"){turnedVillain=h;return{...h,currentHP:0,status:"kia",turnedVillain:true};}
+          // Crimson Knight suicide mission: 50% chance she and John go rogue believing the Director turned evil
+          if(h.title==="The Crimson Knight"&&isSuicide(h,allSnap,picked)&&Math.random()<0.5){
+            const{maxHP:ckMax}=effStats(h,romRef.current,disRef.current);
+            const johnSnap=allSnap.find(j=>j.isJohn&&j.status!=="kia"&&j.status!=="gameLocked");
+            if(johnSnap){
+              const{maxHP:johnMax}=effStats(johnSnap,romRef.current,disRef.current);
+              setHeroes(p2=>p2.map(j=>j.isJohn?{...j,currentHP:johnMax,status:"deployed",speechBubble:"The Director has lost their way. We cannot stand by."}:j));
+            }
+            const ckJohnThreat={id:Date.now(),name:"ROGUE: THE CRIMSON KNIGHT & JOHN",loc:"United States",x:88,y:118,priority:"purple",type:"military",desc:"You sent The Crimson Knight on a suicide mission — and she survived. She and John believe the Director has turned evil and are now protecting the world FROM you. They retain all stats and abilities. Requires 10 heroes with power level above 5 to stop.",timer:300,maxTimer:300,reward:100,isCKJohnTeamUp:true};
             setThreats(p2=>[...p2.filter(x=>x.isCKJohnTeamUp!==true),ckJohnThreat]);
-            setLog("🔴 CATASTROPHIC: The Crimson Knight AND John have gone rogue!");
+            setLog("🔴 CATASTROPHIC: The Crimson Knight survived the suicide mission and believes YOU are the real threat. She and John have gone rogue to protect the world from you!");
+            return{...h,currentHP:Math.round(ckMax*0.3),status:"deployed",regenTimer:0,speechBubble:"You sent me to die. Now I know what you are."};
           }
+          // Normal CK death (not suicide or rogue roll failed) — she can simply die
           return{...h,currentHP:0,status:"kia",speechBubble:null};
         }
         const st=nHP<(h.functionalAt||0)?"exhausted":nHP<maxHP?"resting":"ready";
@@ -464,7 +494,25 @@ function App(){
     React.createElement("button",{className:"mbtn",onClick:()=>startGame(),disabled:!nameInput.trim()},"▶ BEGIN COMMAND"),
     React.createElement("button",{className:"mbtn gold",onClick:()=>setScreen("shop")},"🛒 HERO SHOP"),
     React.createElement("button",{className:"mbtn purple",onClick:()=>setScreen("codex")},"📖 INFORMATION CODEX"),
+    React.createElement("button",{className:"mbtn",style:{background:"var(--bg3)",borderColor:"var(--text3)",color:"var(--text2)"},onClick:()=>setScreen("acknowledgements")},"◈ ACKNOWLEDGEMENTS"),
     shopMsg&&React.createElement("div",{style:{fontSize:9,color:"var(--green)",textAlign:"center",maxWidth:300}},shopMsg)
+  );
+
+  // ── ACKNOWLEDGEMENTS ──
+  if(screen==="acknowledgements")return React.createElement("div",{className:"full-panel"},
+    React.createElement("div",{className:"full-panel-header"},
+      React.createElement("div",{className:"full-panel-title"},"◈ ACKNOWLEDGEMENTS"),
+      React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("menu")},"← BACK")
+    ),
+    React.createElement("div",{className:"full-panel-body"},
+      React.createElement("div",{style:{maxWidth:600,margin:"0 auto",padding:"20px 12px"}},
+        React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:13,color:"var(--gold)",letterSpacing:2,marginBottom:16,textAlign:"center"}},"FROM THE DEVELOPER"),
+        React.createElement("div",{style:{fontSize:13,color:"var(--text2)",lineHeight:2,whiteSpace:"pre-wrap",textAlign:"center"}},
+          "Hello, and thank you for playing my very first videogame. WSPA was a trial run in trying to learn more about coding, AI, and a chance to create a fun superhero universe as I prepare for larger and more unique projects. I hope you enjoy the humor, the scaling, and the strategy.\n\nThis project uses AI for the coding and the art, and it certainly snuck in help on the creative side as well, but I did my best to limit this. Because of this, and more particularly because of the AI use of art, I do not feel comfortable charging anything for this work at this time.\n\nInstead, my sincere hope is that you enjoy the game, explore different strategies, and have fun with the lore. The single greatest payment I could receive is engagement, feedback, and peoples favorite and least favorite aspects of the game.\n\nThank you for playing! Go save the world!"
+        ),
+        React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--accent)",textAlign:"center",marginTop:24,letterSpacing:2}},"— JK Gaming")
+      )
+    )
   );
 
   // ── SHOP ──
@@ -535,6 +583,7 @@ function App(){
             ),
             unlocked?React.createElement("div",{className:"codex-card-body"},
               e.category==="hero"&&React.createElement("div",null,
+                e.portrait&&React.createElement("img",{src:e.portrait,alt:e.name,style:{width:"100%",maxWidth:160,height:"auto",display:"block",margin:"0 auto 10px",borderRadius:4,border:"1px solid var(--border2)",objectFit:"cover"}}),
                 React.createElement("div",null,React.createElement("b",null,"Real Name: "),e.realName),
                 React.createElement("div",null,React.createElement("b",null,"Class: "),e.cls?.toUpperCase()," · PWR ",e.power," · HP ",e.hp),
                 React.createElement("div",null,React.createElement("b",null,"Bio: "),e.personality),
@@ -544,6 +593,7 @@ function App(){
                 e.secret&&React.createElement("div",{style:{color:"#ff8844"}},React.createElement("b",null,"⚠ Secret: "),e.secret)
               ),
               e.category==="villain"&&React.createElement("div",null,
+                e.portrait&&React.createElement("img",{src:e.portrait,alt:e.name,style:{width:"100%",maxWidth:160,height:"auto",display:"block",margin:"0 auto 10px",borderRadius:4,border:"1px solid var(--purple)",objectFit:"cover",opacity:0.85}}),
                 React.createElement("div",null,React.createElement("b",null,"Real Name: "),e.realName),
                 React.createElement("div",null,React.createElement("b",null,"Class: "),e.cls?.toUpperCase()," · PWR ",e.power," · HP ",e.hp),
                 React.createElement("div",null,React.createElement("b",null,"Bio: "),e.personality),
@@ -734,7 +784,7 @@ function App(){
         React.createElement("div",{style:{padding:"7px 7px 0"}},React.createElement("div",{className:"panel-header"},"◈ ACTIVE THREATS")),
         React.createElement("div",{className:"threat-list"},
           threats.length===0&&React.createElement("div",{style:{fontSize:9,color:"var(--text3)",padding:12,textAlign:"center"}},"No active threats."),
-          threats.map(t=>{
+          [...threats].sort((a,b)=>{const pOrder={purple:0,red:1,orange:2,yellow:3};const pa=pOrder[a.priority]??4;const pb=pOrder[b.priority]??4;if(pa!==pb)return pa-pb;return a.timer-b.timer;}).map(t=>{
             const dep=depMap[t.id]&&depMap[t.id].length>0;const c=threatColor(t);
             return React.createElement("div",{key:t.id,className:`threat-card priority-${t.priority}${selThreat===t.id?" sel":""}`,onClick:()=>setSelThreat(selThreat===t.id?null:t.id)},
               React.createElement("div",{className:"threat-name"},t.name),
