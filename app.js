@@ -483,7 +483,7 @@ function App(){
 
   // ── MENU ──
   if(screen==="menu")return React.createElement("div",{className:"menu"},
-    React.createElement("div",{className:"jk-label"},"JK GAMING PRESENTS"),
+    React.createElement("div",{className:"JCKC-label"},"JCKC GAMING PRESENTS"),
     React.createElement("div",{className:"menu-logo"},"W.S.P.A."),
     React.createElement("div",{className:"menu-sub"},"WORLD SECURITY & PROTECTION AGENCY"),
     React.createElement("div",{className:"menu-pts"},`BANK: ${bank} PTS`),
@@ -510,7 +510,7 @@ function App(){
         React.createElement("div",{style:{fontSize:13,color:"var(--text2)",lineHeight:2,whiteSpace:"pre-wrap",textAlign:"center"}},
           "Hello, and thank you for playing my very first videogame. WSPA was a trial run in trying to learn more about coding, AI, and a chance to create a fun superhero universe as I prepare for larger and more unique projects. I hope you enjoy the humor, the scaling, and the strategy.\n\nThis project uses AI for the coding and the art, and it certainly snuck in help on the creative side as well, but I did my best to limit this. Because of this, and more particularly because of the AI use of art, I do not feel comfortable charging anything for this work at this time.\n\nInstead, my sincere hope is that you enjoy the game, explore different strategies, and have fun with the lore. The single greatest payment I could receive is engagement, feedback, and peoples favorite and least favorite aspects of the game.\n\nThank you for playing! Go save the world!"
         ),
-        React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--accent)",textAlign:"center",marginTop:24,letterSpacing:2}},"— JK Gaming")
+        React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--accent)",textAlign:"center",marginTop:24,letterSpacing:2}},"— JCKC Gaming")
       )
     )
   );
@@ -617,7 +617,7 @@ function App(){
   // ── GAME OVER ──
   if(screen==="gameover")return React.createElement("div",{className:"menu"},
     gameOver==="win"?React.createElement(React.Fragment,null,
-      React.createElement("div",{className:"jk-label"},"JK GAMING"),
+      React.createElement("div",{className:"JCKC-label"},"JCKC GAMING"),
       React.createElement("div",{className:"menu-logo",style:{color:"var(--gold)"}},"VICTORY"),
       React.createElement("div",{className:"menu-sub"},`DIRECTOR ${directorName.toUpperCase()} — EARTH IS SAFE`),
       React.createElement("div",{style:{fontSize:12,color:"var(--gold)",fontFamily:"var(--font-head)"}},`+${extMode?WIN2:WIN1} PTS ADDED TO YOUR BANK`),
@@ -625,7 +625,7 @@ function App(){
       !extMode&&React.createElement("button",{className:"mbtn green",onClick:()=>{continueToTier2();setScreen("game");}},"▶ CONTINUE TO 1000 PTS"),
       React.createElement("button",{className:"mbtn gold",onClick:()=>{setNameInput(directorName);setScreen("menu");}},extMode?"▶ PLAY AGAIN":"↩ MAIN MENU")
     ):React.createElement(React.Fragment,null,
-      React.createElement("div",{className:"jk-label"},"JK GAMING"),
+      React.createElement("div",{className:"JCKC-label"},"JCKC GAMING"),
       React.createElement("div",{className:"menu-logo",style:{color:"var(--red)",fontSize:"22px"}},"MISSION FAILED"),
       React.createElement("div",{className:"menu-sub",style:{color:"var(--red)"}},"YOU HAVE FAILED TO PROTECT THE PLANET."),
       React.createElement("div",{style:{fontSize:13,color:"var(--gold)",fontFamily:"var(--font-head)"}},"You scored "+score+" points."),
@@ -638,7 +638,7 @@ function App(){
 
   return React.createElement("div",{className:"app"},
     React.createElement("div",{className:"topbar"},
-      React.createElement("div",{className:"topbar-logo"},"W.S.P.A. · JK GAMING"),
+      React.createElement("div",{className:"topbar-logo"},"W.S.P.A. · JCKC GAMING"),
       React.createElement("div",{className:"topbar-divider"}),
       React.createElement("div",{className:"topbar-director"},`DIR. ${directorName.toUpperCase()}`),
       React.createElement("div",{className:"topbar-divider"}),
