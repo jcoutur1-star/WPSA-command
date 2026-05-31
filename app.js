@@ -131,7 +131,7 @@ function App(){
       setLogTime(`${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`);
 
       setHeroes(prev=>prev.map(h=>{
-        if(["deployed","gameLocked","shopLocked","kia","offworld"].includes(h.status))return h;
+        if(["deployed","gameLocked","shopLocked","kia","turned","offworld"].includes(h.status))return h;
         const{maxHP,regenSec:rs}=effStats(h,romRef.current,disRef.current);
         if(h.currentHP>=maxHP)return h.status==="ready"?h:{...h,status:"ready"};
         const nt=(h.regenTimer||0)+1;
@@ -388,15 +388,15 @@ function App(){
               villainId:null,rogueHeroId:h.id,rogueHero:h,recurring:true,redeemable:true
             };
             setThreats(p2=>[...p2,turnedThreat]);
-            return{...h,currentHP:0,status:"kia",turnedVillain:true};
+            return{...h,currentHP:1,status:"turned",turnedVillain:true,speechBubble:"You used me. I won't forget."};
           }
           // Crimson Knight on a suicide mission: 50% chance she AND John go rogue to stop the Director
           if(h.title==="The Crimson Knight"&&isSuicide(h,allSnap,picked)&&Math.random()<0.5){
             const{maxHP:ckMax}=effStats(h,romRef.current,disRef.current);
-            const johnSnap=allSnap.find(j=>j.isJohn&&j.status!=="kia"&&j.status!=="gameLocked");
+            const johnSnap=allSnap.find(j=>j.isJohn&&j.status!=="kia"&&j.status!=="gameLocked"&&j.status!=="turned");
             if(johnSnap){
               const{maxHP:johnMax}=effStats(johnSnap,romRef.current,disRef.current);
-              setHeroes(p2=>p2.map(j=>j.isJohn?{...j,currentHP:johnMax,status:"deployed",speechBubble:"The Director has lost their way. We cannot stand by."}:j));
+              setHeroes(p2=>p2.map(j=>j.isJohn?{...j,currentHP:johnMax,status:"turned",speechBubble:"The Director has lost their way. We cannot stand by."}:j));
             }
             const ckJohnThreat={
               id:Date.now(),
@@ -409,7 +409,7 @@ function App(){
             };
             setThreats(p2=>[...p2.filter(x=>x.isCKJohnTeamUp!==true),ckJohnThreat]);
             setLog("🔴 CATASTROPHIC: The Crimson Knight survived the suicide mission and believes YOU are the real threat. She and John have gone rogue to protect the world from you. They leave fallen heroes at 1 HP — they are not here to kill, but to WIN.");
-            return{...h,currentHP:Math.round(ckMax*0.3),status:"deployed",regenTimer:0,speechBubble:"You sent me to die. Now I know what you are."};
+            return{...h,currentHP:Math.round(ckMax*0.3),status:"turned",regenTimer:0,speechBubble:"You sent me to die. Now I know what you are."};
           }
           // Normal CK death (not suicide or rogue roll failed) — she can simply die
           return{...h,currentHP:0,status:"kia",speechBubble:null};
@@ -694,18 +694,19 @@ function App(){
           const cardCls=["hero-card",`${h.cls}-card`,
             isShopL?"shop-locked":isGameL?"game-locked":"",
             h.status==="kia"?"kia-card":"",
+            h.status==="turned"?"kia-card":"",
             isExp?"expanded":"",
             h.redeemed?"villain-card":"",
             h.levelUpFlash?"level-up-flash":""
           ].filter(Boolean).join(" ");
-          return React.createElement("div",{key:h.id,className:cardCls,style:{position:"relative"},onClick:()=>!isShopL&&!isGameL&&h.status!=="kia"&&setExpandedHero(isExp?null:h.id)},
+          return React.createElement("div",{key:h.id,className:cardCls,style:{position:"relative"},onClick:()=>!isShopL&&!isGameL&&h.status!=="kia"&&h.status!=="turned"&&setExpandedHero(isExp?null:h.id)},
             h.speechBubble&&React.createElement("div",{className:"speech-bubble"},h.speechBubble),
             React.createElement("div",{style:{display:"flex",alignItems:"flex-start",gap:0}},
               React.createElement("div",{style:{flex:1}},
                 React.createElement("div",{className:"hero-row"},
                   React.createElement("span",{className:`hero-name-text${h.isJohn?" john-name":""}${h.redeemed?" villain-name":""}`},h.title),
-                  React.createElement("span",{className:`hero-badge badge-${isShopL?"shop":isGameL?"locked":h.status==="offworld"?"offworld":h.status==="resting"&&canDeploy(h)?"resting":h.status}`},
-                    isShopL?"SHOP":isGameL?"LOCKED":h.status==="offworld"?"OFF-WORLD":h.status==="ready"?"READY":h.status==="deployed"?"AWAY":h.status==="resting"&&canDeploy(h)?"REST✓":h.status==="resting"?"REST":h.status==="exhausted"?"OUT":"K.I.A."
+                  React.createElement("span",{className:`hero-badge badge-${isShopL?"shop":isGameL?"locked":h.status==="offworld"?"offworld":h.status==="turned"?"kia":h.status==="resting"&&canDeploy(h)?"resting":h.status}`},
+                    isShopL?"SHOP":isGameL?"LOCKED":h.status==="offworld"?"OFF-WORLD":h.status==="turned"?"TURNED":h.status==="ready"?"READY":h.status==="deployed"?"AWAY":h.status==="resting"&&canDeploy(h)?"REST✓":h.status==="resting"?"REST":h.status==="exhausted"?"OUT":"K.I.A."
                   )
                 ),
                 React.createElement("div",{className:"hero-meta"},`${CAREER[h.career]?.label} · ${h.cls.toUpperCase()} · PWR ${power.toFixed(1)}`),
@@ -714,7 +715,7 @@ function App(){
                   React.createElement("div",{className:"bt"},React.createElement("div",{className:"bf",style:{width:`${hpPct}%`,background:h.isJohn?"#ffd700":sc(h.currentHP,maxHP)}})),
                   React.createElement("span",{style:{fontSize:8,color:"var(--text3)",marginLeft:3}},`${Math.round(h.currentHP)}/${maxHP}`)
                 ),
-                !isShopL&&!isGameL&&h.status!=="kia"&&CAREER[h.career]?.next&&React.createElement("div",{className:"xp-row"},
+                !isShopL&&!isGameL&&h.status!=="kia"&&h.status!=="turned"&&CAREER[h.career]?.next&&React.createElement("div",{className:"xp-row"},
                   React.createElement("div",{className:"xp-label"},"XP"),
                   React.createElement("div",{className:"xp-bar-track"},React.createElement("div",{className:"xp-bar-fill",style:{width:`${xpPct}%`}})),
                   React.createElement("span",{style:{fontSize:7,color:"var(--gold)",marginLeft:3}},`${h.xp||0}/${thresh}`)
@@ -838,7 +839,7 @@ function App(){
         React.createElement("div",{className:"modal-sub"},`${depModal.loc} · ${P_LABELS[depModal.priority]||""}`),
         (()=>{if(picked.length===1){const h=heroes.find(x=>x.id===picked[0]);if(h&&isSuicide(h,heroes,picked))return React.createElement("div",{className:"suicide-warn"},"⚠ SUICIDE MISSION: <30 HP, alone, 2+ heroes at full. 50% chance of turning villain if KIA.");}return null;})(),
         React.createElement("div",{className:"hero-select-list"},
-          heroes.filter(h=>!["shopLocked","gameLocked","kia","offworld"].includes(h.status)).map(h=>{
+          heroes.filter(h=>!["shopLocked","gameLocked","kia","turned","offworld"].includes(h.status)).map(h=>{
             const{power,maxHP}=effStats(h,rom,dis);const dep=canDeploy(h);const pk=picked.includes(h.id);
             return React.createElement("div",{key:h.id,className:`hsi${pk?" picked":""}${!dep?" unavailable":""}`,onClick:()=>dep&&toggleH(h.id)},
               React.createElement("div",null,
@@ -870,8 +871,8 @@ function App(){
             const{maxHP}=effStats(h,rom,dis);const lv=modal.levelUps?.find(l=>l.title===h.title);
             return React.createElement("div",{key:h.id,className:"mstat"},
               React.createElement("div",{className:"mstat-label"},h.title),
-              React.createElement("div",{className:"mstat-val",style:{color:h.isJohn?"#ffd700":u?.status==="kia"?"var(--red)":u?.status==="exhausted"?"var(--yellow)":"var(--green)"}},
-                u?.status==="kia"?"K.I.A.":`HP ${Math.round(u?.currentHP||0)}/${maxHP}`
+              React.createElement("div",{className:"mstat-val",style:{color:h.isJohn?"#ffd700":u?.status==="kia"?"var(--red)":u?.status==="turned"?"var(--yellow)":u?.status==="exhausted"?"var(--yellow)":"var(--green)"}},
+                u?.status==="kia"?"K.I.A.":u?.status==="turned"?"TURNED":`HP ${Math.round(u?.currentHP||0)}/${maxHP}`
               ),
               d&&React.createElement("div",{style:{fontSize:8,color:"var(--text3)",marginTop:2}},`-${d.health}hp`),
               modal.xpEarned>0&&!["kia"].includes(u?.status)&&React.createElement("div",{className:"mstat-xp"},`+${modal.xpEarned} XP`),
