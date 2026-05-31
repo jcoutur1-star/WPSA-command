@@ -6,7 +6,15 @@ function threatColor(t){return P_COLORS[t.priority]||"#ffaa00";}
 function effStats(hero,rom,dis){
   const m=CAREER[hero.career]?.mult||1;
   let power=hero.basePower*m;
+  // Corvair veteran global buff: +0.5 power to every hero on the roster
+  if(hero._corvairBuff)power+=0.5;
+  // Ironside Command Aura: +0.3 power to all teammates (flag set at deploy/roll time)
+  if(hero._ironsideAura)power+=0.3;
   let maxHP=Math.round(hero.baseHP*m)+(hero.mechaBonus||0);
+  // IceBerg deployed bonus: +10 HP while IceBerg is on the same mission
+  if(hero._icebergBonus)maxHP+=10;
+  // Conductor Resonance: +15 HP to tank-class heroes on same mission
+  if(hero._conductorBonus)maxHP+=15;
   let regenSec=hero.regenSec;
   if(rom){Object.keys(rom).forEach(k=>{const ids=k.split(",").map(Number);if(ids.includes(hero.id)){power*=1.1;maxHP=Math.round(maxHP*1.1);regenSec=Math.max(1,Math.floor(regenSec/2));}});}
   // Eclipso lonely penalty: -30% power if no positive affiliates on team (handled at rollMission via flag)
@@ -34,18 +42,20 @@ function rollMission(heroes,threat,rom,dis){
   const eclipso=heroes.find(h=>h.eclipsoLonelyPenalty);
   const eclipsoAlone=eclipso&&!heroes.some(h=>h.id!==eclipso.id&&(eclipso.affiliates||[]).includes(h.title));
 
+  const ironsidePresent=heroes.some(h=>h.title==="Ironside");
   const stats=heroes.map(h=>{
-    const s=effStats(h,rom,dis);
+    const decorated={...h,_ironsideAura:ironsidePresent&&h.title!=="Ironside"};
+    const s=effStats(decorated,rom,dis);
     if(h.eclipsoLonelyPenalty&&eclipsoAlone)return{...s,power:s.power*0.7};
     return s;
   });
-  let avgP=stats.reduce((a,s)=>a+s.power,0)/stats.length;
+  const sumW=stats.reduce((a,s)=>a+s.power,0);
+  let avgP=sumW>0?stats.reduce((a,s)=>a+(s.power*s.power),0)/sumW:0;
   const classes=new Set(heroes.map(h=>h.cls));
   if(classes.size>1)avgP*=1.04;
   heroes.forEach(h=>{heroes.forEach(h2=>{if(h.id!==h2.id&&h.affiliates?.includes(h2.title))avgP*=1.04;});});
   if(heroes.length===1&&heroes[0].title==="Shadowmere")avgP+=0.4;
   if(heroes.length>=2&&heroes.some(h=>h.title==="Greywulf"))avgP+=0.5;
-  if(heroes.some(h=>h.title==="Ironside"))avgP+=0.3;
   if(threat.isOcean&&heroes.some(h=>h.title==="Hydrothylre"))avgP+=3.4;
   if(heroes.some(h=>h.title==="Captain Shamrock"))avgP+=1.0;
   let bonus=0;
