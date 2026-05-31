@@ -369,13 +369,16 @@ function App(){
     const assigned=hRef.current.filter(h=>picked.includes(h.id));
     setDepModal(null);
     const iceP=assigned.some(h=>h.title==="IceBerg");
+    const conductorP=assigned.some(h=>h.title==="The Conductor");
     const gummyP=assigned.some(h=>h.title==="The Gummy Bear");
     setHeroes(prev=>prev.map(h=>{
       if(!picked.includes(h.id))return h;
-      const{maxHP}=effStats(h,romRef.current,disRef.current);
-      const hpBoost=(iceP&&h.title!=="IceBerg")?10:0;
+      const iceBonus=iceP&&h.title!=="IceBerg";
+      const conductorBonus=conductorP&&h.cls==="tank"&&h.title!=="The Conductor";
+      const decorated={...h,_icebergBonus:iceBonus,_conductorBonus:conductorBonus};
+      const{maxHP}=effStats(decorated,romRef.current,disRef.current);
       const bubble=Math.random()<0.55?getRandQuip(h,romRef.current,disRef.current,true):null;
-      return{...h,status:"deployed",currentHP:Math.min(maxHP+hpBoost,h.currentHP+hpBoost),speechBubble:bubble};
+      return{...h,status:"deployed",_icebergBonus:iceBonus,_conductorBonus:conductorBonus,currentHP:Math.min(maxHP,h.currentHP),speechBubble:bubble};
     }));
     setDepMap(prev=>({...prev,[threat.id]:picked}));
     setLog(`⚡ ${assigned.map(h=>h.title).join(" & ")} deployed to ${threat.loc}...`);
@@ -466,7 +469,7 @@ function App(){
         const{maxHP}=effStats(h,romRef.current,disRef.current);
         // Apply Blink flashing lights — halve damage to all teammates except Blink herself
         if(blinkActivates&&h.title!=="Blink")d={health:Math.floor(d.health/2)};
-        if(h.isJohn){const johnNewHP=Math.max(h.functionalAt,h.currentHP-d.health);if(h.pendingOffworld){const quote=JOHN_DEPARTURE_QUOTES[Math.floor(Math.random()*JOHN_DEPARTURE_QUOTES.length)];const ckQuote=Math.random()<0.5?CK_JOHN_DEPARTURE_RESPONSES[Math.floor(Math.random()*CK_JOHN_DEPARTURE_RESPONSES.length)]:null;const headline=pickHeadline("johnLeavesToOtherPlanets",[{title:"John"}],null,null);if(headline)pushHeadline(headline);setLog(`🚀 John finished the mission — then departed. "${quote}"${ckQuote?` · Crimson Knight: "${ckQuote}"`:"" }`);return{...h,currentHP:johnNewHP,status:"offworld",speechBubble:quote,pendingOffworld:false};}return{...h,currentHP:johnNewHP,status:johnNewHP<=h.functionalAt?"resting":"ready",speechBubble:null};}
+        if(h.isJohn){const johnNewHP=Math.max(h.functionalAt,h.currentHP-d.health);if(h.pendingOffworld){const quote=JOHN_DEPARTURE_QUOTES[Math.floor(Math.random()*JOHN_DEPARTURE_QUOTES.length)];const ckQuote=Math.random()<0.5?CK_JOHN_DEPARTURE_RESPONSES[Math.floor(Math.random()*CK_JOHN_DEPARTURE_RESPONSES.length)]:null;const headline=pickHeadline("johnLeavesToOtherPlanets",[{title:"John"}],null,null);if(headline)pushHeadline(headline);setLog(`🚀 John finished the mission — then departed. "${quote}"${ckQuote?` · Crimson Knight: "${ckQuote}"`:"" }`);return{...h,currentHP:johnNewHP,status:"offworld",_icebergBonus:false,_conductorBonus:false,speechBubble:quote,pendingOffworld:false};}return{...h,currentHP:johnNewHP,status:johnNewHP<=h.functionalAt?"resting":"ready",_icebergBonus:false,_conductorBonus:false,speechBubble:null};}
         let nHP=Math.max(0,h.currentHP-d.health);
         if(gummyP&&h.title!=="The Gummy Bear")nHP=Math.max(0,h.currentHP-Math.floor(d.health/2));
         const shamrock=assigned.find(x=>x.title==="Captain Shamrock");
@@ -486,7 +489,7 @@ function App(){
               villainId:null,rogueHeroId:h.id,rogueHero:h,recurring:true,redeemable:true
             };
             setThreats(p2=>[...p2,turnedThreat]);
-            return{...h,currentHP:1,status:"turned",turnedVillain:true,speechBubble:"You used me. I won't forget."};
+            return{...h,currentHP:1,status:"turned",turnedVillain:true,_icebergBonus:false,_conductorBonus:false,speechBubble:"You used me. I won't forget."};
           }
           // Crimson Knight on a suicide mission: 50% chance she AND John go rogue to stop the Director
           if(h.title==="The Crimson Knight"&&isSuicide(h,allSnap,picked)&&Math.random()<0.5){
@@ -507,10 +510,10 @@ function App(){
             };
             setThreats(p2=>[...p2.filter(x=>x.isCKJohnTeamUp!==true),ckJohnThreat]);
             setLog("🔴 CATASTROPHIC: The Crimson Knight survived the suicide mission and believes YOU are the real threat. She and John have gone rogue to protect the world from you. They leave fallen heroes at 1 HP — they are not here to kill, but to WIN.");
-            return{...h,currentHP:Math.round(ckMax*0.3),status:"turned",regenTimer:0,speechBubble:"You sent me to die. Now I know what you are."};
+            return{...h,currentHP:Math.round(ckMax*0.3),status:"turned",regenTimer:0,_icebergBonus:false,_conductorBonus:false,speechBubble:"You sent me to die. Now I know what you are."};
           }
           // Normal CK death (not suicide or rogue roll failed) — she can simply die
-          return{...h,currentHP:0,status:"kia",speechBubble:null};
+          return{...h,currentHP:0,status:"kia",_icebergBonus:false,_conductorBonus:false,speechBubble:null};
         }
         const st=nHP<(h.functionalAt||0)?"exhausted":nHP<maxHP?"resting":"ready";
         const thresh=xpToLevel(h);const nXP=(h.xp||0)+pts;
@@ -518,8 +521,12 @@ function App(){
         if(nXP>=thresh&&CAREER[h.career]?.next){nc=CAREER[h.career].next;didLv=true;levelUps.push({title:h.title,to:nc});
           if(h.title==="The Crimson Knight"&&nc==="veteran"){setHeroes(p2=>p2.map(j=>j.isJohn?{...j,status:"ready",gameLocked:false}:j));setLog("⭐ Crimson Knight is VETERAN — John unlocked!");}
           if(h.title==="Eclipso"&&nc==="veteran"){setLog("⭐ Eclipso VETERAN — Sees the Value of the Team: team penalty removed!");}
+          // Corvair veteran: +0.5 power to ALL heroes on the roster permanently
+          if(h.title==="Corvair"&&nc==="veteran"){setHeroes(p2=>p2.map(x=>({...x,_corvairBuff:true})));setLog("⭐ Corvair VETERAN — team-wide +0.5 power boost active!");}
+          // Skull Crusher veteran: special unlocked — clear friendly fire flag
+          if(h.title==="Skull Crusher"&&nc==="veteran"){setHeroes(p2=>p2.map(x=>x.title==="Skull Crusher"?{...x,skullCrusherFriendlyFire:false}:x));setLog("⭐ Skull Crusher VETERAN — Finally Mastered Being Gentle: friendly fire disabled!");}
         }
-        return{...h,currentHP:nHP,status:st,regenTimer:0,xp:didLv?nXP-thresh:nXP,career:nc,levelUpFlash:didLv,speechBubble:null,eclipsoLonelyPenalty:h.eclipsoLonelyPenalty&&nc!=="veteran"?true:false};
+        return{...h,currentHP:nHP,status:st,regenTimer:0,xp:didLv?nXP-thresh:nXP,career:nc,levelUpFlash:didLv,_icebergBonus:false,_conductorBonus:false,speechBubble:null,eclipsoLonelyPenalty:h.eclipsoLonelyPenalty&&nc!=="veteran"?true:false};
       }));
 
       if(assigned.length>=2&&Math.random()<0.05){
