@@ -79,10 +79,10 @@ const JOHN_DEPARTURE_QUOTES=[
   "The Coagulanians are in trouble. I'm going to go help them!",
   "The Halluxians got into a war with the Enginians and the Tiploplians. I need to broker peace.",
   "I'm going to go pick up my favorite Ice Cream on Malxinaria Prime. I'll be right back…",
-  "A pregnant space whale is going to die if I don't perform surgery. Millions will die if she does... I'll be right back!",
+  "A pregnant space whale will die if I don't perform surgery. Millions will die if she does. I'll be right back!",
   "I need to go push a Type 3 civilization out of Ton 618s Event Horizon",
-  "Some purple guy is trying to kill half the population of the universe. I gotta go intervene. Be Right Back.",
-  "A supernova is about to hit the capital planet of the Caldosian Federation. I gotta try and help stop it.",
+  "A purple guy is trying to kill half the population of the universe. I gotta go intervene. Be right Back.",
+  "A supernova is about to hit the Caldosian Federation. I've gotta stop it.",
   "I must go stop Dacernus before he reaches this solar system!",
 ];
 const CK_JOHN_DEPARTURE_RESPONSES=[
