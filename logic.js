@@ -14,7 +14,7 @@ function effStats(hero,rom,dis){
   return{power,maxHP,regenSec};
 }
 
-function canDeploy(h){return h.status!=="deployed"&&h.status!=="gameLocked"&&h.status!=="shopLocked"&&h.status!=="kia"&&h.status!=="exhausted"&&h.status!=="offworld";}
+function canDeploy(h){return h.status!=="deployed"&&h.status!=="gameLocked"&&h.status!=="shopLocked"&&h.status!=="kia"&&h.status!=="turned"&&h.status!=="exhausted"&&h.status!=="offworld";}
 
 function isSuicide(hero,allH,pids){
   if(pids.length!==1)return false;
