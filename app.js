@@ -1,5 +1,103 @@
 const {useState,useEffect,useRef,useMemo}=React;
 
+// ─── WORLD MAP COMPONENT (D3 Natural Earth projection) ────────────────────────
+function WorldMap({threats,depMap,score,target,extMode}){
+  const svgRef=useRef(null);
+  const [paths,setPaths]=useState([]);
+  const [proj,setProj]=useState(null);
+  const W=580,H=360;
+
+  useEffect(()=>{
+    // Load world topojson and build paths using d3-geo
+    Promise.all([
+      fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(r=>r.json())
+    ]).then(([world])=>{
+      const projection=d3.geoNaturalEarth1()
+        .scale(92)
+        .translate([W/2,H/2]);
+      const pathGen=d3.geoPath().projection(projection);
+      const countries=topojson.feature(world,world.objects.countries);
+      const land=topojson.merge(world,world.objects.countries.geometries);
+      const graticule=d3.geoGraticule()();
+      setPaths({
+        land: pathGen(land),
+        graticule: pathGen(graticule),
+        countries: countries.features.map(f=>({id:f.id,d:pathGen(f)}))
+      });
+      setProj(()=>projection);
+    }).catch(()=>{
+      // Fallback: simple equirectangular if CDN unavailable
+      const projection=([lng,lat])=>[
+        (lng+180)*(W/360),
+        (90-lat)*(H/180)
+      ];
+      setProj(()=>projection);
+    });
+  },[]);
+
+  // Project a threat's lat/lng to SVG x,y
+  function project(t){
+    if(!proj)return null;
+    try{
+      const pt=proj([t.lng,t.lat]);
+      if(!pt||isNaN(pt[0])||isNaN(pt[1]))return null;
+      return pt;
+    }catch(e){return null;}
+  }
+
+  return React.createElement("div",{className:"map-area"},
+    React.createElement("svg",{ref:svgRef,className:"map-svg",viewBox:`0 0 ${W} ${H}`,xmlns:"http://www.w3.org/2000/svg"},
+      React.createElement("defs",null,
+        React.createElement("filter",{id:"glow"},
+          React.createElement("feGaussianBlur",{stdDeviation:"2.5",result:"cb"}),
+          React.createElement("feMerge",null,
+            React.createElement("feMergeNode",{in:"cb"}),
+            React.createElement("feMergeNode",{in:"SourceGraphic"})
+          )
+        ),
+        React.createElement("linearGradient",{id:"sg",x1:"0%",y1:"0%",x2:"100%",y2:"0%"},
+          React.createElement("stop",{offset:"0%",stopColor:"#00d4ff"}),
+          React.createElement("stop",{offset:"100%",stopColor:"#aa44ff"})
+        ),
+        React.createElement("linearGradient",{id:"og",x1:"0%",y1:"0%",x2:"0%",y2:"100%"},
+          React.createElement("stop",{offset:"0%",stopColor:"#03192e"}),
+          React.createElement("stop",{offset:"100%",stopColor:"#020d1a"})
+        )
+      ),
+      // Background
+      React.createElement("rect",{width:W,height:H,fill:"url(#og)"}),
+      // Graticule (lat/lng grid lines)
+      paths.graticule&&React.createElement("path",{d:paths.graticule,fill:"none",stroke:"#0a2030",strokeWidth:.35,strokeDasharray:"2,8"}),
+      // Country fills — all one color for the tactical display look
+      paths.countries&&paths.countries.map(c=>
+        React.createElement("path",{key:c.id,d:c.d,fill:"#0d2a3f",stroke:"#1a3f5c",strokeWidth:.4})
+      ),
+      // Land outline (thicker border over country fills)
+      paths.land&&React.createElement("path",{d:paths.land,fill:"none",stroke:"#1e4a65",strokeWidth:.9}),
+      // Threat markers
+      ...threats.map(t=>{
+        const pt=project(t);
+        if(!pt)return null;
+        const [tx,ty]=pt;
+        const c=P_COLORS[t.priority]||"#ffaa00";
+        const dep=depMap[t.id]&&depMap[t.id].length>0;
+        return React.createElement("g",{key:t.id,filter:"url(#glow)"},
+          React.createElement("circle",{cx:tx,cy:ty,r:18,fill:`${c}09`,stroke:c,strokeWidth:.5,className:"pulse-ring"}),
+          React.createElement("circle",{cx:tx,cy:ty,r:9,fill:`${c}18`,stroke:c,strokeWidth:1}),
+          React.createElement("circle",{cx:tx,cy:ty,r:3.5,fill:c}),
+          dep&&React.createElement("circle",{cx:tx,cy:ty,r:13,fill:"none",stroke:"#00d4ff",strokeWidth:1.5,strokeDasharray:"4,3"}),
+          React.createElement("text",{x:tx,y:ty-21,textAnchor:"middle",fontSize:6.5,fill:c,fontFamily:"'Share Tech Mono',monospace"},t.loc),
+          React.createElement("text",{x:tx,y:ty+26,textAnchor:"middle",fontSize:6.5,fill:"#00d4ff",fontFamily:"'Share Tech Mono',monospace"},`T-${Math.floor(t.timer/60)}:${String(t.timer%60).padStart(2,"0")}`)
+        );
+      }).filter(Boolean),
+      // Score bar
+      React.createElement("rect",{x:8,y:350,width:564,height:6,rx:2,fill:"rgba(255,255,255,.04)",stroke:"#0a2a40",strokeWidth:.5}),
+      React.createElement("rect",{x:8,y:350,width:Math.min(564,(score/target)*564),height:6,rx:2,fill:"url(#sg)"}),
+      React.createElement("text",{x:290,y:348,textAnchor:"middle",fontSize:7.5,fill:"var(--text3)",fontFamily:"'Share Tech Mono',monospace"},`SCORE: ${score} / ${target}${extMode?" [EXTENDED]":""}`)
+    )
+  );
+}
+
 function App(){
   const [bank,setBank]=useState(loadBank);
   const [ownedShop,setOwnedShop]=useState(loadOwned);
@@ -212,7 +310,7 @@ function App(){
           const v2pool=av.filter(v=>v.id!==v1.id);
           if(v2pool.length>0){
             const v2=v2pool[Math.floor(Math.random()*v2pool.length)];
-            const tt={id:Date.now(),name:`VILLAIN TEAM-UP: ${v1.title} & ${v2.title}`,loc:v1.loc,x:Math.round((v1.x+v2.x)/2),y:Math.round((v1.y+v2.y)/2),priority:"purple",type:"military",desc:`${v1.title} and ${v2.title} have allied. Combined threat is severe.`,timer:200,maxTimer:200,reward:v1.reward+v2.reward,villainId:v1.id,villainId2:v2.id,recurring:true,isTeamUp:true,teamUpPower:(v1.basePower||5)+(v2.basePower||5)};
+            const tt={id:Date.now(),name:`VILLAIN TEAM-UP: ${v1.title} & ${v2.title}`,loc:v1.loc,lat:((v1.lat||0)+(v2.lat||0))/2,lng:((v1.lng||0)+(v2.lng||0))/2,priority:"purple",type:"military",desc:`${v1.title} and ${v2.title} have allied. Combined threat is severe.`,timer:200,maxTimer:200,reward:v1.reward+v2.reward,villainId:v1.id,villainId2:v2.id,recurring:true,isTeamUp:true,teamUpPower:(v1.basePower||5)+(v2.basePower||5)};
             setThreats(p=>{if(p.length>=7)return p;return[...p,tt];});
             setLog(`🔴 VILLAIN TEAM-UP: ${v1.title} & ${v2.title} have allied!`);
           }
@@ -226,7 +324,7 @@ function App(){
           const av=vRef.current.filter(v=>!v.defeated&&!v.redeemed&&!prev.some(p=>p.villainId===v.id));
           if(av.length>0&&Math.random()<0.28){
             const v=av[Math.floor(Math.random()*av.length)];
-            const nt={id:Date.now(),name:v.title,loc:v.loc,x:v.x,y:v.y,priority:"purple",type:v.threatType||"military",desc:v.personality.slice(0,80)+"…",timer:220,maxTimer:220,reward:v.reward,recurring:true,villainId:v.id};
+            const nt={id:Date.now(),name:v.title,loc:v.loc,lat:v.lat,lng:v.lng,priority:"purple",type:v.threatType||"military",desc:v.personality.slice(0,80)+"…",timer:220,maxTimer:220,reward:v.reward,recurring:true,villainId:v.id};
             setLog(`⚠ VILLAIN: ${v.title} — ${v.loc}`);
             return[...prev,nt];
           }
@@ -505,7 +603,7 @@ function App(){
 
   // ── MENU ──
   if(screen==="menu")return React.createElement("div",{className:"menu"},
-    React.createElement("div",{className:"jk-label"},"JK GAMING PRESENTS"),
+    React.createElement("div",{className:"jckc-label"},"JCKC GAMING PRESENTS"),
     React.createElement("div",{className:"menu-logo"},"W.S.P.A."),
     React.createElement("div",{className:"menu-sub"},"WORLD SECURITY & PROTECTION AGENCY"),
     React.createElement("div",{className:"menu-pts"},`BANK: ${bank} PTS`),
@@ -532,7 +630,7 @@ function App(){
         React.createElement("div",{style:{fontSize:13,color:"var(--text2)",lineHeight:2,whiteSpace:"pre-wrap",textAlign:"center"}},
           "Hello, and thank you for playing my very first videogame. WSPA was a trial run in trying to learn more about coding, AI, and a chance to create a fun superhero universe as I prepare for larger and more unique projects. I hope you enjoy the humor, the scaling, and the strategy.\n\nThis project uses AI for the coding and the art, and it certainly snuck in help on the creative side as well, but I did my best to limit this. Because of this, and more particularly because of the AI use of art, I do not feel comfortable charging anything for this work at this time.\n\nInstead, my sincere hope is that you enjoy the game, explore different strategies, and have fun with the lore. The single greatest payment I could receive is engagement, feedback, and peoples favorite and least favorite aspects of the game.\n\nThank you for playing! Go save the world!"
         ),
-        React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--accent)",textAlign:"center",marginTop:24,letterSpacing:2}},"— JK Gaming")
+        React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--accent)",textAlign:"center",marginTop:24,letterSpacing:2}},"— JCKC Gaming")
       )
     )
   );
@@ -639,7 +737,7 @@ function App(){
   // ── GAME OVER ──
   if(screen==="gameover")return React.createElement("div",{className:"menu"},
     gameOver==="win"?React.createElement(React.Fragment,null,
-      React.createElement("div",{className:"jk-label"},"JK GAMING"),
+      React.createElement("div",{className:"jckc-label"},"JCKC GAMING"),
       React.createElement("div",{className:"menu-logo",style:{color:"var(--gold)"}},"VICTORY"),
       React.createElement("div",{className:"menu-sub"},`DIRECTOR ${directorName.toUpperCase()} — EARTH IS SAFE`),
       React.createElement("div",{style:{fontSize:12,color:"var(--gold)",fontFamily:"var(--font-head)"}},`+${extMode?WIN2:WIN1} PTS ADDED TO YOUR BANK`),
@@ -647,7 +745,7 @@ function App(){
       !extMode&&React.createElement("button",{className:"mbtn green",onClick:()=>{continueToTier2();setScreen("game");}},"▶ CONTINUE TO 1000 PTS"),
       React.createElement("button",{className:"mbtn gold",onClick:()=>{setNameInput(directorName);setScreen("menu");}},extMode?"▶ PLAY AGAIN":"↩ MAIN MENU")
     ):React.createElement(React.Fragment,null,
-      React.createElement("div",{className:"jk-label"},"JK GAMING"),
+      React.createElement("div",{className:"jckc-label"},"JCKC GAMING"),
       React.createElement("div",{className:"menu-logo",style:{color:"var(--red)",fontSize:"22px"}},"MISSION FAILED"),
       React.createElement("div",{className:"menu-sub",style:{color:"var(--red)"}},"YOU HAVE FAILED TO PROTECT THE PLANET."),
       React.createElement("div",{style:{fontSize:13,color:"var(--gold)",fontFamily:"var(--font-head)"}},"You scored "+score+" points."),
@@ -660,7 +758,7 @@ function App(){
 
   return React.createElement("div",{className:"app"},
     React.createElement("div",{className:"topbar"},
-      React.createElement("div",{className:"topbar-logo"},"W.S.P.A. · JK GAMING"),
+      React.createElement("div",{className:"topbar-logo"},"W.S.P.A. · JCKC GAMING"),
       React.createElement("div",{className:"topbar-divider"}),
       React.createElement("div",{className:"topbar-director"},`DIR. ${directorName.toUpperCase()}`),
       React.createElement("div",{className:"topbar-divider"}),
@@ -743,65 +841,7 @@ function App(){
         })
       ),
       // MAP
-      React.createElement("div",{className:"map-area"},
-        React.createElement("svg",{className:"map-svg",viewBox:"0 0 580 360",xmlns:"http://www.w3.org/2000/svg"},
-          React.createElement("defs",null,
-            React.createElement("filter",{id:"glow"},React.createElement("feGaussianBlur",{stdDeviation:"2.5",result:"cb"}),React.createElement("feMerge",null,React.createElement("feMergeNode",{in:"cb"}),React.createElement("feMergeNode",{in:"SourceGraphic"}))),
-            React.createElement("linearGradient",{id:"sg",x1:"0%",y1:"0%",x2:"100%",y2:"0%"},React.createElement("stop",{offset:"0%",stopColor:"#00d4ff"}),React.createElement("stop",{offset:"100%",stopColor:"#aa44ff"})),
-            React.createElement("linearGradient",{id:"og",x1:"0%",y1:"0%",x2:"0%",y2:"100%"},React.createElement("stop",{offset:"0%",stopColor:"#03192e"}),React.createElement("stop",{offset:"100%",stopColor:"#020d1a"}))
-          ),
-          React.createElement("rect",{width:580,height:360,fill:"url(#og)"}),
-          [90,180,270].map(y=>React.createElement("line",{key:y,x1:0,y1:y,x2:580,y2:y,stroke:"#0a2030",strokeWidth:.4,strokeDasharray:"4,14"})),
-          [116,232,348,464].map(x=>React.createElement("line",{key:x,x1:x,y1:0,x2:x,y2:360,stroke:"#0a2030",strokeWidth:.4,strokeDasharray:"4,14"})),
-          React.createElement("path",{d:"M36,22 L50,16 L66,14 L80,16 L94,14 L108,16 L122,18 L134,22 L144,28 L150,36 L156,46 L160,58 L162,70 L162,84 L160,96 L156,108 L150,118 L144,126 L136,134 L126,140 L116,144 L108,150 L100,156 L92,162 L86,168 L82,174 L80,180 L78,186 L74,190 L70,188 L66,182 L62,172 L58,160 L54,148 L50,136 L46,122 L43,108 L40,94 L37,78 L35,62 L35,46 L35,34 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:1}),
-          React.createElement("path",{d:"M82,174 L86,180 L88,190 L86,200 L82,204 L78,200 L76,190 L76,180 L78,174 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
-          React.createElement("path",{d:"M50,136 L54,140 L56,152 L54,164 L50,168 L46,162 L46,150 L48,140 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
-          React.createElement("path",{d:"M36,22 L26,20 L16,24 L10,32 L14,40 L24,42 L34,36 L36,28 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
-          React.createElement("path",{d:"M152,8 L168,4 L184,6 L192,14 L192,24 L186,32 L176,36 L164,34 L154,26 L150,16 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
-          React.createElement("path",{d:"M80,200 L86,206 L90,216 L88,224 L84,228 L80,222 L78,212 L78,204 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
-          React.createElement("path",{d:"M88,228 L98,222 L112,218 L126,218 L140,222 L152,230 L160,242 L164,256 L164,272 L160,288 L154,304 L144,318 L130,328 L116,332 L102,328 L90,316 L82,300 L78,282 L78,264 L80,248 L84,236 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:1}),
-          React.createElement("path",{d:"M216,28 L228,24 L240,22 L252,24 L260,28 L268,34 L274,42 L276,52 L274,62 L268,70 L260,76 L250,80 L240,80 L230,76 L222,70 L216,62 L212,52 L212,42 L214,34 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:1}),
-          React.createElement("path",{d:"M214,62 L224,60 L232,64 L236,74 L232,84 L222,86 L214,80 L210,70 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.8}),
-          React.createElement("path",{d:"M206,28 L214,24 L218,30 L216,40 L210,46 L204,42 L202,34 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
-          React.createElement("path",{d:"M198,32 L204,28 L208,34 L206,42 L200,44 L196,38 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.5}),
-          React.createElement("path",{d:"M240,8 L252,4 L264,8 L270,18 L268,30 L260,38 L250,40 L240,34 L234,24 L234,14 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.8}),
-          React.createElement("path",{d:"M248,72 L256,68 L264,72 L266,82 L262,94 L256,102 L250,98 L246,88 L246,78 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
-          React.createElement("path",{d:"M264,76 L272,74 L278,80 L276,90 L270,94 L264,88 L260,80 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.5}),
-          React.createElement("path",{d:"M218,88 L234,84 L250,82 L264,86 L276,92 L284,102 L290,114 L294,128 L294,144 L292,160 L288,178 L280,196 L270,212 L256,224 L240,232 L224,234 L210,226 L200,212 L194,196 L190,178 L190,160 L192,142 L196,124 L202,108 L210,98 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:1}),
-          React.createElement("path",{d:"M292,150 L306,148 L318,154 L322,164 L314,170 L300,168 L292,160 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
-          React.createElement("ellipse",{cx:298,cy:206,rx:4,ry:8,fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.5}),
-          React.createElement("path",{d:"M294,102 L310,98 L328,100 L338,108 L340,120 L334,130 L318,136 L302,132 L292,120 L290,110 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.8}),
-          React.createElement("path",{d:"M306,132 L322,130 L334,138 L336,152 L328,166 L316,170 L304,162 L300,148 L300,138 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
-          React.createElement("path",{d:"M278,18 L300,12 L326,8 L354,6 L382,6 L408,10 L432,16 L452,24 L466,34 L474,46 L478,60 L476,74 L470,88 L460,100 L446,110 L428,118 L408,124 L386,126 L364,122 L342,116 L320,108 L300,98 L284,86 L274,72 L270,56 L272,42 L274,30 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:1}),
-          React.createElement("path",{d:"M338,118 L356,114 L370,118 L378,132 L378,148 L370,162 L356,172 L342,170 L330,158 L326,144 L328,130 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.9}),
-          React.createElement("ellipse",{cx:358,cy:178,rx:4,ry:6,fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.4}),
-          React.createElement("path",{d:"M404,118 L422,114 L438,118 L448,130 L444,144 L430,150 L414,148 L404,136 L400,126 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.8}),
-          React.createElement("path",{d:"M418,144 L426,150 L430,162 L428,174 L422,178 L416,172 L414,160 L414,150 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
-          React.createElement("path",{d:"M434,154 L452,150 L464,156 L468,170 L462,184 L448,190 L434,184 L426,172 L428,160 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
-          React.createElement("path",{d:"M458,62 L468,56 L476,60 L478,70 L474,80 L464,84 L456,78 L454,68 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
-          React.createElement("path",{d:"M448,82 L458,78 L464,86 L460,96 L452,100 L444,94 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
-          React.createElement("ellipse",{cx:454,cy:110,rx:4,ry:7,fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.4}),
-          React.createElement("path",{d:"M462,128 L468,124 L474,130 L472,140 L464,144 L458,138 L460,130 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.5}),
-          React.createElement("path",{d:"M416,200 L438,192 L460,190 L480,194 L494,202 L502,214 L504,230 L500,244 L490,256 L474,264 L456,268 L438,266 L422,256 L410,242 L406,226 L408,212 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:1}),
-          React.createElement("path",{d:"M508,250 L516,244 L522,250 L520,262 L512,268 L506,262 L506,254 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.5}),
-          React.createElement("path",{d:"M190,18 L202,14 L214,16 L218,24 L214,30 L202,32 L190,28 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.6}),
-          React.createElement("path",{d:"M156,334 L200,328 L248,324 L296,322 L344,324 L392,328 L432,334 L420,344 L380,348 L328,350 L276,350 L224,348 L180,344 Z",fill:"#0d2a3f",stroke:"#1e4a65",strokeWidth:.7}),
-          ...threats.map(t=>{
-            const c=threatColor(t);const dep=depMap[t.id]&&depMap[t.id].length>0;
-            return React.createElement("g",{key:t.id,filter:"url(#glow)"},
-              React.createElement("circle",{cx:t.x,cy:t.y,r:20,fill:`${c}09`,stroke:c,strokeWidth:.5,className:"pulse-ring"}),
-              React.createElement("circle",{cx:t.x,cy:t.y,r:10,fill:`${c}18`,stroke:c,strokeWidth:1}),
-              React.createElement("circle",{cx:t.x,cy:t.y,r:4,fill:c}),
-              dep&&React.createElement("circle",{cx:t.x,cy:t.y,r:15,fill:"none",stroke:"#00d4ff",strokeWidth:1.5,strokeDasharray:"4,3"}),
-              React.createElement("text",{x:t.x,y:t.y-23,textAnchor:"middle",fontSize:7,fill:c,fontFamily:"'Share Tech Mono',monospace"},t.loc),
-              React.createElement("text",{x:t.x,y:t.y+28,textAnchor:"middle",fontSize:7,fill:"#00d4ff",fontFamily:"'Share Tech Mono',monospace"},`T-${Math.floor(t.timer/60)}:${String(t.timer%60).padStart(2,"0")}`)
-            );
-          }),
-          React.createElement("rect",{x:8,y:342,width:564,height:6,rx:2,fill:"rgba(255,255,255,.04)",stroke:"#0a2a40",strokeWidth:.5}),
-          React.createElement("rect",{x:8,y:342,width:Math.min(564,(score/target)*564),height:6,rx:2,fill:"url(#sg)"}),
-          React.createElement("text",{x:290,y:340,textAnchor:"middle",fontSize:7.5,fill:"var(--text3)",fontFamily:"'Share Tech Mono',monospace"},`SCORE: ${score} / ${target}${extMode?" [EXTENDED]":""}`)
-        )
-      ),
+      React.createElement(WorldMap,{threats,depMap,score,target,extMode}),
       // THREATS PANEL
       React.createElement("div",{className:"threats-panel"},
         React.createElement("div",{style:{padding:"7px 7px 0"}},React.createElement("div",{className:"panel-header"},"◈ ACTIVE THREATS")),
