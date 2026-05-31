@@ -212,7 +212,7 @@ function App(){
           const v2pool=av.filter(v=>v.id!==v1.id);
           if(v2pool.length>0){
             const v2=v2pool[Math.floor(Math.random()*v2pool.length)];
-            const tt={id:Date.now(),name:`VILLAIN TEAM-UP: ${v1.title} & ${v2.title}`,loc:v1.loc,x:Math.round((v1.x+v2.x)/2),y:Math.round((v1.y+v2.y)/2),priority:"purple",type:"military",desc:`${v1.title} and ${v2.title} have allied. Combined threat is severe.`,timer:200,maxTimer:200,reward:v1.reward+v2.reward,villainId:v1.id,villainId2:v2.id,recurring:true,isTeamUp:true};
+            const tt={id:Date.now(),name:`VILLAIN TEAM-UP: ${v1.title} & ${v2.title}`,loc:v1.loc,x:Math.round((v1.x+v2.x)/2),y:Math.round((v1.y+v2.y)/2),priority:"purple",type:"military",desc:`${v1.title} and ${v2.title} have allied. Combined threat is severe.`,timer:200,maxTimer:200,reward:v1.reward+v2.reward,villainId:v1.id,villainId2:v2.id,recurring:true,isTeamUp:true,teamUpPower:(v1.basePower||5)+(v2.basePower||5)};
             setThreats(p=>{if(p.length>=7)return p;return[...p,tt];});
             setLog(`🔴 VILLAIN TEAM-UP: ${v1.title} & ${v2.title} have allied!`);
           }
@@ -375,8 +375,22 @@ function App(){
         if(nHP===0&&shamrock&&h.id!==shamrock.id)nHP=1;
         if(nHP===0){
           anyKIA=true;
-          if(isSuicide(h,allSnap,picked)&&Math.random()<0.25&&!h.isJohn&&h.title!=="The Crimson Knight"){turnedVillain=h;return{...h,currentHP:0,status:"kia",turnedVillain:true};}
-          // Crimson Knight suicide mission: 50% chance she and John go rogue believing the Director turned evil
+          if(isSuicide(h,allSnap,picked)&&Math.random()<0.5&&!h.isJohn&&h.title!=="The Crimson Knight"){
+            // Hero survived and turned villain — becomes a new redeemable supervillain threat
+            turnedVillain=h;
+            const turnedThreat={
+              id:Date.now()+h.id,
+              name:`ROGUE HERO: ${h.title}`,
+              loc:threat.loc,x:threat.x,y:threat.y,
+              priority:"purple",type:"military",
+              desc:`${h.title} survived a suicide mission and has turned against the WSPA. They retain all hero stats and abilities. Can be redeemed.`,
+              timer:200,maxTimer:200,reward:Math.round(h.baseHP/2),
+              villainId:null,rogueHeroId:h.id,rogueHero:h,recurring:true,redeemable:true
+            };
+            setThreats(p2=>[...p2,turnedThreat]);
+            return{...h,currentHP:0,status:"kia",turnedVillain:true};
+          }
+          // Crimson Knight on a suicide mission: 50% chance she AND John go rogue to stop the Director
           if(h.title==="The Crimson Knight"&&isSuicide(h,allSnap,picked)&&Math.random()<0.5){
             const{maxHP:ckMax}=effStats(h,romRef.current,disRef.current);
             const johnSnap=allSnap.find(j=>j.isJohn&&j.status!=="kia"&&j.status!=="gameLocked");
@@ -384,9 +398,17 @@ function App(){
               const{maxHP:johnMax}=effStats(johnSnap,romRef.current,disRef.current);
               setHeroes(p2=>p2.map(j=>j.isJohn?{...j,currentHP:johnMax,status:"deployed",speechBubble:"The Director has lost their way. We cannot stand by."}:j));
             }
-            const ckJohnThreat={id:Date.now(),name:"ROGUE: THE CRIMSON KNIGHT & JOHN",loc:"United States",x:88,y:118,priority:"purple",type:"military",desc:"You sent The Crimson Knight on a suicide mission — and she survived. She and John believe the Director has turned evil and are now protecting the world FROM you. They retain all stats and abilities. Requires 10 heroes with power level above 5 to stop.",timer:300,maxTimer:300,reward:100,isCKJohnTeamUp:true};
+            const ckJohnThreat={
+              id:Date.now(),
+              name:"ROGUE: THE CRIMSON KNIGHT & JOHN",
+              loc:"United States",x:88,y:118,
+              priority:"purple",type:"military",
+              desc:"You sent The Crimson Knight on a suicide mission — and she survived. She and John believe the Director has turned evil and are now fighting to protect the world FROM you. They are acting on conscience, not malice. Heroes they defeat are left at 1 HP rather than killed. Requires 10 heroes with power level above 5 to stop them. They will not be stopped easily.",
+              timer:20,maxTimer:20,reward:120,
+              isCKJohnTeamUp:true,leavesAt1HP:true
+            };
             setThreats(p2=>[...p2.filter(x=>x.isCKJohnTeamUp!==true),ckJohnThreat]);
-            setLog("🔴 CATASTROPHIC: The Crimson Knight survived the suicide mission and believes YOU are the real threat. She and John have gone rogue to protect the world from you!");
+            setLog("🔴 CATASTROPHIC: The Crimson Knight survived the suicide mission and believes YOU are the real threat. She and John have gone rogue to protect the world from you. They leave fallen heroes at 1 HP — they are not here to kill, but to WIN.");
             return{...h,currentHP:Math.round(ckMax*0.3),status:"deployed",regenTimer:0,speechBubble:"You sent me to die. Now I know what you are."};
           }
           // Normal CK death (not suicide or rogue roll failed) — she can simply die
@@ -483,7 +505,7 @@ function App(){
 
   // ── MENU ──
   if(screen==="menu")return React.createElement("div",{className:"menu"},
-    React.createElement("div",{className:"JCKC-label"},"JCKC GAMING PRESENTS"),
+    React.createElement("div",{className:"jk-label"},"JK GAMING PRESENTS"),
     React.createElement("div",{className:"menu-logo"},"W.S.P.A."),
     React.createElement("div",{className:"menu-sub"},"WORLD SECURITY & PROTECTION AGENCY"),
     React.createElement("div",{className:"menu-pts"},`BANK: ${bank} PTS`),
@@ -510,7 +532,7 @@ function App(){
         React.createElement("div",{style:{fontSize:13,color:"var(--text2)",lineHeight:2,whiteSpace:"pre-wrap",textAlign:"center"}},
           "Hello, and thank you for playing my very first videogame. WSPA was a trial run in trying to learn more about coding, AI, and a chance to create a fun superhero universe as I prepare for larger and more unique projects. I hope you enjoy the humor, the scaling, and the strategy.\n\nThis project uses AI for the coding and the art, and it certainly snuck in help on the creative side as well, but I did my best to limit this. Because of this, and more particularly because of the AI use of art, I do not feel comfortable charging anything for this work at this time.\n\nInstead, my sincere hope is that you enjoy the game, explore different strategies, and have fun with the lore. The single greatest payment I could receive is engagement, feedback, and peoples favorite and least favorite aspects of the game.\n\nThank you for playing! Go save the world!"
         ),
-        React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--accent)",textAlign:"center",marginTop:24,letterSpacing:2}},"— JCKC Gaming")
+        React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--accent)",textAlign:"center",marginTop:24,letterSpacing:2}},"— JK Gaming")
       )
     )
   );
@@ -617,7 +639,7 @@ function App(){
   // ── GAME OVER ──
   if(screen==="gameover")return React.createElement("div",{className:"menu"},
     gameOver==="win"?React.createElement(React.Fragment,null,
-      React.createElement("div",{className:"JCKC-label"},"JCKC GAMING"),
+      React.createElement("div",{className:"jk-label"},"JK GAMING"),
       React.createElement("div",{className:"menu-logo",style:{color:"var(--gold)"}},"VICTORY"),
       React.createElement("div",{className:"menu-sub"},`DIRECTOR ${directorName.toUpperCase()} — EARTH IS SAFE`),
       React.createElement("div",{style:{fontSize:12,color:"var(--gold)",fontFamily:"var(--font-head)"}},`+${extMode?WIN2:WIN1} PTS ADDED TO YOUR BANK`),
@@ -625,7 +647,7 @@ function App(){
       !extMode&&React.createElement("button",{className:"mbtn green",onClick:()=>{continueToTier2();setScreen("game");}},"▶ CONTINUE TO 1000 PTS"),
       React.createElement("button",{className:"mbtn gold",onClick:()=>{setNameInput(directorName);setScreen("menu");}},extMode?"▶ PLAY AGAIN":"↩ MAIN MENU")
     ):React.createElement(React.Fragment,null,
-      React.createElement("div",{className:"JCKC-label"},"JCKC GAMING"),
+      React.createElement("div",{className:"jk-label"},"JK GAMING"),
       React.createElement("div",{className:"menu-logo",style:{color:"var(--red)",fontSize:"22px"}},"MISSION FAILED"),
       React.createElement("div",{className:"menu-sub",style:{color:"var(--red)"}},"YOU HAVE FAILED TO PROTECT THE PLANET."),
       React.createElement("div",{style:{fontSize:13,color:"var(--gold)",fontFamily:"var(--font-head)"}},"You scored "+score+" points."),
@@ -638,7 +660,7 @@ function App(){
 
   return React.createElement("div",{className:"app"},
     React.createElement("div",{className:"topbar"},
-      React.createElement("div",{className:"topbar-logo"},"W.S.P.A. · JCKC GAMING"),
+      React.createElement("div",{className:"topbar-logo"},"W.S.P.A. · JK GAMING"),
       React.createElement("div",{className:"topbar-divider"}),
       React.createElement("div",{className:"topbar-director"},`DIR. ${directorName.toUpperCase()}`),
       React.createElement("div",{className:"topbar-divider"}),
@@ -814,7 +836,7 @@ function App(){
       React.createElement("div",{className:"modal",onClick:e=>e.stopPropagation()},
         React.createElement("div",{className:"modal-title"},`DEPLOY: ${depModal.name}`),
         React.createElement("div",{className:"modal-sub"},`${depModal.loc} · ${P_LABELS[depModal.priority]||""}`),
-        (()=>{if(picked.length===1){const h=heroes.find(x=>x.id===picked[0]);if(h&&isSuicide(h,heroes,picked))return React.createElement("div",{className:"suicide-warn"},"⚠ SUICIDE MISSION: <10 HP, alone, 2+ heroes at full. 25% chance of turning villain if KIA.");}return null;})(),
+        (()=>{if(picked.length===1){const h=heroes.find(x=>x.id===picked[0]);if(h&&isSuicide(h,heroes,picked))return React.createElement("div",{className:"suicide-warn"},"⚠ SUICIDE MISSION: <30 HP, alone, 2+ heroes at full. 50% chance of turning villain if KIA.");}return null;})(),
         React.createElement("div",{className:"hero-select-list"},
           heroes.filter(h=>!["shopLocked","gameLocked","kia","offworld"].includes(h.status)).map(h=>{
             const{power,maxHP}=effStats(h,rom,dis);const dep=canDeploy(h);const pk=picked.includes(h.id);
