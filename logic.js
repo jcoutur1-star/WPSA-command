@@ -18,15 +18,14 @@ function canDeploy(h){return h.status!=="deployed"&&h.status!=="gameLocked"&&h.s
 
 function isSuicide(hero,allH,pids){
   if(pids.length!==1)return false;
-  const{maxHP}=effStats(hero,{},{});
-  if(hero.currentHP>=20)return false;
+  if(hero.currentHP>=30)return false;
   const full=allH.filter(h=>h.status==="ready"&&!pids.includes(h.id));
   return full.filter(h=>{const{maxHP:m}=effStats(h,{},{});return h.currentHP>=m;}).length>=2;
 }
 
 function rollMission(heroes,threat,rom,dis){
   if(heroes.some(h=>h.isJohn)){
-    if(threat.isCKJohnTeamUp)return heroes.length>=10&&heroes.filter(h=>effStats(h,rom,dis).power>5).length>=10?"success":"failure";
+    if(threat.isCKJohnTeamUp)return heroes.length>=10&&heroes.filter(h=>effStats(h,rom,dis).power>7).length>=10?"success":"failure";
     return"success";
   }
   if(heroes.some(h=>h.title==="El Infinite")&&heroes.length<5)return Math.random()<0.25?"partial":"failure";
@@ -59,7 +58,14 @@ function rollMission(heroes,threat,rom,dis){
   let disP=0;
   heroes.forEach(h=>{if(dis[h.id])heroes.forEach(h2=>{if(dis[h.id].includes(h2.id))disP+=0.07;});});
   const diff=threat.priority==="red"?-0.18:threat.priority==="orange"?-0.10:threat.priority==="yellow"?-0.02:-0.22;
-  const chance=Math.min(0.93,Math.min(1,avgP/10)+bonus+diff-disP);
+  // Villain team-ups: add extra difficulty based on their combined power vs hero avg power
+  let teamUpPenalty=0;
+  if(threat.isTeamUp&&threat.teamUpPower){
+    const combinedMight=threat.teamUpPower;
+    const heroPower=stats.reduce((a,s)=>a+s.power,0)/stats.length;
+    teamUpPenalty=Math.max(0,(combinedMight-heroPower*heroes.length)*0.015);
+  }
+  const chance=Math.min(0.93,Math.min(1,avgP/10)+bonus+diff-disP-teamUpPenalty);
   // The Sportsman: 1-in-20 chance of instant kill against any threat
   if(heroes.some(h=>h.title==="The Sportsman"&&Math.random()<0.05)&&!["red","purple"].includes(threat.priority))return"success";
   if(heroes.some(h=>h.critChance&&h.title!=="The Sportsman"&&Math.random()<h.critChance)&&!["red","purple"].includes(threat.priority))return"success";
@@ -71,6 +77,11 @@ function rollMission(heroes,threat,rom,dis){
 
 function calcDmg(outcome,hero,threat,allDeployed){
   const allHeroes=allDeployed||[hero];
+
+  // ── CK & John Rogue: leaves every hero at exactly 1 HP (never kills) ──
+  if(threat&&threat.leavesAt1HP){
+    return{health:Math.max(0,hero.currentHP-1)};
+  }
 
   // ── Typhon: 280 split evenly, max 50 to John ──
   if(threat&&threat.typhonEffect){
