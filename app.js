@@ -384,7 +384,13 @@ function App(){
     setLog(`⚡ ${assigned.map(h=>h.title).join(" & ")} deployed to ${threat.loc}...`);
 
     setTimeout(async()=>{
-      const outcome=rollMission(assigned,threat,romRef.current,disRef.current);
+      let outcome=rollMission(assigned,threat,romRef.current,disRef.current);
+      // ── Dr. Destruction special: if this IS Dr. Destruction's threat and outcome is failure,
+      // he stopped himself — award a success instead ──
+      const drDestructionVillain=threat.villainId===114||threat.name==="Dr. Destruction";
+      if(drDestructionVillain&&outcome==="failure"){
+        outcome="success";
+      }
       let narration="Awaiting field report...";
       try{
         const relNotes=getRelNotes(assigned,romRef.current,disRef.current);
@@ -420,6 +426,20 @@ function App(){
         }));
       }
 
+      // ── Quaker friendly fire: 5 random damage to one teammate on deployment (until special unlocked) ──
+      const quaker=assigned.find(h=>h.quakerFriendlyFire&&h.career==="beginner");
+      if(quaker){
+        const qtargets=assigned.filter(h=>h.id!==quaker.id);
+        if(qtargets.length>0){
+          const qffTarget=qtargets[Math.floor(Math.random()*qtargets.length)];
+          setHeroes(prev=>prev.map(h=>{
+            if(h.id!==qffTarget.id)return h;
+            const nHP=Math.max(1,h.currentHP-5);
+            return{...h,currentHP:nHP};
+          }));
+          setLog(`⚠ Quaker accidentally hurt ${qffTarget.title} (-5 HP) on deployment!`);
+        }
+      }
       // ── Skull Crusher friendly fire: 5 extra damage to one random teammate per mission (until special unlocked) ──
       const skullCrusher=assigned.find(h=>h.skullCrusherFriendlyFire&&h.career==="beginner");
       if(skullCrusher){
@@ -564,6 +584,8 @@ function App(){
         if(threat.isNorthAmerica)setHeroes(prev=>prev.map(h=>h.title==="The Gummy Bear"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
         // Unlock Blink after defeating Cult of Fashion (threat id 228)
         if(threat.name==="Cult of Fashion")setHeroes(prev=>prev.map(h=>h.title==="Blink"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
+        // Unlock Tremor after defeating Baba Yaga
+        if(threat.name&&threat.name.includes("Baba Yaga"))setHeroes(prev=>prev.map(h=>h.title==="Tremor"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
         // Unlock Skull Crusher after North American Blackout (threat id 231)
         if(threat.name==="North American Blackout")setHeroes(prev=>prev.map(h=>h.title==="Skull Crusher"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
         // Unlock Eclipso after defeating Blight threat
@@ -717,7 +739,8 @@ function App(){
                 React.createElement("div",null,React.createElement("b",null,"Abilities: "),e.abilities),
                 React.createElement("div",null,React.createElement("b",null,"Weaknesses: "),e.weaknesses),
                 e.special&&React.createElement("div",null,React.createElement("b",null,"Special: "),e.special),
-                e.secret&&React.createElement("div",{style:{color:"#ff8844"}},React.createElement("b",null,"⚠ Secret: "),e.secret)
+                e.secret&&React.createElement("div",{style:{color:"#ff8844"}},React.createElement("b",null,"⚠ Secret: "),e.secret),
+                e.backstory&&React.createElement("div",{style:{marginTop:10,paddingTop:8,borderTop:"1px solid var(--border)",color:"var(--text3)",fontSize:10,lineHeight:1.7,fontStyle:"italic"}},React.createElement("b",{style:{color:"var(--accent)",fontStyle:"normal",display:"block",marginBottom:4,fontSize:9,letterSpacing:1}},"◈ ANALYST FILE"),e.backstory)
               ),
               e.category==="villain"&&React.createElement("div",null,
                 e.portrait&&React.createElement("img",{src:e.portrait,alt:e.name,style:{width:"100%",maxWidth:160,height:"auto",display:"block",margin:"0 auto 10px",borderRadius:4,border:"1px solid var(--purple)",objectFit:"cover",opacity:0.85}}),
