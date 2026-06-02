@@ -6,18 +6,13 @@ function threatColor(t){return P_COLORS[t.priority]||"#ffaa00";}
 function effStats(hero,rom,dis){
   const m=CAREER[hero.career]?.mult||1;
   let power=hero.basePower*m;
-  // Corvair veteran global buff: +0.5 power to every hero on the roster
   if(hero._corvairBuff)power+=0.5;
-  // Ironside Command Aura: +0.3 power to all teammates (flag set at deploy/roll time)
   if(hero._ironsideAura)power+=0.3;
   let maxHP=Math.round(hero.baseHP*m)+(hero.mechaBonus||0);
-  // IceBerg deployed bonus: +10 HP while IceBerg is on the same mission
   if(hero._icebergBonus)maxHP+=10;
-  // Conductor Resonance: +15 HP to tank-class heroes on same mission
   if(hero._conductorBonus)maxHP+=15;
   let regenSec=hero.regenSec;
   if(rom){Object.keys(rom).forEach(k=>{const ids=k.split(",").map(Number);if(ids.includes(hero.id)){power*=1.1;maxHP=Math.round(maxHP*1.1);regenSec=Math.max(1,Math.floor(regenSec/2));}});}
-  // Eclipso lonely penalty: -30% power if no positive affiliates on team (handled at rollMission via flag)
   if(dis&&dis[hero.id]?.length>0)power*=0.85;
   return{power,maxHP,regenSec};
 }
@@ -38,7 +33,6 @@ function rollMission(heroes,threat,rom,dis){
   }
   if(heroes.some(h=>h.title==="El Infinite")&&heroes.length<5)return Math.random()<0.25?"partial":"failure";
 
-  // Eclipso lonely penalty: -30% power if no positive affiliates present
   const eclipso=heroes.find(h=>h.eclipsoLonelyPenalty);
   const eclipsoAlone=eclipso&&!heroes.some(h=>h.id!==eclipso.id&&(eclipso.affiliates||[]).includes(h.title));
 
@@ -68,7 +62,6 @@ function rollMission(heroes,threat,rom,dis){
   let disP=0;
   heroes.forEach(h=>{if(dis[h.id])heroes.forEach(h2=>{if(dis[h.id].includes(h2.id))disP+=0.07;});});
   const diff=threat.priority==="red"?-0.18:threat.priority==="orange"?-0.10:threat.priority==="yellow"?-0.02:-0.22;
-  // Villain team-ups: add extra difficulty based on their combined power vs hero avg power
   let teamUpPenalty=0;
   if(threat.isTeamUp&&threat.teamUpPower){
     const combinedMight=threat.teamUpPower;
@@ -76,7 +69,6 @@ function rollMission(heroes,threat,rom,dis){
     teamUpPenalty=Math.max(0,(combinedMight-heroPower*heroes.length)*0.015);
   }
   const chance=Math.min(0.93,Math.min(1,avgP/10)+bonus+diff-disP-teamUpPenalty);
-  // The Sportsman: 1-in-20 chance of instant kill against any threat
   if(heroes.some(h=>h.title==="The Sportsman"&&Math.random()<0.05)&&!["red","purple"].includes(threat.priority))return"success";
   if(heroes.some(h=>h.critChance&&h.title!=="The Sportsman"&&Math.random()<h.critChance)&&!["red","purple"].includes(threat.priority))return"success";
   const r=Math.random();
@@ -88,19 +80,16 @@ function rollMission(heroes,threat,rom,dis){
 function calcDmg(outcome,hero,threat,allDeployed){
   const allHeroes=allDeployed||[hero];
 
-  // ── CK & John Rogue: leaves every hero at exactly 1 HP (never kills) ──
   if(threat&&threat.leavesAt1HP){
     return{health:Math.max(0,hero.currentHP-1)};
   }
 
-  // ── Typhon: 280 split evenly, max 50 to John ──
   if(threat&&threat.typhonEffect){
     const share=Math.round(280/allHeroes.length);
     if(hero.isJohn)return{health:Math.min(50,share)};
     return{health:share};
   }
 
-  // ── Maniac: exact 50 to John, exact 40 to all others except immune heroes ──
   if(threat&&threat.maniacEffect){
     if(hero.isJohn)return{health:50};
     const immune=["The Crimson Knight","The Dragon of the Daimyo","Captain Shamrock","IceBerg"];
@@ -108,20 +97,14 @@ function calcDmg(outcome,hero,threat,allDeployed){
     return{health:40};
   }
 
-  // ── Cat Stuck in a Tree: exactly 60 to John, no special effect on others ──
   if(threat&&threat.catTreeEffect){
     if(hero.isJohn)return{health:60};
-    // falls through to normal damage below
   }
 
-  // ── Reaper: 45 damage to support class ──
   if(threat&&threat.reaperEffect&&hero.cls==="support")return{health:45};
-  // ── Calaxes: 30 damage to tanks ──
   if(threat&&threat.calaxesEffect&&hero.cls==="tank")return{health:30};
-  // ── Archonois: 30 damage to cannons ──
   if(threat&&threat.archonoisEffect&&hero.cls==="cannon")return{health:30};
 
-  // ── Leviathan: +10 per hero over 4 ──
   if(threat&&threat.leviathanEffect){
     const extra=Math.max(0,allHeroes.length-4)*10;
     const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
@@ -129,7 +112,6 @@ function calcDmg(outcome,hero,threat,allDeployed){
     return{health:raw};
   }
 
-  // ── Silver Meadows HOA: +10 per hero over 4 ──
   if(threat&&threat.hoaEffect){
     const extra=Math.max(0,allHeroes.length-4)*10;
     const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
@@ -137,7 +119,6 @@ function calcDmg(outcome,hero,threat,allDeployed){
     return{health:raw};
   }
 
-  // ── Demonic Outbreak: +10 per hero over 4 ──
   if(threat&&threat.demonicEffect){
     const extra=Math.max(0,allHeroes.length-4)*10;
     const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
@@ -145,32 +126,49 @@ function calcDmg(outcome,hero,threat,allDeployed){
     return{health:raw};
   }
 
-  // ── Undead Mummy: ×2 to male heroes ──
   if(threat&&threat.mummyEffect&&hero.isMale){
     const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
     return{health:Math.floor(Math.random()*(base[1]-base[0])+base[0])*2};
   }
 
-  // ── Sentient Video Game: ×2 to female heroes ──
   if(threat&&threat.videoGameEffect&&hero.isFemale){
     const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
     return{health:Math.floor(Math.random()*(base[1]-base[0])+base[0])*2};
   }
 
-  // ── Seven-Headed Dragon: ×1.05 to cannons ──
   if(threat&&threat.sevenDragonEffect&&hero.cls==="cannon"){
     const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
     return{health:Math.round(Math.floor(Math.random()*(base[1]-base[0])+base[0])*1.05)};
   }
 
-  // ── Zombified Asian Giant Hornets: ×4 to bugAllergy heroes ──
   if(threat&&threat.zombieHornetEffect&&hero.bugAllergy){
     const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
     return{health:Math.floor(Math.random()*(base[1]-base[0])+base[0])*4};
   }
 
-  // ── Silphana's mace: 10× vs supervillains when redeemed ──
-  // (handled in confirmDep via threat.villainId check — flag silphanaMaceEffect on villain threats)
+  // ── Nilocythian Dragons: ×2 damage to specific heroes ──
+  if(threat&&threat.nilocythianEffect){
+    const niloTargets=["Dinosia","Titanaboa","Ariadus","Greywulf","The Dragon of the Daimyo"];
+    const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
+    const raw=Math.floor(Math.random()*(base[1]-base[0])+base[0]);
+    if(niloTargets.includes(hero.title))return{health:raw*2};
+    return{health:raw};
+  }
+
+  // ── Omniviporix Killbot: 90 damage if hero is alone, much less in teams ──
+  if(threat&&threat.omniviporixEffect){
+    if(allHeroes.length===1)return{health:90};
+    const base=outcome==="success"?[3,10]:outcome==="partial"?[8,18]:[15,25];
+    return{health:Math.floor(Math.random()*(base[1]-base[0])+base[0])};
+  }
+
+  // ── Pincerless Pinster: +10% damage per hero over 1 ──
+  if(threat&&threat.pinsterEffect){
+    const extra=Math.max(0,allHeroes.length-1)*0.10;
+    const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
+    const raw=Math.floor(Math.random()*(base[1]-base[0])+base[0]);
+    return{health:Math.round(raw*(1+extra))};
+  }
 
   if(hero.isJohn){
     const base=outcome==="success"?[3,10]:outcome==="partial"?[8,20]:[15,30];
