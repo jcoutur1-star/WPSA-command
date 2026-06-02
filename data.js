@@ -461,9 +461,7 @@ const ALL_THREATS=[
   {id:304,name:"The Dover Demon",loc:"Dover, Massachusetts, USA",lat:42.2,lng:-71.3,priority:"yellow",type:"mystic",desc:"The Dover Demon has reappeared. Nobody is entirely sure what it wants. It is very unsettling to look at.",maxTimer:400,reward:12,isNorthAmerica:true},
   {id:305,name:"B-List Zombie Movie Pulling Viewers In",loc:"Hollywood, USA",lat:34.1,lng:-118.3,priority:"orange",type:"mystic",desc:"A low-budget zombie film has gained sentience and is pulling civilians into its universe. The special effects are terrible. The danger is not.",maxTimer:285,reward:26,isNorthAmerica:true},
   {id:306,name:"Zombified Asian Giant Hornets",loc:"Pacific Northwest, USA",lat:47.5,lng:-122.3,priority:"red",type:"bio",desc:"Zombified Asian Giant Hornets the size of small dogs have formed a swarm. Deals ×4 damage to heroes with bug allergies.",maxTimer:195,reward:58,isNorthAmerica:true,zombieHornetEffect:true},
-];
-,
-// ── V7.5 NEW THREATS ──
+  // ── V7.5 NEW THREATS ──
   {id:307,name:"Baba Yaga",loc:"Siberian Forest, Russia",lat:58.0,lng:82.0,priority:"red",type:"mystic",desc:"The ancient witch Baba Yaga has emerged from her walking hut in the deep Siberian forest and is not in a good mood. Defeating her unlocks Tremor.",maxTimer:200,reward:55,unlockHero:"Tremor"},
   {id:308,name:"Omniviporix Autonomous Intelligence Killbot",loc:"Unknown",lat:5.0,lng:-5.0,priority:"red",type:"tech",desc:"A fully autonomous killbot of unknown origin. Does exactly 90 damage to any hero sent alone. Works significantly less effectively against teams.",maxTimer:195,reward:58,omniviporixEffect:true,recurring:true},
   {id:309,name:"Nilocythian Dragon Swarm",loc:"Pacific Rim",lat:35.0,lng:140.0,priority:"orange",type:"kaiju",desc:"A swarm of Nilocythian dragons — the same species that nearly killed The Dragon of the Daimyo on her first mission. Deals 2× damage to Dinosia, Titanaboa, Ariadus, Greywulf, or The Dragon of the Daimyo.",maxTimer:240,reward:38,nilocythianEffect:true,isKaiju:true},
@@ -477,6 +475,7 @@ const ALL_THREATS=[
   {id:317,name:"The Caresquesque",loc:"Paris, France",lat:48.9,lng:2.3,priority:"red",type:"mystic",desc:"A being that infects mirrors and pulls people into mirror dimensions to consume them. Paris is reporting mass disappearances.",maxTimer:200,reward:58},
   {id:318,name:"Dakuwaqa",loc:"Fiji, Pacific Ocean",lat:-18.0,lng:178.0,priority:"orange",type:"mystic",desc:"The shark god of Fijian legend has awakened in the Pacific and is targeting coastal vessels and settlements.",maxTimer:265,reward:36,isOcean:true},
   {id:319,name:"Rodents of Unusual Size",loc:"Fire Swamp, Southern France",lat:43.5,lng:3.5,priority:"yellow",type:"bio",desc:"Enormous rodents of unusual size have been reported in the fire swamps of southern France. They are vicious. They are fast. They are very large.",maxTimer:380,reward:14},
+];
 
 // Fisher-Yates shuffle
 function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
