@@ -139,6 +139,7 @@ function App(){
   const lastHeadlineTick=useRef(0); // tracks last tick a headline was pushed
   const hRef=useRef(heroes);hRef.current=heroes;
   const vRef=useRef(villains);vRef.current=villains;
+  const tRef=useRef(threats);tRef.current=threats;
   const scoreRef=useRef(score);scoreRef.current=score;
   const romRef=useRef(rom);romRef.current=rom;
   const disRef=useRef(dis);disRef.current=dis;
@@ -306,18 +307,22 @@ function App(){
         return prev;
       });
 
-      setThreats(prev=>{
+      // Compute threat updates outside the setState updater to avoid side effects in pure fn
+      {
+        const curThreats=tRef.current;
         let gameEnd=null;
-        const updated=prev.map(th=>{
+        const escalationLogs=[];
+        const updatedThreats=curThreats.map(th=>{
           if(th.timer>0)return{...th,timer:th.timer-1};
           if(th.priority==="red"||th.priority==="purple"){gameEnd=th;return th;}
           const np=escalate(th.priority);
-          setLog(`⚠ ${th.name} escalated to ${P_LABELS[np]}!`);
+          escalationLogs.push("⚠ "+th.name+" escalated to "+P_LABELS[np]+"!");
           return{...th,priority:np,timer:th.maxTimer,maxTimer:Math.max(60,th.maxTimer-30)};
         });
-        if(gameEnd){setGameOver("lose");setGameOverReason(`${gameEnd.name} reached Priority ONE with no response.`);setScreen("gameover");}
-        return updated;
-      });
+        setThreats(updatedThreats);
+        escalationLogs.forEach(msg=>setLog(msg));
+        if(gameEnd){setGameOver("lose");setGameOverReason(gameEnd.name+" reached Priority ONE with no response.");setScreen("gameover");}
+      }
 
       if(t>0&&t%180===0&&scoreRef.current>=VILLAIN_TEAM_SCORE){
         const av=vRef.current.filter(v=>!v.defeated&&!v.redeemed);
@@ -334,27 +339,27 @@ function App(){
       }
 
       if(t>0&&t%55===0){
+        // Read current state via refs — no nested setState
         const spawnCap=scoreRef.current>=600?Math.round(6*1.21):scoreRef.current>=300?Math.round(6*1.10):6;
-        setThreats(prev=>{
-          if(prev.length>=spawnCap)return prev;
-          const av=vRef.current.filter(v=>!v.defeated&&!v.redeemed&&!prev.some(p=>p.villainId===v.id));
+        const curThreats=tRef.current;
+        if(curThreats.length<spawnCap){
+          const av=vRef.current.filter(v=>!v.defeated&&!v.redeemed&&!curThreats.some(p=>p.villainId===v.id));
           if(av.length>0&&Math.random()<0.28){
             const v=av[Math.floor(Math.random()*av.length)];
             const nt={id:Date.now(),name:v.title,loc:v.loc,lat:v.lat,lng:v.lng,priority:"purple",type:v.threatType||"military",desc:v.personality.slice(0,80)+"…",timer:220,maxTimer:220,reward:v.reward,recurring:true,villainId:v.id};
-            setLog(`⚠ VILLAIN: ${v.title} — ${v.loc}`);
-            return[...prev,nt];
-          }
-          setThreatQueue(q=>{
-            let queue=[...q];
+            setLog("⚠ VILLAIN: "+v.title+" — "+v.loc);
+            setThreats(prev=>[...prev,nt]);
+          } else {
+            // Pick from threat queue without nesting
+            let queue=[...tqRef.current];
             if(queue.length===0){queue=shuffle(ALL_THREATS);}
             const pick=queue[0];
             const rest=queue.slice(1);
-            setThreats(p2=>{if(p2.length>=spawnCap)return p2;return[...p2,{...pick,timer:pick.maxTimer,id:Date.now()}];});
-            setLog(`⚠ NEW THREAT: ${pick.name} — ${pick.loc}`);
-            return rest;
-          });
-          return prev;
-        });
+            setThreatQueue(rest);
+            setThreats(prev=>prev.length>=spawnCap?prev:[...prev,{...pick,timer:pick.maxTimer,id:Date.now()}]);
+            setLog("⚠ NEW THREAT: "+pick.name+" — "+pick.loc);
+          }
+        }
       }
 
       const target=extRef.current?WIN2:WIN1;
@@ -496,6 +501,7 @@ function App(){
       const allSnap=hRef.current;
       let johnShouldTurn=false;
       const veteranEvents=[];
+      let pendingJohnOffworld=null;
 
       setHeroes(prev=>prev.map(h=>{
         if(!picked.includes(h.id))return h;
@@ -573,7 +579,7 @@ function App(){
         if(nXP>=thresh&&CAREER[h.career]?.next){nc=CAREER[h.career].next;didLv=true;levelUps.push({title:h.title,to:nc});
           // Collect veteran events instead of calling nested setHeroes
           if(h.title==="The Crimson Knight"&&nc==="veteran")veteranEvents.push("ck");
-          if(h.title==="Eclipso"&&nc==="veteran"){setLog("⭐ Eclipso VETERAN — Sees the Value of the Team: team penalty removed!");}
+          if(h.title==="Eclipso"&&nc==="veteran")veteranEvents.push("eclipso");
           if(h.title==="Corvair"&&nc==="veteran")veteranEvents.push("corvair");
           if(h.title==="Skull Crusher"&&nc==="veteran")veteranEvents.push("skullcrusher");
         }
@@ -591,6 +597,13 @@ function App(){
         if(veteranEvents.includes("ck"))setLog("⭐ Crimson Knight is VETERAN — John unlocked!");
         if(veteranEvents.includes("corvair"))setLog("⭐ Corvair VETERAN — team-wide +0.5 power boost active!");
         if(veteranEvents.includes("skullcrusher"))setLog("⭐ Skull Crusher VETERAN — Finally Mastered Being Gentle: friendly fire disabled!");
+        if(veteranEvents.includes("eclipso"))setLog("⭐ Eclipso VETERAN — Sees the Value of the Team: team penalty removed!");
+      }
+      if(pendingJohnOffworld){
+        const{quote,ckQuote}=pendingJohnOffworld;
+        const headline=pickHeadline("johnLeavesToOtherPlanets",[{title:"John"}],null,null);
+        if(headline)pushHeadline(headline);
+        setLog("🚀 John finished the mission — then departed. \""+quote+"\""+( ckQuote?" · Crimson Knight: \""+ckQuote+"\"":""));
       }
 
       // ── ROGUE HERO COUNCIL: if 2+ heroes died/turned on suicide missions, form the council ──
