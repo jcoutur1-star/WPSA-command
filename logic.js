@@ -29,8 +29,10 @@ function isSuicide(hero,allH,pids){
 function rollMission(heroes,threat,rom,dis){
   if(heroes.some(h=>h.isJohn)){
     if(threat.isCKJohnTeamUp)return heroes.length>=10&&heroes.filter(h=>effStats(h,rom,dis).power>7).length>=10?"success":"failure";
+    if(threat.isRogueCouncil)return heroes.length>=10&&heroes.filter(h=>effStats(h,rom,dis).power>5).length>=10?"success":"failure";
     return"success";
   }
+  if(threat.isRogueCouncil)return heroes.length>=10&&heroes.filter(h=>effStats(h,rom,dis).power>5).length>=10?"success":"failure";
   if(heroes.some(h=>h.title==="El Infinite")&&heroes.length<5)return Math.random()<0.25?"partial":"failure";
 
   const eclipso=heroes.find(h=>h.eclipsoLonelyPenalty);
@@ -82,6 +84,13 @@ function calcDmg(outcome,hero,threat,allDeployed){
 
   if(threat&&threat.leavesAt1HP){
     return{health:Math.max(0,hero.currentHP-1)};
+  }
+
+  // ── Silphana's Mace: 10× damage to Seraph ──
+  if(threat&&threat.villainId===103&&hero.title==="Seraph"){
+    const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
+    const raw=Math.floor(Math.random()*(base[1]-base[0])+base[0]);
+    return{health:raw*10};
   }
 
   if(threat&&threat.typhonEffect){
