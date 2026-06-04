@@ -246,22 +246,29 @@ function App(){
         return{...h,regenTimer:nt};
       }));
 
-      setHeroes(prev=>prev.map(h=>{
-        let u={...h};
-        if(h.healCooldown>0)u.healCooldown=h.healCooldown-1;
-        if(h.levelUpFlash)u.levelUpFlash=false;
-        if(h.speechBubble&&Math.random()<0.025)u.speechBubble=null;
-        if(h.status==="deployed"&&!h.speechBubble&&Math.random()<0.005)u.speechBubble=getRandQuip(h,romRef.current,disRef.current,true);
-        if(h.title==="Morgana"&&h.career==="veteran"&&h.status!=="deployed"&&t>0&&t%300===0){
-          setHeroes(p2=>p2.map(h2=>{if(["kia","gameLocked","shopLocked"].includes(h2.status))return h2;const{maxHP}=effStats(h2,romRef.current,disRef.current);return{...h2,currentHP:maxHP,status:"ready",regenTimer:0};}));
-          setLog("✨ Morgana veteran pulse — all heroes restored!");
-        }
-        if(h.title==="The Flip"&&h.career==="veteran"){
-          const aj=prev.find(x=>x.title==="Adrenaline Junkie");
-          if(aj&&aj.status==="gameLocked"){setHeroes(p2=>p2.map(x=>x.title==="Adrenaline Junkie"?{...x,status:"ready",gameLocked:false}:x));setLog("⭐ The Flip is VETERAN — Adrenaline Junkie unlocked!");}
-        }
-        return u;
-      }));
+      setHeroes(prev=>{
+        // Check Morgana veteran pulse and Flip unlock BEFORE mapping so no nested setState
+        const morganaVet=prev.find(h=>h.title==="Morgana"&&h.career==="veteran"&&h.status!=="deployed");
+        const morganaPulse=morganaVet&&t>0&&t%300===0;
+        const flipVet=prev.find(h=>h.title==="The Flip"&&h.career==="veteran");
+        const aj=prev.find(h=>h.title==="Adrenaline Junkie");
+        const flipUnlock=flipVet&&aj&&aj.status==="gameLocked";
+        if(morganaPulse)setLog("✨ Morgana veteran pulse — all heroes restored!");
+        if(flipUnlock)setLog("⭐ The Flip is VETERAN — Adrenaline Junkie unlocked!");
+        return prev.map(h=>{
+          let u={...h};
+          if(h.healCooldown>0)u.healCooldown=h.healCooldown-1;
+          if(h.levelUpFlash)u.levelUpFlash=false;
+          if(h.speechBubble&&Math.random()<0.025)u.speechBubble=null;
+          if(h.status==="deployed"&&!h.speechBubble&&Math.random()<0.005)u.speechBubble=getRandQuip(h,romRef.current,disRef.current,true);
+          if(morganaPulse&&!["kia","gameLocked","shopLocked"].includes(h.status)){
+            const{maxHP}=effStats(h,romRef.current,disRef.current);
+            return{...u,currentHP:maxHP,status:"ready",regenTimer:0};
+          }
+          if(flipUnlock&&h.title==="Adrenaline Junkie")return{...u,status:"ready",gameLocked:false};
+          return u;
+        });
+      });
 
       // ── JOHN OFFWORLD CYCLE (every 120s away, 120s gone, returns at 90% HP) ──
       setHeroes(prev=>{
@@ -487,6 +494,8 @@ function App(){
 
       const pts=outcome!=="failure"?(outcome==="success"?threat.reward:Math.floor(threat.reward/2)):0;
       const allSnap=hRef.current;
+      let johnShouldTurn=false;
+      const veteranEvents=[];
 
       setHeroes(prev=>prev.map(h=>{
         if(!picked.includes(h.id))return h;
@@ -527,8 +536,8 @@ function App(){
             const{maxHP:ckMax}=effStats(h,romRef.current,disRef.current);
             const johnSnap=allSnap.find(j=>j.isJohn&&j.status!=="kia"&&j.status!=="gameLocked"&&j.status!=="turned");
             if(johnSnap){
-              const{maxHP:johnMax}=effStats(johnSnap,romRef.current,disRef.current);
-              setHeroes(p2=>p2.map(j=>j.isJohn?{...j,currentHP:johnMax,status:"turned",speechBubble:"The Director has turned evil. We have to stop them before more innocent people die."}:j));
+              // Flag John to turn — handled in the same map pass below (no nested setState)
+              johnShouldTurn=true;
             }
             const ckJohnThreat={
               id:Date.now(),
@@ -562,15 +571,27 @@ function App(){
         const thresh=xpToLevel(h);const nXP=(h.xp||0)+pts;
         let nc=h.career;let didLv=false;
         if(nXP>=thresh&&CAREER[h.career]?.next){nc=CAREER[h.career].next;didLv=true;levelUps.push({title:h.title,to:nc});
-          if(h.title==="The Crimson Knight"&&nc==="veteran"){setHeroes(p2=>p2.map(j=>j.isJohn?{...j,status:"ready",gameLocked:false}:j));setLog("⭐ Crimson Knight is VETERAN — John unlocked!");}
+          // Collect veteran events instead of calling nested setHeroes
+          if(h.title==="The Crimson Knight"&&nc==="veteran")veteranEvents.push("ck");
           if(h.title==="Eclipso"&&nc==="veteran"){setLog("⭐ Eclipso VETERAN — Sees the Value of the Team: team penalty removed!");}
-          // Corvair veteran: +0.5 power to ALL heroes on the roster permanently
-          if(h.title==="Corvair"&&nc==="veteran"){setHeroes(p2=>p2.map(x=>({...x,_corvairBuff:true})));setLog("⭐ Corvair VETERAN — team-wide +0.5 power boost active!");}
-          // Skull Crusher veteran: special unlocked — clear friendly fire flag
-          if(h.title==="Skull Crusher"&&nc==="veteran"){setHeroes(p2=>p2.map(x=>x.title==="Skull Crusher"?{...x,skullCrusherFriendlyFire:false}:x));setLog("⭐ Skull Crusher VETERAN — Finally Mastered Being Gentle: friendly fire disabled!");}
+          if(h.title==="Corvair"&&nc==="veteran")veteranEvents.push("corvair");
+          if(h.title==="Skull Crusher"&&nc==="veteran")veteranEvents.push("skullcrusher");
         }
         return{...h,currentHP:nHP,status:st,regenTimer:0,xp:didLv?nXP-thresh:nXP,career:nc,levelUpFlash:didLv,_icebergBonus:false,_conductorBonus:false,speechBubble:null,eclipsoLonelyPenalty:h.eclipsoLonelyPenalty&&nc!=="veteran"?true:false};
       }));
+      // Apply veteran unlock side-effects in a separate, non-nested setHeroes call
+      if(veteranEvents.length>0){
+        setHeroes(p2=>p2.map(x=>{
+          let u={...x};
+          if(veteranEvents.includes("ck")&&x.isJohn){u={...u,status:"ready",gameLocked:false};}
+          if(veteranEvents.includes("corvair")){u={...u,_corvairBuff:true};}
+          if(veteranEvents.includes("skullcrusher")&&x.title==="Skull Crusher"){u={...u,skullCrusherFriendlyFire:false};}
+          return u;
+        }));
+        if(veteranEvents.includes("ck"))setLog("⭐ Crimson Knight is VETERAN — John unlocked!");
+        if(veteranEvents.includes("corvair"))setLog("⭐ Corvair VETERAN — team-wide +0.5 power boost active!");
+        if(veteranEvents.includes("skullcrusher"))setLog("⭐ Skull Crusher VETERAN — Finally Mastered Being Gentle: friendly fire disabled!");
+      }
 
       // ── ROGUE HERO COUNCIL: if 2+ heroes died/turned on suicide missions, form the council ──
       if(rogueCouncilDeaths.current>=2&&!rogueCouncilTriggered){
