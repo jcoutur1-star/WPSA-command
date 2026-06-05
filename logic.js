@@ -17,7 +17,7 @@ function effStats(hero,rom,dis){
   return{power,maxHP,regenSec};
 }
 
-function canDeploy(h){return h.status!=="deployed"&&h.status!=="gameLocked"&&h.status!=="shopLocked"&&h.status!=="kia"&&h.status!=="turned"&&h.status!=="exhausted"&&h.status!=="offworld";}
+function canDeploy(h){return h.status!=="deployed"&&h.status!=="gameLocked"&&h.status!=="shopLocked"&&h.status!=="kia"&&h.status!=="rogue"&&h.status!=="exhausted"&&h.status!=="offworld";}
 
 function isSuicide(hero,allH,pids){
   if(pids.length!==1)return false;
@@ -27,12 +27,39 @@ function isSuicide(hero,allH,pids){
 }
 
 function rollMission(heroes,threat,rom,dis){
-  if(heroes.some(h=>h.isJohn)){
-    if(threat.isCKJohnTeamUp)return heroes.length>=10&&heroes.filter(h=>effStats(h,rom,dis).power>7).length>=10?"success":"failure";
-    if(threat.isRogueCouncil)return heroes.length>=10&&heroes.filter(h=>effStats(h,rom,dis).power>5).length>=10?"success":"failure";
-    return"success";
+  // ── HERO vs HERO: ratio-based equation ──
+  if(threat.isRogueCouncil||threat.isCKJohnTeamUp){
+    const rogueMembers=threat.rogueMembers||[];
+    const affected=rogueMembers.map(r=>r.title);
+    // Build Resistance Score (R)
+    let R=rogueMembers.reduce((sum,r)=>{
+      const m=CAREER[r.career]?.mult||1;
+      let p=r.basePower*m;
+      // Conviction bonus: rogue member whose affiliate is also rogue
+      if((r.affiliates||[]).some(aff=>affected.includes(aff)))p*=1.15;
+      return sum+p;
+    },0);
+    // John multiplier — if John is in the rogue members or threat.johnPresent
+    const johnInRogue=threat.johnPresent||rogueMembers.some(r=>r.isJohn);
+    if(johnInRogue)R*=3.5;
+    // 99% guarantee when John is present
+    if(johnInRogue)return Math.random()<0.01?"success":"failure";
+    // Build Suppression Score (S)
+    const S=heroes.reduce((sum,h)=>{
+      const m=CAREER[h.career]?.mult||1;
+      let p=h.basePower*m;
+      // Relationship penalty: deployed hero has a rogue member in their affiliates
+      if((h.affiliates||[]).some(aff=>affected.includes(aff)))p*=0.75;
+      return sum+p;
+    },0);
+    const rawChance=R>0?S/(S+R):0.93;
+    const chance=Math.min(0.93,Math.max(0.01,rawChance));
+    const r=Math.random();
+    if(r<chance*0.55)return"success";
+    if(r<chance)return"partial";
+    return"failure";
   }
-  if(threat.isRogueCouncil)return heroes.length>=10&&heroes.filter(h=>effStats(h,rom,dis).power>5).length>=10?"success":"failure";
+  if(heroes.some(h=>h.isJohn)){
   if(heroes.some(h=>h.title==="El Infinite")&&heroes.length<5)return Math.random()<0.25?"partial":"failure";
 
   const eclipso=heroes.find(h=>h.eclipsoLonelyPenalty);
