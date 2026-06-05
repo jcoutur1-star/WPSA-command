@@ -111,6 +111,10 @@ function App(){
   const [extMode,setExtMode]=useState(false);
   const [rogueCouncilTriggered,setRogueCouncilTriggered]=useState(false);
   const rogueCouncilDeaths=useRef(0);
+  const suicideMissionCount=useRef(0);
+  const [suicideDisplayCount,setSuicideDisplayCount]=useState(0);
+  const cassonikWarnedRef=useRef(false);
+  const affectedHeroTitles=useRef([]); // titles of heroes who died or went rogue on suicide missions
 
   const [heroes,setHeroes]=useState([]);
   const [villains,setVillains]=useState([]);
@@ -208,6 +212,10 @@ function App(){
     setScore(0);setSelThreat(null);setGameOver(null);setGameOverReason("");
     setJohnOffworldTimer(0);
     rogueCouncilDeaths.current=0;
+    suicideMissionCount.current=0;
+    setSuicideDisplayCount(0);
+    cassonikWarnedRef.current=false;
+    affectedHeroTitles.current=[];
     setRogueCouncilTriggered(false);
     setExtMode(ext);setLog(`Welcome, Director ${n}. WSPA Command online.`);setLogTime("00:00");
     tick.current=0;
@@ -234,7 +242,7 @@ function App(){
       setLogTime(`${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`);
 
       setHeroes(prev=>prev.map(h=>{
-        if(["deployed","gameLocked","shopLocked","kia","turned","offworld"].includes(h.status))return h;
+        if(["deployed","gameLocked","shopLocked","kia","rogue","offworld"].includes(h.status))return h;
         const{maxHP,regenSec:rs}=effStats(h,romRef.current,disRef.current);
         if(h.currentHP>=maxHP)return h.status==="ready"?h:{...h,status:"ready"};
         const nt=(h.regenTimer||0)+1;
@@ -301,6 +309,17 @@ function App(){
           setJohnOffworldTimer(0);
           const{maxHP}=effStats(john,romRef.current,disRef.current);
           const returnHP=Math.round(maxHP*0.9);
+          // Check if an active rogue situation is waiting for John
+          const rogueActive=prev.some(h=>h.status==="rogue"&&(h.title==="The Crimson Knight"||h.pendingJohnRogue));
+          const councilActive=tRef.current.some(t=>t.isRogueCouncil);
+          if(rogueActive||councilActive){
+            setLog(`🔴 John has returned — and joins the rogue heroes. "I want this to end peacefully. No one gets hurt."`);
+            // Update existing rogue council threat to mark John present
+            setThreats(p=>p.map(t=>t.isRogueCouncil||t.isCKJohnTeamUp?{...t,johnPresent:true,desc:t.desc+" John has returned and joined them. This is now a 99% loss for the Director."}:t));
+            return prev.map(h=>h.isJohn?{...h,status:"rogue",currentHP:returnHP,speechBubble:"I want this to end peacefully. No one gets hurt.",pendingOffworld:false}:
+              // Ironside not rogue: give him his quote
+              (h.title==="Ironside"&&h.status!=="rogue")?{...h,speechBubble:"We're better off without them."}:h);
+          }
           setLog(`🌟 John has returned! (90% HP)`);
           return prev.map(h=>h.isJohn?{...h,status:returnHP<(h.functionalAt||0)?"exhausted":"ready",currentHP:returnHP,speechBubble:"I'm back!"}:h);
         }
@@ -520,46 +539,97 @@ function App(){
         if(nHP===0&&shamrock&&h.id!==shamrock.id)nHP=1;
         if(nHP===0){
           anyKIA=true;
-          if(isSuicide(h,allSnap,picked)&&!h.isJohn&&h.title!=="The Crimson Knight"){rogueCouncilDeaths.current=(rogueCouncilDeaths.current||0)+1;}
-          if(isSuicide(h,allSnap,picked)&&Math.random()<0.5&&!h.isJohn&&h.title!=="The Crimson Knight"){
-            // Hero survived and turned villain — becomes a new redeemable supervillain threat
-            turnedVillain=h;
-            const turnedThreat={
-              id:Date.now()+h.id,
-              name:`ROGUE HERO: ${h.title}`,
-              loc:threat.loc,lat:threat.lat||0,lng:threat.lng||0,
-              priority:"purple",type:"military",
-              desc:`${h.title} survived a suicide mission and has turned against the WSPA. They retain all hero stats and abilities. Can be redeemed.`,
-              timer:200,maxTimer:200,reward:Math.round(h.baseHP/2),
-              villainId:null,rogueHeroId:h.id,rogueHero:h,recurring:true,redeemable:true
-            };
-            setThreats(p2=>[...p2,turnedThreat]);
-            rogueCouncilDeaths.current=(rogueCouncilDeaths.current||0)+1;
-            return{...h,currentHP:1,status:"turned",turnedVillain:true,_icebergBonus:false,_conductorBonus:false,speechBubble:"You sent me to die. The director has turned evil — I won't let this stand."};
-          }
-          // Crimson Knight on a suicide mission: 50% chance she AND John go rogue to stop the Director
-          if(h.title==="The Crimson Knight"&&isSuicide(h,allSnap,picked)&&Math.random()<0.5){
-            const{maxHP:ckMax}=effStats(h,romRef.current,disRef.current);
-            const johnSnap=allSnap.find(j=>j.isJohn&&j.status!=="kia"&&j.status!=="gameLocked"&&j.status!=="turned");
-            if(johnSnap){
-              // Flag John to turn — handled in the same map pass below (no nested setState)
-              johnShouldTurn=true;
+          const isSui=isSuicide(h,allSnap,picked);
+
+          // ── Regular hero on suicide mission: 50% chance goes rogue instead of KIA ──
+          if(isSui&&!h.isJohn&&h.title!=="The Crimson Knight"){
+            if(Math.random()<0.5){
+              // Hero goes ROGUE — count it and track the title for affiliate expansion
+              turnedVillain=h;
+              rogueCouncilDeaths.current=(rogueCouncilDeaths.current||0)+1;
+              suicideMissionCount.current=(suicideMissionCount.current||0)+1;
+              setSuicideDisplayCount(suicideMissionCount.current);
+              if(!affectedHeroTitles.current.includes(h.title))affectedHeroTitles.current=[...affectedHeroTitles.current,h.title];
+              // Cassonik warning after first confirmed suicide event
+              if(!cassonikWarnedRef.current){
+                cassonikWarnedRef.current=true;
+                setTimeout(()=>{
+                  setHeroes(p2=>p2.map(x=>x.title==="Cassonik"?{...x,speechBubble:"Heroes don't like being set up to die. They might go rogue…"}:x));
+                  setLog("⚠ Cassonik: \"Heroes don't like being set up to die. They might go rogue…\"");
+                },600);
+              }
+              const rogueThreat={
+                id:Date.now()+h.id,
+                name:`ROGUE: ${h.title}`,
+                loc:threat.loc,lat:threat.lat||0,lng:threat.lng||0,
+                priority:"purple",type:"military",
+                desc:`${h.title} survived a suicide mission and has gone rogue against the WSPA. They retain all hero stats and abilities. Can be redeemed.`,
+                timer:300,maxTimer:300,reward:Math.round(h.baseHP/2),
+                villainId:null,rogueHeroId:h.id,rogueHero:h,recurring:true,redeemable:true
+              };
+              setThreats(p2=>[...p2,rogueThreat]);
+              return{...h,currentHP:1,status:"rogue",rogueHero:true,_icebergBonus:false,_conductorBonus:false,speechBubble:"You sent me to die. The director has turned evil — I won't let this stand."};
+            } else {
+              // Hero dies on suicide mission — still counts
+              rogueCouncilDeaths.current=(rogueCouncilDeaths.current||0)+1;
+              suicideMissionCount.current=(suicideMissionCount.current||0)+1;
+              setSuicideDisplayCount(suicideMissionCount.current);
+              if(!affectedHeroTitles.current.includes(h.title))affectedHeroTitles.current=[...affectedHeroTitles.current,h.title];
+              if(!cassonikWarnedRef.current){
+                cassonikWarnedRef.current=true;
+                setTimeout(()=>{
+                  setHeroes(p2=>p2.map(x=>x.title==="Cassonik"?{...x,speechBubble:"Heroes don't like being set up to die. They might go rogue…"}:x));
+                  setLog("⚠ Cassonik: \"Heroes don't like being set up to die. They might go rogue…\"");
+                },600);
+              }
+              return{...h,currentHP:0,status:"kia",_icebergBonus:false,_conductorBonus:false,speechBubble:null};
             }
-            const ckJohnThreat={
-              id:Date.now(),
-              name:"ROGUE: THE CRIMSON KNIGHT & JOHN",
-              loc:"United States",lat:38.9,lng:-77.0,
-              priority:"purple",type:"military",
-              desc:"You sent The Crimson Knight on a suicide mission — and she survived. She and John are now certain the Director has turned evil and is a threat to the world. They are not acting out of anger or revenge — they are acting on conscience and moral duty to protect humanity from a corrupt Director. Heroes they defeat are left at 1 HP rather than killed. Requires 10 heroes with power level above 5 to stop them. They will not be stopped easily.",
-              timer:20,maxTimer:20,reward:120,
-              isCKJohnTeamUp:true,leavesAt1HP:true
-            };
-            setThreats(p2=>[...p2.filter(x=>x.isCKJohnTeamUp!==true),ckJohnThreat]);
-            setLog("🔴 CATASTROPHIC: The Crimson Knight survived the suicide mission. She and John are now convinced the Director has turned evil and are mobilizing to protect the world from you. They leave fallen heroes at 1 HP — they are not here to kill, but to remove a corrupt Director from power.");
-            rogueCouncilDeaths.current=(rogueCouncilDeaths.current||0)+1;
-            return{...h,currentHP:Math.round(ckMax*0.3),status:"turned",regenTimer:0,_icebergBonus:false,_conductorBonus:false,speechBubble:"You sent me to die. The director has become the very evil we swore to stop."};
           }
-          // Normal CK death (not suicide or rogue roll failed) — she can simply die
+
+          // ── Crimson Knight on suicide mission: 50% chance she goes rogue ──
+          if(h.title==="The Crimson Knight"&&isSui&&Math.random()<0.5){
+            const{maxHP:ckMax}=effStats(h,romRef.current,disRef.current);
+            const johnSnap=allSnap.find(j=>j.isJohn&&j.status!=="kia"&&j.status!=="gameLocked"&&j.status!=="rogue");
+            const johnIsOffworld=allSnap.find(j=>j.isJohn)?.status==="offworld";
+            rogueCouncilDeaths.current=(rogueCouncilDeaths.current||0)+1;
+            suicideMissionCount.current=(suicideMissionCount.current||0)+1;
+            setSuicideDisplayCount(suicideMissionCount.current);
+            if(!affectedHeroTitles.current.includes(h.title))affectedHeroTitles.current=[...affectedHeroTitles.current,h.title];
+            if(!cassonikWarnedRef.current){cassonikWarnedRef.current=true;}
+            if(johnSnap&&!johnIsOffworld){
+              // John is here — he joins CK immediately, 99% scenario
+              johnShouldTurn=true;
+              const ckJohnThreat={
+                id:Date.now(),
+                name:"ROGUE: THE CRIMSON KNIGHT & JOHN",
+                loc:"United States",lat:38.9,lng:-77.0,
+                priority:"purple",type:"military",
+                desc:"You sent The Crimson Knight on a suicide mission — and she survived. She and John are now certain the Director has turned evil and is a threat to the world. They act on conscience and moral duty to protect humanity from a corrupt Director. Heroes they defeat are left at 1 HP. John is with them. This is a 99% loss for the Director.",
+                timer:300,maxTimer:300,reward:120,
+                isCKJohnTeamUp:true,leavesAt1HP:true,johnPresent:true
+              };
+              setThreats(p2=>[...p2.filter(x=>!x.isCKJohnTeamUp),ckJohnThreat]);
+              setLog("🔴 CATASTROPHIC: The Crimson Knight went rogue — and John stands with her. \"I want this to end peacefully. No one gets hurt.\" They are not here to kill. The Director will be ousted.");
+            } else {
+              // John is offworld — CK alone, hard but beatable. Flag John as pendingRogue on return
+              const ckThreat={
+                id:Date.now(),
+                name:"ROGUE: THE CRIMSON KNIGHT",
+                loc:"United States",lat:38.9,lng:-77.0,
+                priority:"purple",type:"military",
+                desc:"The Crimson Knight went rogue after surviving a suicide mission. She acts on conscience and moral duty. Heroes defeated are left at 1 HP. John is offworld — if he returns, he will immediately join her.",
+                timer:300,maxTimer:300,reward:90,
+                isCKJohnTeamUp:true,leavesAt1HP:true,johnPresent:false,ckRogueAlone:true
+              };
+              setThreats(p2=>[...p2.filter(x=>!x.isCKJohnTeamUp),ckThreat]);
+              // Flag John as pendingRogue so he joins on return
+              setHeroes(p2=>p2.map(j=>j.isJohn?{...j,pendingRogue:true}:j));
+              setLog("🔴 The Crimson Knight has gone rogue after surviving a suicide mission. She acts on conscience. John is offworld — if he returns, he will join her immediately.");
+            }
+            return{...h,currentHP:Math.round(ckMax*0.3),status:"rogue",regenTimer:0,_icebergBonus:false,_conductorBonus:false,speechBubble:"You sent me to die. The director has become the very evil we swore to stop."};
+          }
+
+          // ── Normal CK death (not suicide or rogue roll failed) — she can simply die ──
           // If John is unlocked and alive, he leaves permanently
           const johnAlive=allSnap.find(j=>j.isJohn&&j.status!=="gameLocked"&&j.status!=="kia");
           if(johnAlive){
@@ -606,26 +676,50 @@ function App(){
         setLog("🚀 John finished the mission — then departed. \""+quote+"\""+( ckQuote?" · Crimson Knight: \""+ckQuote+"\"":""));
       }
 
-      // ── ROGUE HERO COUNCIL: if 2+ heroes died/turned on suicide missions, form the council ──
+      // ── ROGUE HERO COUNCIL: if 2+ heroes died/went rogue on suicide missions ──
       if(rogueCouncilDeaths.current>=2&&!rogueCouncilTriggered){
         setRogueCouncilTriggered(true);
-        const councilCandidates=["The Crimson Knight","John","The Dragon of the Daimyo","Dinosia","The Gummy Bear","Captain Shamrock","Corvair"];
-        const aliveCouncil=hRef.current.filter(h=>councilCandidates.includes(h.title)&&h.status!=="kia"&&h.status!=="turned"&&h.status!=="gameLocked");
+        // Base least-institutional heroes
+        const BASE_COUNCIL=["The Crimson Knight","John","The Dragon of the Daimyo","Dinosia","The Gummy Bear","Captain Shamrock","Corvair"];
+        // Expand by one hop of affiliates of affected heroes (those who died or went rogue)
+        const affected=affectedHeroTitles.current;
+        const allHeroSnap=hRef.current;
+        const affiliateExpansion=allHeroSnap.filter(h=>{
+          if(BASE_COUNCIL.includes(h.title))return false;
+          if(h.status==="kia"||h.status==="gameLocked")return false;
+          return (h.affiliates||[]).some(aff=>affected.includes(aff));
+        }).map(h=>h.title);
+        const councilPool=[...new Set([...BASE_COUNCIL,...affiliateExpansion])];
+        const johnSnap=allHeroSnap.find(h=>h.isJohn);
+        const johnIsOffworld=johnSnap?.status==="offworld";
+        const aliveCouncil=allHeroSnap.filter(h=>councilPool.includes(h.title)&&h.status!=="kia"&&h.status!=="rogue"&&h.status!=="gameLocked");
         const councilNames=aliveCouncil.map(h=>h.title).join(", ")||"several heroes";
+        const johnInCouncil=aliveCouncil.some(h=>h.isJohn);
         const councilThreat={
           id:Date.now()+9999,
           name:"THE ROGUE HERO COUNCIL",
           loc:"Multiple Locations",lat:38.9,lng:-77.0,
           priority:"purple",type:"military",
-          desc:"The Director has sent heroes to die on suicide missions. Believing the Director has turned evil and poses a threat to the world, a coalition of heroes — "+councilNames+" — has formed to remove the Director from power and protect humanity. This is the most dangerous threat in the game. They do not kill the heroes sent against them, leaving all defeated heroes at 1 HP. They cannot be stopped by fewer than 10 heroes. This group acts not out of malice, but out of moral conviction that the Director must be stopped.",
+          desc:"The Director has sent heroes to die. A coalition — "+councilNames+" — has formed to remove the Director from power. They leave all defeated heroes at 1 HP. They do not act from malice, but from moral conviction."+(johnInCouncil?" John is among them. This is a 99% loss for the Director.":johnIsOffworld?" John is offworld — if he returns, he will join them immediately. Without him, victory is possible but extremely difficult.":""),
           timer:300,maxTimer:300,reward:200,
-          isRogueCouncil:true,leavesAt1HP:true,
-          recurrin:true
+          isRogueCouncil:true,leavesAt1HP:true,johnPresent:johnInCouncil,
+          rogueMembers:aliveCouncil.map(h=>({title:h.title,basePower:h.basePower,career:h.career,affiliates:h.affiliates||[],isJohn:h.isJohn||false})),
+          recurring:true
         };
         setThreats(p2=>[...p2.filter(x=>!x.isRogueCouncil),councilThreat]);
-        setLog("🔴 ROGUE HERO COUNCIL FORMED: "+councilNames+" believe the Director has turned evil. They are mobilizing to stop you. This is the most dangerous threat in the game. They leave heroes at 1 HP — they are not here to kill.");
-        // Lock council members to "turned" status
-        setHeroes(p2=>p2.map(h=>councilCandidates.includes(h.title)&&h.status!=="kia"&&h.status!=="gameLocked"?{...h,status:"turned",speechBubble:"The Director has turned evil. We must protect the world from them."}:h));
+        const logSuffix=johnInCouncil?" John stands with them — the Director will be ousted.":johnIsOffworld?" John is offworld — the council may be stopped without him.":"";
+        setLog("🔴 ROGUE HERO COUNCIL FORMED: "+councilNames+" are mobilizing to remove the Director from power."+logSuffix);
+        // Set all council members rogue
+        setHeroes(p2=>p2.map(h=>{
+          if(!councilPool.includes(h.title)||h.status==="kia"||h.status==="gameLocked")return h;
+          // Ironside: if NOT going rogue, give him his quote
+          if(h.title==="Ironside")return{...h,speechBubble:"We're better off without them."};
+          return{...h,status:"rogue",speechBubble:"The Director has turned evil. We must protect the world from them."};
+        }));
+        // If John is offworld, flag him as pendingRogue
+        if(johnIsOffworld){
+          setHeroes(p2=>p2.map(h=>h.isJohn?{...h,pendingRogue:true}:h));
+        }
       }
 
       if(assigned.length>=2&&Math.random()<0.05){
@@ -669,11 +763,18 @@ function App(){
         if(threat.name==="North American Blackout")setHeroes(prev=>prev.map(h=>h.title==="Skull Crusher"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
         // Unlock Eclipso after defeating Blight threat
         if(threat.name&&threat.name.toLowerCase().includes("blight"))setHeroes(prev=>prev.map(h=>h.title==="Eclipso"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
-        if(threat.isRogueCouncil){
-          setHeroes(prev=>prev.map(h=>h.status==="turned"?{...h,status:"resting",speechBubble:"You've shown us you can change. We're back."}:h));
-          setRogueCouncilTriggered(false);
-          rogueCouncilDeaths.current=0;
-          setLog("✅ ROGUE HERO COUNCIL RESOLVED: The heroes have been convinced. They return to the WSPA roster.");
+        if(threat.isRogueCouncil||threat.isCKJohnTeamUp){
+          if(threat.johnPresent){
+            // 1% miracle: rogue team stays permanently rogue but threat is removed
+            setHeroes(prev=>prev.map(h=>h.status==="rogue"?{...h,status:"rogue",speechBubble:"You surprised us. But we will not return."}:h));
+            setLog("✅ Remarkable. The heroes were stopped — but they will not return to service. They remain rogue.");
+          } else {
+            setHeroes(prev=>prev.map(h=>h.status==="rogue"?{...h,status:"resting",speechBubble:"You've shown us you can change. We're back."}:h));
+            setRogueCouncilTriggered(false);
+            rogueCouncilDeaths.current=0;
+            affectedHeroTitles.current=[];
+            setLog("✅ ROGUE HEROES RESOLVED: The heroes have been convinced. They return to the WSPA roster.");
+          }
         }
         if(threat.villainId)setVillains(prev=>prev.map(v=>v.id===threat.villainId?{...v,defeated:true}:v));
         if(threat.isTeamUp&&threat.villainId2)setVillains(prev=>prev.map(v=>v.id===threat.villainId2?{...v,defeated:true}:v));
@@ -682,7 +783,7 @@ function App(){
       }
       setDepMap(prev=>{const n={...prev};delete n[threat.id];return n;});
       setModal({threat,heroes:assigned,outcome,narration,damages,anyKIA,turnedVillain,redeemedVillains,levelUps,xpEarned:pts,newRomMsg,newDisMsg,unlockMsg});
-      setLog(`Debrief: ${threat.name} — ${outcome.toUpperCase()}${anyKIA?" ⚠ HERO LOST":""}${turnedVillain?` 🔴 ${turnedVillain.title} TURNED`:""}${levelUps.length?" ⭐ LVL UP":""}${newRomMsg?" 💕":""}`);
+      setLog(`Debrief: ${threat.name} — ${outcome.toUpperCase()}${anyKIA?" ⚠ HERO LOST":""}${turnedVillain?` 🔴 ${turnedVillain.title} ROGUE`:""}${levelUps.length?" ⭐ LVL UP":""}${newRomMsg?" 💕":""}`);
       // ── Generate news headline ──
       {
         const villain=threat.villainId?vRef.current.find(v=>v.id===threat.villainId):null;
@@ -908,19 +1009,19 @@ function App(){
           const cardCls=["hero-card",`${h.cls}-card`,
             isShopL?"shop-locked":isGameL?"game-locked":"",
             h.status==="kia"?"kia-card":"",
-            h.status==="turned"?"kia-card":"",
+            h.status==="rogue"?"kia-card":"",
             isExp?"expanded":"",
             h.redeemed?"villain-card":"",
             h.levelUpFlash?"level-up-flash":""
           ].filter(Boolean).join(" ");
-          return React.createElement("div",{key:h.id,className:cardCls,style:{position:"relative"},onClick:()=>!isShopL&&!isGameL&&h.status!=="kia"&&h.status!=="turned"&&setExpandedHero(isExp?null:h.id)},
+          return React.createElement("div",{key:h.id,className:cardCls,style:{position:"relative"},onClick:()=>!isShopL&&!isGameL&&h.status!=="kia"&&h.status!=="rogue"&&setExpandedHero(isExp?null:h.id)},
             h.speechBubble&&React.createElement("div",{className:"speech-bubble"},h.speechBubble),
             React.createElement("div",{style:{display:"flex",alignItems:"flex-start",gap:0}},
               React.createElement("div",{style:{flex:1}},
                 React.createElement("div",{className:"hero-row"},
                   React.createElement("span",{className:`hero-name-text${h.isJohn?" john-name":""}${h.redeemed?" villain-name":""}`},h.title),
-                  React.createElement("span",{className:`hero-badge badge-${isShopL?"shop":isGameL?"locked":h.status==="offworld"?"offworld":h.status==="turned"?"kia":h.status==="resting"&&canDeploy(h)?"resting":h.status}`},
-                    isShopL?"SHOP":isGameL?"LOCKED":h.status==="offworld"?"OFF-WORLD":h.status==="turned"?"TURNED":h.status==="ready"?"READY":h.status==="deployed"?"AWAY":h.status==="resting"&&canDeploy(h)?"REST✓":h.status==="resting"?"REST":h.status==="exhausted"?"OUT":"K.I.A."
+                  React.createElement("span",{className:`hero-badge badge-${isShopL?"shop":isGameL?"locked":h.status==="offworld"?"offworld":h.status==="rogue"?"kia":h.status==="resting"&&canDeploy(h)?"resting":h.status}`},
+                    isShopL?"SHOP":isGameL?"LOCKED":h.status==="offworld"?"OFF-WORLD":h.status==="rogue"?"ROGUE":h.status==="ready"?"READY":h.status==="deployed"?"AWAY":h.status==="resting"&&canDeploy(h)?"REST✓":h.status==="resting"?"REST":h.status==="exhausted"?"OUT":"K.I.A."
                   )
                 ),
                 React.createElement("div",{className:"hero-meta"},`${CAREER[h.career]?.label} · ${h.cls.toUpperCase()} · PWR ${power.toFixed(1)}`),
@@ -929,7 +1030,7 @@ function App(){
                   React.createElement("div",{className:"bt"},React.createElement("div",{className:"bf",style:{width:`${hpPct}%`,background:h.isJohn?"#ffd700":sc(h.currentHP,maxHP)}})),
                   React.createElement("span",{style:{fontSize:8,color:"var(--text3)",marginLeft:3}},`${Math.round(h.currentHP)}/${maxHP}`)
                 ),
-                !isShopL&&!isGameL&&h.status!=="kia"&&h.status!=="turned"&&CAREER[h.career]?.next&&React.createElement("div",{className:"xp-row"},
+                !isShopL&&!isGameL&&h.status!=="kia"&&h.status!=="rogue"&&CAREER[h.career]?.next&&React.createElement("div",{className:"xp-row"},
                   React.createElement("div",{className:"xp-label"},"XP"),
                   React.createElement("div",{className:"xp-bar-track"},React.createElement("div",{className:"xp-bar-fill",style:{width:`${xpPct}%`}})),
                   React.createElement("span",{style:{fontSize:7,color:"var(--gold)",marginLeft:3}},`${h.xp||0}/${thresh}`)
@@ -993,9 +1094,25 @@ function App(){
       React.createElement("div",{className:"modal",onClick:e=>e.stopPropagation()},
         React.createElement("div",{className:"modal-title"},`DEPLOY: ${depModal.name}`),
         React.createElement("div",{className:"modal-sub"},`${depModal.loc} · ${P_LABELS[depModal.priority]||""}`),
-        (()=>{if(picked.length===1){const h=heroes.find(x=>x.id===picked[0]);if(h&&isSuicide(h,heroes,picked))return React.createElement("div",{className:"suicide-warn"},"⚠ SUICIDE MISSION: <30 HP, alone, 2+ heroes at full. 50% chance of turning villain if KIA.");}return null;})(),
+        suicideDisplayCount>0&&React.createElement("div",{className:"suicide-counter"},`⚠ Suicide missions this game: ${suicideDisplayCount}`),
+        (()=>{if(picked.length===1){const h=heroes.find(x=>x.id===picked[0]);if(h&&isSuicide(h,heroes,picked))return React.createElement("div",{className:"suicide-warn"},"⚠ SUICIDE MISSION: Hero is low HP, alone, with healthy heroes on the bench. 50% chance of going ROGUE.");}return null;})(),
+        React.createElement("div",{style:{display:"flex",gap:6,marginBottom:6}},
+          React.createElement("button",{
+            className:"confirm-btn",
+            style:{fontSize:9,padding:"4px 10px"},
+            onClick:()=>{
+              const deployable=heroes.filter(h=>canDeploy(h)&&!["shopLocked","gameLocked","kia","rogue","offworld"].includes(h.status));
+              setPicked(deployable.map(h=>h.id));
+            }
+          },"◈ SELECT ALL"),
+          picked.length>0&&React.createElement("button",{
+            className:"modal-close",
+            style:{fontSize:9,padding:"4px 10px",marginTop:0},
+            onClick:()=>setPicked([])
+          },"✕ CLEAR")
+        ),
         React.createElement("div",{className:"hero-select-list"},
-          heroes.filter(h=>!["shopLocked","gameLocked","kia","turned","offworld"].includes(h.status)).map(h=>{
+          heroes.filter(h=>!["shopLocked","gameLocked","kia","rogue","offworld"].includes(h.status)).map(h=>{
             const{power,maxHP}=effStats(h,rom,dis);const dep=canDeploy(h);const pk=picked.includes(h.id);
             return React.createElement("div",{key:h.id,className:`hsi${pk?" picked":""}${!dep?" unavailable":""}`,onClick:()=>dep&&toggleH(h.id)},
               React.createElement("div",null,
@@ -1027,8 +1144,8 @@ function App(){
             const{maxHP}=effStats(h,rom,dis);const lv=modal.levelUps?.find(l=>l.title===h.title);
             return React.createElement("div",{key:h.id,className:"mstat"},
               React.createElement("div",{className:"mstat-label"},h.title),
-              React.createElement("div",{className:"mstat-val",style:{color:h.isJohn?"#ffd700":u?.status==="kia"?"var(--red)":u?.status==="turned"?"var(--yellow)":u?.status==="exhausted"?"var(--yellow)":"var(--green)"}},
-                u?.status==="kia"?"K.I.A.":u?.status==="turned"?"TURNED":`HP ${Math.round(u?.currentHP||0)}/${maxHP}`
+              React.createElement("div",{className:"mstat-val",style:{color:h.isJohn?"#ffd700":u?.status==="kia"?"var(--red)":u?.status==="rogue"?"var(--yellow)":u?.status==="exhausted"?"var(--yellow)":"var(--green)"}},
+                u?.status==="kia"?"K.I.A.":u?.status==="rogue"?"ROGUE":`HP ${Math.round(u?.currentHP||0)}/${maxHP}`
               ),
               d&&React.createElement("div",{style:{fontSize:8,color:"var(--text3)",marginTop:2}},`-${d.health}hp`),
               modal.xpEarned>0&&!["kia"].includes(u?.status)&&React.createElement("div",{className:"mstat-xp"},`+${modal.xpEarned} XP`),
@@ -1041,7 +1158,7 @@ function App(){
         modal.newDisMsg&&React.createElement("div",{className:"modal-notice notice-red"},modal.newDisMsg),
         modal.unlockMsg&&React.createElement("div",{className:"modal-notice notice-green"},`🔓 ${modal.unlockMsg}`),
         modal.redeemedVillains?.length>0&&React.createElement("div",{className:"modal-notice notice-purple"},`✨ JOHN redeemed: ${modal.redeemedVillains.map(v=>v.title).join(" & ")}! They join the WSPA roster.`),
-        modal.turnedVillain&&React.createElement("div",{className:"modal-notice notice-orange"},`🔴 ${modal.turnedVillain.title} survived and turned villain. They are now a WSPA threat.`),
+        modal.turnedVillain&&React.createElement("div",{className:"modal-notice notice-orange"},`🔴 ${modal.turnedVillain.title} survived and went ROGUE. They are now a WSPA threat.`),
         modal.anyKIA&&!modal.turnedVillain&&React.createElement("div",{className:"modal-notice notice-red"},"⚠ HERO LOST IN ACTION. They will not be returning, Director."),
         React.createElement("button",{className:"modal-close",onClick:()=>setModal(null)},"◈ CLOSE DEBRIEF")
       )
