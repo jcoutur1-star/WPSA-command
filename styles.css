@@ -95,6 +95,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 .badge-resting{background:rgba(0,170,255,.12);color:var(--blue);border:1px solid rgba(0,170,255,.3)}
 .badge-exhausted{background:rgba(255,100,0,.12);color:#ff8844;border:1px solid rgba(255,100,0,.3)}
 .badge-kia{background:rgba(255,51,51,.12);color:var(--red);border:1px solid rgba(255,51,51,.3)}
+.badge-rogue{background:rgba(255,170,0,.12);color:#ffaa00;border:1px solid rgba(255,170,0,.3)}
 .badge-shop{background:rgba(255,215,0,.12);color:var(--gold);border:1px solid rgba(255,215,0,.3)}
 .badge-locked{background:rgba(100,100,100,.12);color:#666;border:1px solid rgba(100,100,100,.3)}
 .badge-offworld{background:rgba(170,68,255,.12);color:var(--purple);border:1px solid rgba(170,68,255,.3)}
@@ -171,4 +172,5 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 .confirm-btn{width:100%;padding:8px;background:rgba(0,212,255,.07);border:1px solid var(--accent);color:var(--accent);font-family:var(--font-head);font-size:10px;letter-spacing:1px;cursor:pointer;border-radius:2px;transition:.15s;margin-bottom:7px}
 .confirm-btn:hover{background:rgba(0,212,255,.15)}.confirm-btn:disabled{opacity:.4;cursor:default}
 .suicide-warn{background:rgba(255,100,34,.1);border:1px solid rgba(255,100,34,.4);border-radius:3px;padding:7px;margin-bottom:10px;font-size:10px;color:#ff8844}
+.suicide-counter{background:rgba(255,60,60,.08);border:1px solid rgba(255,60,60,.3);border-radius:3px;padding:5px 8px;margin-bottom:8px;font-size:9px;color:#ff6644;font-family:var(--font-mono)}
 .villain-shop-card{border-color:rgba(170,68,255,.3)}
