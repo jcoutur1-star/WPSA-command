@@ -60,6 +60,8 @@ function rollMission(heroes,threat,rom,dis){
     return"failure";
   }
   if(heroes.some(h=>h.isJohn)){
+    return"success";
+  }
   if(heroes.some(h=>h.title==="El Infinite")&&heroes.length<5)return Math.random()<0.25?"partial":"failure";
 
   const eclipso=heroes.find(h=>h.eclipsoLonelyPenalty);
