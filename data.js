@@ -77,11 +77,11 @@ const JOHN_DEPARTURE_QUOTES=[
   "I'm going to pick up a special token of my love for The Crimson Knight back home!",
   "The Flabermians need my help!",
   "The Coagulanians are in trouble. I'm going to go help them!",
-  "A stellar nursery is currently running low on nitrogen. I'm gonna go help out."
-  "A cybernetic hive mind is trying to assimilate the Acklovians. Gotta go stop it."
-  "A continuum of pretend omnipotents are being mean to a young planetary system."
-  "I need to go isolate and decontaminate the milokyde galaxy. Can't risk the Nullus breaking containment..."
-  "My friend on Caxus needs a hand."
+  "A stellar nursery is currently running low on nitrogen. I'm gonna go help out.",
+  "A cybernetic hive mind is trying to assimilate the Acklovians. Gotta go stop it.",
+  "A continuum of pretend omnipotents are being mean to a young planetary system.",
+  "I need to go isolate and decontaminate the milokyde galaxy. Can't risk the Nullus breaking containment...",
+  "My friend on Caxus needs a hand.",
   "The Halluxians got into a war with the Enginians and the Tiploplians. I need to broker peace.",
   "I'm going to go pick up my favorite Ice Cream on Malxinaria Prime. I'll be right back…",
   "A pregnant space whale will die if I don't perform surgery. Millions will die if she does. I'll be right back!",
