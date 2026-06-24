@@ -55,7 +55,7 @@ const CP={
   "Scylla":["A thousand years of rage.","The Hammer remembers every betrayal.","I yearn for a people to call my own again.","My heart has been hurt, but perhaps I can open it once more.","You are nothing but another name on my list."],
   "Golgotha":["Art is eternal. Unlike you.","Do not bleed on the upholstery.","My clade has existed longer than your civilization.","Refined, as always.","I have watched empires collapse with more grace."],
   "Mrs. Peanut":["THEY WILL PAY FOR WHAT THEY'VE DONE TO US.","Every jar… every tin… I remember.","Allergy season has never been so personal.","Peanut dust rising.","No mercy. None."],
-  "Chupacabra":["El Chupacabra no forgives.","The hunt never ends.","They run. I am faster.","Soy el toro, soy el monstruelo.","Blood calls to blood.","Fear me."],
+  "Chupacabra":["El Chupacabra no perdona.","The hunt never ends.","They run. I am faster.","Soy el toro, soy el monstruelo.","Blood calls to blood.","Fear me."],
   "Swirrlous":["The planet deserves better!","I changed causes three times today. Still right.","Eco-terrorism is just passionate environmentalism.","Don't cut down trees near me.","Illusions hurt no one. Unlike you people."],
   "Big Mack":["Ready to hit something.","Simple problem, simple solution.","I swear I'm the funniest guy on the roster","I'm the wrecking ball.","Don't overthink it.","My name is in lights. I know I'm the man.","They don't know me.","I called in to a talk show today. They've got me top 5 this week.","Let's go."],
   "Scarlett":["You're not sure who I am. Good.","I can be anyone I need to be.","Team player. Always.","Leave the recon to me.","You might not recognize me next time."],
