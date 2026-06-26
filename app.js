@@ -51,11 +51,6 @@ function WorldMap({threats,depMap,score,target,extMode,zoom,pan,onZoomIn,onZoomO
   }
 
   return React.createElement("div",{className:"map-area",style:{position:"relative",overflow:"hidden"}},
-    React.createElement("div",{className:"map-zoom-controls"},
-      React.createElement("button",{className:"map-zoom-btn",onClick:onZoomIn,title:"Zoom In"},"＋"),
-      React.createElement("button",{className:"map-zoom-btn",onClick:onZoomOut,title:"Zoom Out"},"－"),
-      React.createElement("button",{className:"map-zoom-btn",onClick:onResetView,title:"Reset View"},"⌂")
-    ),
     React.createElement("div",{
       style:{transform:`scale(${zoom}) translate(${localPan.x/zoom}px,${localPan.y/zoom}px)`,transformOrigin:"center center",width:"100%",height:"100%",cursor:dragging?"grabbing":"grab"},
       onMouseDown:e=>{setDragging(true);setDragStart({x:e.clientX-localPan.x,y:e.clientY-localPan.y});},
@@ -113,6 +108,13 @@ function WorldMap({threats,depMap,score,target,extMode,zoom,pan,onZoomIn,onZoomO
       React.createElement("text",{x:290,y:348,textAnchor:"middle",fontSize:7.5,fill:"var(--text3)",fontFamily:"'Share Tech Mono',monospace"},`SCORE: ${score} / ${target}${extMode?" [EXTENDED]":""}`)
     )
     ) // close pan/drag div
+    ,
+    React.createElement("div",{className:"map-zoom-controls"},
+      React.createElement("button",{className:"map-zoom-btn",onClick:onZoomIn,title:"Zoom In"},"＋"),
+      React.createElement("button",{className:"map-zoom-btn",onClick:onZoomOut,title:"Zoom Out"},"－"),
+      React.createElement("button",{className:"map-zoom-btn",onClick:onResetView,title:"Reset View"},"⌂"),
+      React.createElement("div",{className:"map-zoom-label"},`${Math.round(zoom*100)}%`)
+    )
   );
 }
 
@@ -1022,7 +1024,7 @@ function App(){
                 e.special&&React.createElement("div",null,React.createElement("b",null,"Special: "),e.special),
                 e.affiliates&&e.affiliates.length>0&&React.createElement("div",null,React.createElement("b",null,"Affiliates: "),e.affiliates.join(", ")),
                 e.secret&&React.createElement("div",{style:{color:"#ff8844"}},React.createElement("b",null,"⚠ Secret: "),e.secret),
-                e.backstory&&React.createElement("div",{style:{marginTop:10,paddingTop:8,borderTop:"1px solid var(--border)",color:"var(--text3)",fontSize:10,lineHeight:1.7,fontStyle:"italic"}},React.createElement("b",{style:{color:"var(--accent)",fontStyle:"normal",display:"block",marginBottom:4,fontSize:9,letterSpacing:1}},"◈ ANALYST FILE"),e.backstory)
+                e.backstory&&React.createElement("div",{style:{marginTop:10,paddingTop:8,borderTop:"1px solid var(--border)",color:"var(--text3)",fontSize:14,lineHeight:1.7,fontStyle:"italic"}},React.createElement("b",{style:{color:"var(--accent)",fontStyle:"normal",display:"block",marginBottom:4,fontSize:13,letterSpacing:1}},"◈ ANALYST FILE"),e.backstory)
               ),
               e.category==="villain"&&React.createElement("div",null,
                 e.portrait&&React.createElement("img",{src:e.portrait,alt:e.name,style:{width:"100%",maxWidth:160,height:"auto",display:"block",margin:"0 auto 10px",borderRadius:4,border:"1px solid var(--purple)",objectFit:"cover",opacity:0.85}}),
@@ -1033,7 +1035,7 @@ function App(){
                 React.createElement("div",null,React.createElement("b",null,"Weaknesses: "),e.weaknesses),
                 e.special&&React.createElement("div",null,React.createElement("b",null,"Special: "),e.special),
                 e.affiliates&&e.affiliates.length>0&&React.createElement("div",null,React.createElement("b",null,"Affiliates: "),e.affiliates.join(", ")),
-                e.backstory&&React.createElement("div",{style:{marginTop:10,paddingTop:8,borderTop:"1px solid var(--border)",color:"var(--text3)",fontSize:10,lineHeight:1.7,fontStyle:"italic"}},React.createElement("b",{style:{color:"var(--purple)",fontStyle:"normal",display:"block",marginBottom:4,fontSize:9,letterSpacing:1}},"◈ ANALYST FILE"),e.backstory)
+                e.backstory&&React.createElement("div",{style:{marginTop:10,paddingTop:8,borderTop:"1px solid var(--border)",color:"var(--text3)",fontSize:14,lineHeight:1.7,fontStyle:"italic"}},React.createElement("b",{style:{color:"var(--purple)",fontStyle:"normal",display:"block",marginBottom:4,fontSize:13,letterSpacing:1}},"◈ ANALYST FILE"),e.backstory)
               ),
               e.category==="threat"&&React.createElement("div",null,
                 React.createElement("div",null,React.createElement("b",null,"Location: "),e.loc),
@@ -1164,10 +1166,10 @@ function App(){
         onResetView:()=>{setMapZoom(1);setMapPan({x:0,y:0});}
       }),
       // THREATS + HOSPITAL PANEL
-      React.createElement("div",{className:"threats-panel",style:{width:threatPanelOpen?252:36,minWidth:threatPanelOpen?252:36,transition:"width 0.2s"}},
-        React.createElement("div",{style:{padding:"7px 7px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}},
-          threatPanelOpen&&React.createElement("div",{className:"panel-header",style:{flex:1}},"◈ ACTIVE THREATS"),
-          React.createElement("button",{className:"panel-toggle-btn",onClick:()=>setThreatPanelOpen(o=>!o),title:threatPanelOpen?"Collapse Threats Panel":"Expand Threats Panel"},threatPanelOpen?"►":"◄")
+      React.createElement("div",{className:"threats-panel",style:{width:threatPanelOpen?252:36,minWidth:threatPanelOpen?252:36,transition:"width 0.2s",overflow:"hidden",flexShrink:0}},
+        React.createElement("div",{style:{padding:"7px 7px 0",display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"}},
+          React.createElement("button",{className:"panel-toggle-btn",onClick:()=>setThreatPanelOpen(o=>!o),title:threatPanelOpen?"Collapse Threats Panel":"Expand Threats Panel"},threatPanelOpen?"◄":"►"),
+          threatPanelOpen&&React.createElement("div",{className:"panel-header",style:{flex:1,margin:0}},"◈ ACTIVE THREATS")
         ),
         threatPanelOpen&&React.createElement("div",{className:"threat-list"},
           threats.length===0&&React.createElement("div",{style:{fontSize:9,color:"var(--text3)",padding:12,textAlign:"center"}},"No active threats."),
