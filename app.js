@@ -1,11 +1,16 @@
 const {useState,useEffect,useRef,useMemo}=React;
 
 // ─── WORLD MAP COMPONENT (D3 Natural Earth projection) ────────────────────────
-function WorldMap({threats,depMap,score,target,extMode}){
+function WorldMap({threats,depMap,score,target,extMode,zoom,pan,onZoomIn,onZoomOut,onResetView}){
   const svgRef=useRef(null);
   const [paths,setPaths]=useState([]);
   const [proj,setProj]=useState(null);
   const W=580,H=360;
+  const [dragging,setDragging]=useState(false);
+  const [dragStart,setDragStart]=useState(null);
+  const [localPan,setLocalPan]=useState(pan||{x:0,y:0});
+
+  useEffect(()=>{setLocalPan(pan||{x:0,y:0});},[pan]);
 
   useEffect(()=>{
     // Load world topojson and build paths using d3-geo
@@ -45,7 +50,19 @@ function WorldMap({threats,depMap,score,target,extMode}){
     }catch(e){return null;}
   }
 
-  return React.createElement("div",{className:"map-area"},
+  return React.createElement("div",{className:"map-area",style:{position:"relative",overflow:"hidden"}},
+    React.createElement("div",{className:"map-zoom-controls"},
+      React.createElement("button",{className:"map-zoom-btn",onClick:onZoomIn,title:"Zoom In"},"＋"),
+      React.createElement("button",{className:"map-zoom-btn",onClick:onZoomOut,title:"Zoom Out"},"－"),
+      React.createElement("button",{className:"map-zoom-btn",onClick:onResetView,title:"Reset View"},"⌂")
+    ),
+    React.createElement("div",{
+      style:{transform:`scale(${zoom}) translate(${localPan.x/zoom}px,${localPan.y/zoom}px)`,transformOrigin:"center center",width:"100%",height:"100%",cursor:dragging?"grabbing":"grab"},
+      onMouseDown:e=>{setDragging(true);setDragStart({x:e.clientX-localPan.x,y:e.clientY-localPan.y});},
+      onMouseMove:e=>{if(!dragging||!dragStart)return;setLocalPan({x:e.clientX-dragStart.x,y:e.clientY-dragStart.y});},
+      onMouseUp:()=>{setDragging(false);setDragStart(null);},
+      onMouseLeave:()=>{setDragging(false);setDragStart(null);}
+    },
     React.createElement("svg",{ref:svgRef,className:"map-svg",viewBox:`0 0 ${W} ${H}`,xmlns:"http://www.w3.org/2000/svg"},
       React.createElement("defs",null,
         React.createElement("filter",{id:"glow"},
@@ -95,6 +112,7 @@ function WorldMap({threats,depMap,score,target,extMode}){
       React.createElement("rect",{x:8,y:350,width:Math.min(564,(score/target)*564),height:6,rx:2,fill:"url(#sg)"}),
       React.createElement("text",{x:290,y:348,textAnchor:"middle",fontSize:7.5,fill:"var(--text3)",fontFamily:"'Share Tech Mono',monospace"},`SCORE: ${score} / ${target}${extMode?" [EXTENDED]":""}`)
     )
+    ) // close pan/drag div
   );
 }
 
@@ -136,8 +154,18 @@ function App(){
   const [tickerMsg,setTickerMsg]=useState("◈ W.S.P.A. GLOBAL NEWS TICKER ◈ Monitoring all threats worldwide. Stay alert, Director.");
   const tickerQueue=useRef([]);
   const tickerBusy=useRef(false);
-  const TICKER_DURATION=32000; // ms — must match CSS animation duration
-  const [johnOffworldTimer,setJohnOffworldTimer]=useState(0); // counts up; 0-180 = on earth, 180-420 = offworld (3min on, 4min off)
+  const TICKER_DURATION=32000;
+  const [johnOffworldTimer,setJohnOffworldTimer]=useState(0);
+  // Hospital: set of hero IDs currently in the medical bay (up to 5, 7x regen)
+  const [hospitalIds,setHospitalIds]=useState([]);
+  const hospitalRef=useRef([]);hospitalRef.current=hospitalIds;
+  // Panel collapse toggles
+  const [heroPanelOpen,setHeroPanelOpen]=useState(true);
+  const [threatPanelOpen,setThreatPanelOpen]=useState(true);
+  // Map zoom/pan
+  const [mapZoom,setMapZoom]=useState(1);
+  const [mapPan,setMapPan]=useState({x:0,y:0});
+  const mapDragRef=useRef(null);
 
   const tick=useRef(0);
   const lastHeadlineTick=useRef(0); // tracks last tick a headline was pushed
@@ -154,6 +182,34 @@ function App(){
   function saveAndUpdateBank(n){setBank(n);saveBank(n);}
   function saveAndUpdateOwned(a){setOwnedShop(a);saveOwned(a);}
   function saveAndUpdateCodex(a){setCodexUnlocked(a);saveCodex(a);}
+
+  function addToHospital(heroId){
+    setHospitalIds(prev=>{
+      if(prev.includes(heroId)||prev.length>=5)return prev;
+      return[...prev,heroId];
+    });
+  }
+  function removeFromHospital(heroId){
+    setHospitalIds(prev=>prev.filter(id=>id!==heroId));
+  }
+  function autoFillHospital(){
+    const eligible=hRef.current.filter(h=>
+      !["deployed","gameLocked","shopLocked","kia","rogue","offworld"].includes(h.status)&&
+      !hospitalRef.current.includes(h.id)
+    );
+    // Sort by lowest HP%, exclude full health
+    const wounded=eligible.filter(h=>{
+      const{maxHP}=effStats(h,romRef.current,disRef.current);
+      return h.currentHP<maxHP;
+    }).sort((a,b)=>{
+      const{maxHP:ma}=effStats(a,romRef.current,disRef.current);
+      const{maxHP:mb}=effStats(b,romRef.current,disRef.current);
+      return(a.currentHP/ma)-(b.currentHP/mb);
+    });
+    const slots=5-hospitalRef.current.length;
+    const toAdd=wounded.slice(0,slots).map(h=>h.id);
+    if(toAdd.length)setHospitalIds(prev=>[...prev,...toAdd]);
+  }
   function pushHeadline(msg){
     lastHeadlineTick.current=tick.current;
     tickerQueue.current.push(msg);
@@ -217,6 +273,10 @@ function App(){
     cassonikWarnedRef.current=false;
     affectedHeroTitles.current=[];
     setRogueCouncilTriggered(false);
+    setHospitalIds([]);
+    setHeroPanelOpen(true);
+    setThreatPanelOpen(true);
+    setMapZoom(1);setMapPan({x:0,y:0});
     setExtMode(ext);setLog(`Welcome, Director ${n}. WSPA Command online.`);setLogTime("00:00");
     tick.current=0;
     setScreen("game");
@@ -244,6 +304,26 @@ function App(){
       setHeroes(prev=>prev.map(h=>{
         if(["deployed","gameLocked","shopLocked","kia","rogue","offworld"].includes(h.status))return h;
         const{maxHP,regenSec:rs}=effStats(h,romRef.current,disRef.current);
+        // Hospital heroes: 7x regen, locked as exhausted until full or removed
+        const inHospital=hospitalRef.current.includes(h.id);
+        if(inHospital){
+          if(h.currentHP>=maxHP){
+            // Auto-discharge when at full health
+            setHospitalIds(prev=>prev.filter(id=>id!==h.id));
+            return{...h,currentHP:maxHP,status:"ready"};
+          }
+          const effRs=Math.max(1,Math.floor(rs/7));
+          const nt=(h.regenTimer||0)+1;
+          if(nt>=effRs){
+            const nHP=Math.min(maxHP,h.currentHP+1);
+            if(nHP>=maxHP){
+              setHospitalIds(prev=>prev.filter(id=>id!==h.id));
+              return{...h,currentHP:nHP,regenTimer:0,status:"ready",speechBubble:READY_QUIPS[Math.floor(Math.random()*READY_QUIPS.length)]};
+            }
+            return{...h,currentHP:nHP,regenTimer:0,status:"exhausted"};
+          }
+          return{...h,regenTimer:nt,status:"exhausted"};
+        }
         if(h.currentHP>=maxHP)return h.status==="ready"?h:{...h,status:"ready"};
         const nt=(h.regenTimer||0)+1;
         if(nt>=rs){
@@ -262,8 +342,12 @@ function App(){
         const flipVet=prev.find(h=>h.title==="The Flip"&&h.career==="veteran");
         const aj=prev.find(h=>h.title==="Adrenaline Junkie");
         const flipUnlock=flipVet&&aj&&aj.status==="gameLocked";
+        // Argos veteran special: fully recovers every 3 minutes (180s)
+        const argosVet=prev.find(h=>h.title==="Argos"&&h.career==="veteran"&&!["kia","gameLocked","shopLocked","deployed"].includes(h.status));
+        const argosPulse=argosVet&&t>0&&t%180===0;
         if(morganaPulse)setLog("✨ Morgana veteran pulse — all heroes restored!");
         if(flipUnlock)setLog("⭐ The Flip is VETERAN — Adrenaline Junkie unlocked!");
+        if(argosPulse)setLog("💰 Argos: Money Talks — fully recovered!");
         return prev.map(h=>{
           let u={...h};
           if(h.healCooldown>0)u.healCooldown=h.healCooldown-1;
@@ -273,6 +357,10 @@ function App(){
           if(morganaPulse&&!["kia","gameLocked","shopLocked"].includes(h.status)){
             const{maxHP}=effStats(h,romRef.current,disRef.current);
             return{...u,currentHP:maxHP,status:"ready",regenTimer:0};
+          }
+          if(argosPulse&&h.title==="Argos"){
+            const{maxHP}=effStats(h,romRef.current,disRef.current);
+            return{...u,currentHP:maxHP,status:"ready",regenTimer:0,speechBubble:"Money Talks."};
           }
           if(flipUnlock&&h.title==="Adrenaline Junkie")return{...u,status:"ready",gameLocked:false};
           return u;
@@ -630,16 +718,18 @@ function App(){
           }
 
           // ── Normal CK death (not suicide or rogue roll failed) — she can simply die ──
-          // If John is unlocked and alive, he leaves permanently
-          const johnAlive=allSnap.find(j=>j.isJohn&&j.status!=="gameLocked"&&j.status!=="kia");
-          if(johnAlive){
-            const griefQuote=JOHN_GRIEF_QUOTES[Math.floor(Math.random()*JOHN_GRIEF_QUOTES.length)];
-            setTimeout(()=>{
-              setHeroes(p2=>p2.map(j=>j.isJohn?{...j,status:"offworld",speechBubble:griefQuote,pendingOffworld:false,ckGrief:true}:j));
-              setLog("💔 John: \""+griefQuote+"\" — He has left Earth. He will not return.");
-              const headline=pickHeadline("johnLeavesToOtherPlanets",[{title:"John"}],null,null);
-              if(headline)pushHeadline("[Heroes Weekly] John has vanished following the loss of The Crimson Knight. Experts fear he may never return.");
-            },500);
+          // If John is unlocked and alive, he leaves permanently — ONLY triggered by CK's death
+          if(h.title==="The Crimson Knight"){
+            const johnAlive=allSnap.find(j=>j.isJohn&&j.status!=="gameLocked"&&j.status!=="kia");
+            if(johnAlive){
+              const griefQuote=JOHN_GRIEF_QUOTES[Math.floor(Math.random()*JOHN_GRIEF_QUOTES.length)];
+              setTimeout(()=>{
+                setHeroes(p2=>p2.map(j=>j.isJohn?{...j,status:"offworld",speechBubble:griefQuote,pendingOffworld:false,ckGrief:true}:j));
+                setLog("💔 John: \""+griefQuote+"\" — He has left Earth. He will not return.");
+                const headline=pickHeadline("johnLeavesToOtherPlanets",[{title:"John"}],null,null);
+                if(headline)pushHeadline("[Heroes Weekly] John has vanished following the loss of The Crimson Knight. Experts fear he may never return.");
+              },500);
+            }
           }
           return{...h,currentHP:0,status:"kia",_icebergBonus:false,_conductorBonus:false,speechBubble:null};
         }
@@ -790,7 +880,12 @@ function App(){
         const vname=villain?.title||threat.name;  // Y = villain name or threat name if no villain
         const tname=threat.name;                  // Z = always threat name
         let hline=null;
-        if(anyKIA&&!turnedVillain){const deadH=assigned.filter(h=>hRef.current.find(x=>x.id===h.id)?.status==="kia");if(deadH.length)hline=pickHeadline("heroDies",deadH,vname,tname);}
+        if(anyKIA&&!turnedVillain){
+          // Use heroes who took lethal damage from this mission — don't rely on live ref timing
+          const deadH=assigned.filter(h=>{const d=damages[h.id];return d&&(h.currentHP-d.health)<=0;});
+          const useDeadH=deadH.length?deadH:assigned;
+          hline=pickHeadline("heroDies",useDeadH,vname,tname);
+        }
         else if(redeemedVillains.length>0)hline=pickHeadline("johnRedeemsVillain",assigned,vname,tname);
         else if(assigned.some(h=>h.isJohn)&&outcome!=="failure")hline=pickHeadline("johnStopsVillainOrThreat",assigned,vname,tname);
         else if(outcome==="failure"&&villain)hline=pickHeadline("villainDefeatsHeroes",assigned,vname,tname);
@@ -936,7 +1031,9 @@ function App(){
                 React.createElement("div",null,React.createElement("b",null,"Bio: "),e.personality),
                 React.createElement("div",null,React.createElement("b",null,"Abilities: "),e.abilities),
                 React.createElement("div",null,React.createElement("b",null,"Weaknesses: "),e.weaknesses),
-                e.special&&React.createElement("div",null,React.createElement("b",null,"Special: "),e.special)
+                e.special&&React.createElement("div",null,React.createElement("b",null,"Special: "),e.special),
+                e.affiliates&&e.affiliates.length>0&&React.createElement("div",null,React.createElement("b",null,"Affiliates: "),e.affiliates.join(", ")),
+                e.backstory&&React.createElement("div",{style:{marginTop:10,paddingTop:8,borderTop:"1px solid var(--border)",color:"var(--text3)",fontSize:10,lineHeight:1.7,fontStyle:"italic"}},React.createElement("b",{style:{color:"var(--purple)",fontStyle:"normal",display:"block",marginBottom:4,fontSize:9,letterSpacing:1}},"◈ ANALYST FILE"),e.backstory)
               ),
               e.category==="threat"&&React.createElement("div",null,
                 React.createElement("div",null,React.createElement("b",null,"Location: "),e.loc),
@@ -994,9 +1091,12 @@ function App(){
     ),
     React.createElement("div",{className:"main"},
       // HERO PANEL
-      React.createElement("div",{className:"heroes-panel"},
-        React.createElement("div",{className:"panel-header"},"◈ HERO ROSTER"),
-        sortedHeroes.map(h=>{
+      React.createElement("div",{className:"heroes-panel",style:{width:heroPanelOpen?290:36,minWidth:heroPanelOpen?290:36,transition:"width 0.2s"}},
+        React.createElement("div",{className:"panel-header",style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+          heroPanelOpen&&React.createElement("span",null,"◈ HERO ROSTER"),
+          React.createElement("button",{className:"panel-toggle-btn",onClick:()=>setHeroPanelOpen(o=>!o),title:heroPanelOpen?"Collapse Hero Panel":"Expand Hero Panel"},heroPanelOpen?"◄":"►")
+        ),
+        heroPanelOpen&&sortedHeroes.map(h=>{
           const{power,maxHP}=effStats(h,rom,dis);
           const hpPct=(h.currentHP/maxHP)*100;
           const thresh=xpToLevel(h);const xpPct=Math.min(100,((h.xp||0)/thresh)*100);
@@ -1020,8 +1120,8 @@ function App(){
               React.createElement("div",{style:{flex:1}},
                 React.createElement("div",{className:"hero-row"},
                   React.createElement("span",{className:`hero-name-text${h.isJohn?" john-name":""}${h.redeemed?" villain-name":""}`},h.title),
-                  React.createElement("span",{className:`hero-badge badge-${isShopL?"shop":isGameL?"locked":h.status==="offworld"?"offworld":h.status==="rogue"?"kia":h.status==="resting"&&canDeploy(h)?"resting":h.status}`},
-                    isShopL?"SHOP":isGameL?"LOCKED":h.status==="offworld"?"OFF-WORLD":h.status==="rogue"?"ROGUE":h.status==="ready"?"READY":h.status==="deployed"?"AWAY":h.status==="resting"&&canDeploy(h)?"REST✓":h.status==="resting"?"REST":h.status==="exhausted"?"OUT":"K.I.A."
+                  React.createElement("span",{className:`hero-badge badge-${isShopL?"shop":isGameL?"locked":h.status==="offworld"?"offworld":h.status==="rogue"?"kia":hospitalIds.includes(h.id)?"hospital":h.status==="resting"&&canDeploy(h)?"resting":h.status}`},
+                    isShopL?"SHOP":isGameL?"LOCKED":h.status==="offworld"?"OFF-WORLD":h.status==="rogue"?"ROGUE":hospitalIds.includes(h.id)?"🏥 MED":h.status==="ready"?"READY":h.status==="deployed"?"AWAY":h.status==="resting"&&canDeploy(h)?"REST✓":h.status==="resting"?"REST":h.status==="exhausted"?"OUT":"K.I.A."
                   )
                 ),
                 React.createElement("div",{className:"hero-meta"},`${CAREER[h.career]?.label} · ${h.cls.toUpperCase()} · PWR ${power.toFixed(1)}`),
@@ -1058,11 +1158,18 @@ function App(){
         })
       ),
       // MAP
-      React.createElement(WorldMap,{threats,depMap,score,target,extMode}),
-      // THREATS PANEL
-      React.createElement("div",{className:"threats-panel"},
-        React.createElement("div",{style:{padding:"7px 7px 0"}},React.createElement("div",{className:"panel-header"},"◈ ACTIVE THREATS")),
-        React.createElement("div",{className:"threat-list"},
+      React.createElement(WorldMap,{threats,depMap,score,target,extMode,zoom:mapZoom,pan:mapPan,
+        onZoomIn:()=>setMapZoom(z=>Math.min(4,+(z+0.25).toFixed(2))),
+        onZoomOut:()=>setMapZoom(z=>Math.max(0.5,+(z-0.25).toFixed(2))),
+        onResetView:()=>{setMapZoom(1);setMapPan({x:0,y:0});}
+      }),
+      // THREATS + HOSPITAL PANEL
+      React.createElement("div",{className:"threats-panel",style:{width:threatPanelOpen?252:36,minWidth:threatPanelOpen?252:36,transition:"width 0.2s"}},
+        React.createElement("div",{style:{padding:"7px 7px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+          threatPanelOpen&&React.createElement("div",{className:"panel-header",style:{flex:1}},"◈ ACTIVE THREATS"),
+          React.createElement("button",{className:"panel-toggle-btn",onClick:()=>setThreatPanelOpen(o=>!o),title:threatPanelOpen?"Collapse Threats Panel":"Expand Threats Panel"},threatPanelOpen?"►":"◄")
+        ),
+        threatPanelOpen&&React.createElement("div",{className:"threat-list"},
           threats.length===0&&React.createElement("div",{style:{fontSize:9,color:"var(--text3)",padding:12,textAlign:"center"}},"No active threats."),
           [...threats].sort((a,b)=>{const pOrder={purple:0,red:1,orange:2,yellow:3};const pa=pOrder[a.priority]??4;const pb=pOrder[b.priority]??4;if(pa!==pb)return pa-pb;return a.timer-b.timer;}).map(t=>{
             const dep=depMap[t.id]&&depMap[t.id].length>0;const c=threatColor(t);
@@ -1081,6 +1188,45 @@ function App(){
               )
             );
           })
+        ),
+        // ── MEDICAL UNIT / HOSPITAL ──
+        threatPanelOpen&&React.createElement("div",{className:"hospital-panel"},
+          React.createElement("div",{className:"panel-header",style:{margin:"8px 0 6px",borderTop:"1px solid var(--border)",paddingTop:6}},"🏥 MEDICAL UNIT"),
+          React.createElement("div",{style:{fontSize:9,color:"var(--text3)",marginBottom:5}},`${hospitalIds.length}/5 beds · 7× regen · heroes unavailable`),
+          React.createElement("button",{className:"hospital-auto-btn",onClick:autoFillHospital,disabled:hospitalIds.length>=5},"⚕ AUTO-FILL WOUNDED"),
+          hospitalIds.length===0&&React.createElement("div",{style:{fontSize:9,color:"var(--text3)",fontStyle:"italic",marginTop:4}},"Medical bay empty."),
+          hospitalIds.map(id=>{
+            const h=heroes.find(x=>x.id===id);
+            if(!h)return null;
+            const{maxHP}=effStats(h,rom,dis);
+            const pct=Math.round((h.currentHP/maxHP)*100);
+            return React.createElement("div",{key:id,className:"hospital-card"},
+              React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+                React.createElement("span",{style:{fontFamily:"var(--font-head)",fontSize:9,color:"var(--text)"}},[h.title]),
+                React.createElement("button",{className:"hospital-remove-btn",onClick:()=>removeFromHospital(id),title:"Remove from hospital"},"✕")
+              ),
+              React.createElement("div",{style:{fontSize:8,color:"var(--text3)",marginBottom:2}},`HP: ${Math.round(h.currentHP)}/${maxHP} (${pct}%)`),
+              React.createElement("div",{className:"bt",style:{marginTop:2}},React.createElement("div",{className:"bf",style:{width:`${pct}%`,background:sc(h.currentHP,maxHP)}}))
+            );
+          }),
+          heroes.filter(h=>
+            !hospitalIds.includes(h.id)&&
+            !["deployed","gameLocked","shopLocked","kia","rogue","offworld"].includes(h.status)&&
+            (()=>{const{maxHP}=effStats(h,rom,dis);return h.currentHP<maxHP;})()
+          ).length>0&&hospitalIds.length<5&&React.createElement("div",{style:{marginTop:6}},
+            React.createElement("div",{style:{fontSize:8,color:"var(--text3)",marginBottom:3}},"ADD TO MEDICAL BAY:"),
+            heroes.filter(h=>
+              !hospitalIds.includes(h.id)&&
+              !["deployed","gameLocked","shopLocked","kia","rogue","offworld"].includes(h.status)&&
+              (()=>{const{maxHP}=effStats(h,rom,dis);return h.currentHP<maxHP;})()
+            ).slice(0,6).map(h=>{
+              const{maxHP}=effStats(h,rom,dis);
+              return React.createElement("div",{key:h.id,className:"hospital-add-row",onClick:()=>addToHospital(h.id)},
+                React.createElement("span",{style:{fontSize:9,color:"var(--text2)"}},[h.title]),
+                React.createElement("span",{style:{fontSize:8,color:"var(--text3)"}},`${Math.round(h.currentHP)}/${maxHP}`)
+              );
+            })
+          )
         )
       )
     ),
@@ -1118,10 +1264,11 @@ function App(){
               React.createElement("div",null,
                 React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:10,color:h.isJohn?"#ffd700":clsColor(h.cls),marginBottom:2}},h.title),
                 React.createElement("div",{style:{fontSize:9,color:"var(--text3)"}},`${h.cls.toUpperCase()} · PWR ${power.toFixed(1)} · HP ${Math.round(h.currentHP)}/${maxHP}`),
-                h.status==="resting"&&dep&&React.createElement("div",{className:"hsi-warn"},"⚠ Not at full HP")
+                h.status==="resting"&&dep&&React.createElement("div",{className:"hsi-warn"},"⚠ Not at full HP"),
+                hospitalIds.includes(h.id)&&React.createElement("div",{className:"hsi-warn"},"🏥 In Medical Bay")
               ),
               React.createElement("div",{style:{display:"flex",gap:5,alignItems:"center"}},
-                !dep&&React.createElement("span",{className:`hero-badge badge-${h.status}`},h.status.toUpperCase()),
+                !dep&&React.createElement("span",{className:`hero-badge badge-${hospitalIds.includes(h.id)?"hospital":h.status}`},hospitalIds.includes(h.id)?"MED":h.status.toUpperCase()),
                 pk&&React.createElement("span",{style:{color:"var(--accent)",fontSize:14}},"✓")
               )
             );
