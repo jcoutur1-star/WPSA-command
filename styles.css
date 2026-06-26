@@ -197,7 +197,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 .badge-hospital{background:rgba(51,255,136,.12);color:#33ff88;border:1px solid rgba(51,255,136,.3)}
 
 /* ── COLLAPSED PANELS ── */
-.heroes-panel,.threats-panel{overflow:hidden}
+.threats-panel{overflow:hidden}.heroes-panel{overflow-x:hidden;overflow-y:auto}
 .jckc-label{font-family:var(--font-head);font-size:10px;color:var(--text3);letter-spacing:4px;margin-bottom:4px}
 
 /* ── MAP ZOOM LABEL ── */
