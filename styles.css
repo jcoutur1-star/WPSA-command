@@ -174,3 +174,28 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 .suicide-warn{background:rgba(255,100,34,.1);border:1px solid rgba(255,100,34,.4);border-radius:3px;padding:7px;margin-bottom:10px;font-size:10px;color:#ff8844}
 .suicide-counter{background:rgba(255,60,60,.08);border:1px solid rgba(255,60,60,.3);border-radius:3px;padding:5px 8px;margin-bottom:8px;font-size:9px;color:#ff6644;font-family:var(--font-mono)}
 .villain-shop-card{border-color:rgba(170,68,255,.3)}
+/* ── PANEL TOGGLE ── */
+.panel-toggle-btn{background:transparent;border:1px solid var(--border2);color:var(--accent);font-size:9px;padding:2px 6px;cursor:pointer;border-radius:2px;transition:.15s;flex-shrink:0}
+.panel-toggle-btn:hover{background:rgba(0,212,255,.1)}
+
+/* ── MAP ZOOM CONTROLS ── */
+.map-zoom-controls{position:absolute;top:8px;right:8px;z-index:10;display:flex;flex-direction:column;gap:3px}
+.map-zoom-btn{background:rgba(2,13,24,.85);border:1px solid var(--border2);color:var(--accent);font-size:13px;width:26px;height:26px;cursor:pointer;border-radius:2px;display:flex;align-items:center;justify-content:center;transition:.15s;font-family:var(--font-head)}
+.map-zoom-btn:hover{background:rgba(0,212,255,.15)}
+
+/* ── HOSPITAL / MEDICAL UNIT ── */
+.hospital-panel{padding:0 8px 12px;border-top:1px solid var(--border);flex-shrink:0}
+.hospital-auto-btn{width:100%;padding:5px;background:transparent;border:1px solid #33ff88;color:#33ff88;font-family:var(--font-head);font-size:8px;letter-spacing:1px;cursor:pointer;border-radius:2px;transition:.15s;margin-bottom:6px}
+.hospital-auto-btn:hover{background:rgba(51,255,136,.1)}.hospital-auto-btn:disabled{opacity:.35;cursor:default}
+.hospital-card{background:var(--bg3);border:1px solid rgba(51,255,136,.25);border-radius:3px;padding:6px 8px;margin-bottom:4px}
+.hospital-remove-btn{background:transparent;border:none;color:var(--red);cursor:pointer;font-size:10px;padding:0 2px;opacity:.7;transition:.15s}
+.hospital-remove-btn:hover{opacity:1}
+.hospital-add-row{display:flex;justify-content:space-between;align-items:center;padding:4px 6px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;margin-bottom:3px;cursor:pointer;transition:.15s}
+.hospital-add-row:hover{border-color:#33ff88;background:rgba(51,255,136,.05)}
+
+/* ── BADGE: HOSPITAL ── */
+.badge-hospital{background:rgba(51,255,136,.12);color:#33ff88;border:1px solid rgba(51,255,136,.3)}
+
+/* ── COLLAPSED PANELS ── */
+.heroes-panel,.threats-panel{overflow:hidden}
+.jckc-label{font-family:var(--font-head);font-size:10px;color:var(--text3);letter-spacing:4px;margin-bottom:4px}
