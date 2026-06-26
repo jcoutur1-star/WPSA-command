@@ -17,6 +17,8 @@ function effStats(hero,rom,dis){
   return{power,maxHP,regenSec};
 }
 
+// Note: Hospital heroes are additionally blocked at the App layer (hospitalIds set).
+// Heroes in hospital have status "exhausted" so canDeploy already returns false for them.
 function canDeploy(h){return h.status!=="deployed"&&h.status!=="gameLocked"&&h.status!=="shopLocked"&&h.status!=="kia"&&h.status!=="rogue"&&h.status!=="exhausted"&&h.status!=="offworld";}
 
 function isSuicide(hero,allH,pids){
@@ -82,6 +84,7 @@ function rollMission(heroes,threat,rom,dis){
   if(heroes.length===1&&heroes[0].title==="Shadowmere")avgP+=0.4;
   if(heroes.length>=2&&heroes.some(h=>h.title==="Greywulf"))avgP+=0.5;
   if(threat.isOcean&&heroes.some(h=>h.title==="Hydrothylre"))avgP+=3.4;
+  if(threat.isOcean&&heroes.some(h=>h.title==="Hydrotheppilies"))avgP+=3.4;
   if(heroes.some(h=>h.title==="Captain Shamrock"))avgP+=1.0;
   let bonus=0;
   if(threat.type==="kaiju")bonus+=0.08;
