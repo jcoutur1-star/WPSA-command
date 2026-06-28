@@ -64,6 +64,18 @@ const CP={
   "The Vicountess":["Knowledge is the only currency that matters.","My family comes first.","This is fascinating, from a scientific perspective.","Blood alchemy is just chemistry with flair.","I'm not cruel — I'm curious."],
   "Dr. Stinkenstein":["Hm. I think I can make that stinkier.","Science of the disgusting variety.","My wife says I need a hobby. This is my hobby.","Weapons of Mass Disgusting. I'm proud of that name.","The nose knows."],
   "Hydrotheppilies":["We are NOT jokes.","The ocean has more heroes than your history books admit.","K.B. Shrimperson does not yield.","Don't call me the knockoff.","My cousin and I can take on any threat across most of the planet. That's not weak!","The aquatic world will have its recognition."],
+  // ── V7.5 NEW HERO CATCHPHRASES ──
+  "Blink":["I didn't ask for this. Let's just get it done.","Light moves fast. So do I.","Don't confuse quiet for weak.","My father's daughter? Maybe. But I'm also just me."],
+  "Skull Crusher":["I'm trying to be careful. I really am.","John told me I could do this. I'm choosing to believe him.","If I hurt you, I'm sorry in advance.","Strength without control is just a disaster waiting to happen. I know that better than anyone."],
+  "Eclipso":["I could be tending my garden right now.","I showed up, didn't I? Don't push it.","I care. I just express it differently.","Fine. But someone else is watering my tomatoes."],
+  "Tremor":["I wrote a poem about this. It helped.","I just need a moment. Then I'll handle it.","The magma listens when I'm calm. I'm working on staying calm.","Pyrexa said I could do this. I trust her."],
+  // ── VILLAIN CATCHPHRASES ──
+  "Chelikere":["Send your best. I'll send them back.","One on one. That's the only way I do this.","I don't need a team. Teams need each other. I don't need anything.","You actually thought that was going to work?"],
+  "Kinetica":["Pain is just stored energy. And I store a lot.","I don't lose. I just redistribute.","You're either interesting to me or you're not. You're not.","Hit me harder. I'm serious."],
+  "Quaker":["I don't want to be here. Please don't make me be here.","I am trying so hard not to hurt anyone.","The Lord grant me steadiness. Any steadiness at all.","If the ground shakes, that's on me. I'm so sorry."],
+  "Dr. Destruction":["I've been doing this longer than most of you have been alive.","EVOL was my idea. I stand by it.","I just like having something to do on Tuesdays.","Nobody ever asks how the supervillain is doing. For the record: fine. A little lonely."],
+  "Smokescreen":["Darling, you never stood a chance.","Smoke before mirrors — I learned that the hard way.","I know exactly what I'm doing. Do you?","Everyone underestimates me. It's one of my favorite things."],
+  "Professor Cyanide":["Greg thinks I'm at a conference. I will be home by dinner.","Toxicology is a science. I just apply it creatively.","My students never suspected a thing. My best quality, really.","I do this for the research. And the funding. Mostly the funding."],
 };
 const JOHN_DEPARTURE_QUOTES=[
   "I've gotta go help out somewhere else.",
