@@ -354,7 +354,7 @@ function App(){
   }
   function getTutorialDialogue(){
     switch(tutorialStep){
-      case"intro":return{speaker:"nichols",text:"Hi, you must be the new director. I'm your deputy director George Nichols. Let me show you around...",showBtn:true};
+      case"intro":return{speaker:"nichols",text:"Hi, you must be the new director. I'm your deputy director George H. Nichols. Let me show you around...",showBtn:true};
       case"heroes":return{speaker:"nichols",text:"These are your heroes. You can click on each to learn more, but for now, all you need to know is that these are the superheroes on our roster to help save the world from threats.",showBtn:true};
       case"threats":
         if(!t1SpawnedRef.current)return{speaker:"nichols",text:"These are your threats. It's been pretty quiet as far as the job goes.",showBtn:true};
