@@ -198,6 +198,35 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 
 /* ── COLLAPSED PANELS ── */
 .threats-panel{overflow:hidden}.heroes-panel{overflow-x:hidden;overflow-y:auto}
+
+/* ── TUTORIAL ── */
+.tutorial-menu-btn{border-color:var(--accent);color:var(--accent)}
+.map-wrap{position:relative;overflow:hidden;min-width:0;width:100%;height:100%}
+.map-wrap .map-area{width:100%;height:100%}
+.tutorial-dim{opacity:.14;filter:grayscale(65%);pointer-events:none;transition:opacity .35s,filter .35s}
+.tutorial-spotlight{position:relative;z-index:6;box-shadow:0 0 0 2px var(--accent),0 0 26px rgba(0,212,255,.4);transition:box-shadow .35s}
+.tutorial-box{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+  z-index:150;max-width:640px;width:calc(100% - 32px);
+  background:linear-gradient(135deg,rgba(6,26,48,.97),rgba(3,14,28,.97));
+  border:1px solid var(--accent);border-radius:6px;
+  box-shadow:0 0 0 1px rgba(0,212,255,.2),0 10px 34px rgba(0,0,0,.6);
+  padding:14px;display:flex;gap:14px;align-items:flex-start;
+}
+.tutorial-portrait-slot{
+  width:84px;height:112px;flex-shrink:0;border:1px solid var(--border2);border-radius:4px;
+  background:var(--bg3);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;
+}
+.tutorial-portrait-slot img{width:100%;height:100%;object-fit:cover;object-position:top center}
+.tutorial-portrait-fallback{font-family:var(--font-head);font-size:22px;color:var(--accent);letter-spacing:1px;display:flex}
+.tutorial-copy{flex:1;min-width:0}
+.tutorial-speaker-name{font-family:var(--font-head);font-size:11px;color:var(--accent);letter-spacing:1.5px;margin-bottom:2px}
+.tutorial-speaker-title{font-size:8px;color:var(--text3);letter-spacing:1.5px;margin-bottom:6px;text-transform:uppercase}
+.tutorial-text{font-size:13px;color:var(--text);line-height:1.55}
+.tutorial-btn{margin-top:9px;background:rgba(0,212,255,.08);border:1px solid var(--accent);color:var(--accent);font-family:var(--font-head);font-size:9px;padding:6px 14px;cursor:pointer;border-radius:2px;letter-spacing:1.5px;transition:.15s}
+.tutorial-btn:hover{background:rgba(0,212,255,.18)}
+.tutorial-hint{font-size:9px;color:var(--text3);font-style:italic;margin-top:8px;letter-spacing:.5px}
+@media (max-width:700px){.tutorial-box{flex-direction:column;align-items:center;text-align:center;bottom:8px}.tutorial-portrait-slot{width:64px;height:86px}}
 .jckc-label{font-family:var(--font-head);font-size:10px;color:var(--text3);letter-spacing:4px;margin-bottom:4px}
 
 /* ── MAP ZOOM LABEL ── */
