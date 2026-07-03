@@ -29,6 +29,8 @@ function isSuicide(hero,allH,pids){
 }
 
 function rollMission(heroes,threat,rom,dis){
+  // ── TUTORIAL: scripted missions are always a guaranteed win ──
+  if(threat.tutorialGuaranteed)return"success";
   // ── HERO vs HERO: ratio-based equation ──
   if(threat.isRogueCouncil||threat.isCKJohnTeamUp){
     const rogueMembers=threat.rogueMembers||[];
