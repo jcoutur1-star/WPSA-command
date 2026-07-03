@@ -18,7 +18,7 @@ const P_COLORS={purple:"#aa44ff",red:"#ff3333",orange:"#ff7722",yellow:"#ffdd00"
 // ─── TUTORIAL: characters & scripted threats ───────────────────────────────
 // Nichols' portrait path is a placeholder — drop an image at this path and it will render automatically.
 const TUTORIAL_CHARACTERS={
-  nichols:{name:"Chris Nichols",title:"DEPUTY DIRECTOR",portrait:"portraits/Chris_Nichols.jpg"},
+  nichols:{name:"Chris Nichols",title:"DEPUTY DIRECTOR",portrait:"portraits/George_Nichols.jpg"},
   cassonik:{name:"Cassonik",title:"",portrait:"portraits/Cassonik.jpg"}
 };
 const TUTORIAL_THREAT_1={id:9001,name:"The Inclusive Bank Robbers Guild",loc:"Local Branch, USA",lat:39.0,lng:-95.0,priority:"yellow",type:"military",desc:"A cheerfully egalitarian gang of amateur crooks is attempting to rob a small local bank. WSPA's threat assessment rates this about as low-stakes as it gets — but every mission counts, Director.",maxTimer:9999,reward:5,tutorialGuaranteed:true};
