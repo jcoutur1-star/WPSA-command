@@ -136,6 +136,12 @@ function App(){
   const cassonikWarnedRef=useRef(false);
   const affectedHeroTitles=useRef([]); // titles of heroes who died or went rogue on suicide missions
 
+  // ─── TUTORIAL STATE ───────────────────────────────────────────────────────
+  const [tutorialActive,setTutorialActive]=useState(false);
+  const [tutorialStep,setTutorialStep]=useState(null);
+  const t1SpawnedRef=useRef(false);
+  const t2SpawnedRef=useRef(false);
+
   const [heroes,setHeroes]=useState([]);
   const [villains,setVillains]=useState([]);
   const [threats,setThreats]=useState([]);
@@ -291,6 +297,79 @@ function App(){
 
   function continueToTier2(){setExtMode(true);setGameOver(null);setLog(`Continuing to 1000 points! The world still needs you, Director.`);}
 
+  // ─── TUTORIAL FLOW ─────────────────────────────────────────────────────
+  function startTutorial(){
+    const n=directorName||nameInput.trim()||"Director";
+    setDirectorName(n);
+    const ih=buildInitHeroes();
+    setHeroes(ih);
+    setVillains(VILLAIN_DEFS.map(v=>({...v,defeated:false,redeemed:false})));
+    setThreats([]);setThreatQueue([]);
+    setDepMap({});setRom({});setDis({});setModal(null);setDepModal(null);setPicked([]);
+    setScore(0);setSelThreat(null);setGameOver(null);setGameOverReason("");
+    setJohnOffworldTimer(0);
+    rogueCouncilDeaths.current=0;suicideMissionCount.current=0;setSuicideDisplayCount(0);
+    cassonikWarnedRef.current=false;affectedHeroTitles.current=[];setRogueCouncilTriggered(false);
+    setHospitalIds([]);
+    setHeroPanelOpen(true);setThreatPanelOpen(true);
+    setMapZoom(1);setMapPan({x:0,y:0});
+    tick.current=0;setLogTime("00:00");
+    setLog(`Welcome, Director ${n}. Deputy Director Nichols is walking you through the basics.`);
+    t1SpawnedRef.current=false;t2SpawnedRef.current=false;
+    setTutorialActive(true);
+    setTutorialStep("intro");
+    setScreen("game");
+  }
+  function exitTutorial(){
+    setTutorialActive(false);setTutorialStep(null);
+    setScreen("menu");
+  }
+  function tutorialContinue(){
+    if(tutorialStep==="intro"){setTutorialStep("heroes");return;}
+    if(tutorialStep==="heroes"){setTutorialStep("threats");return;}
+    if(tutorialStep==="threats"){
+      if(!t1SpawnedRef.current){
+        t1SpawnedRef.current=true;
+        setThreats(prev=>[...prev,{...TUTORIAL_THREAT_1,timer:TUTORIAL_THREAT_1.maxTimer}]);
+      }
+      return;
+    }
+    if(tutorialStep==="mission1_success"){setTutorialStep("hospital");return;}
+    if(tutorialStep==="final1"){setTutorialStep("final2");return;}
+    if(tutorialStep==="final2"){setTutorialStep("final3");return;}
+    if(tutorialStep==="final3"){setTutorialStep("final4");return;}
+    if(tutorialStep==="final4"){exitTutorial();return;}
+  }
+  function tutorialHighlightFor(step){
+    if(step==="heroes")return"heroes";
+    if(step==="threats")return"threats";
+    if(step==="hospital")return"hospital";
+    return"none";
+  }
+  function tSec(name){
+    if(!tutorialActive||!tutorialStep)return"";
+    const hl=tutorialHighlightFor(tutorialStep);
+    if(hl==="none")return"";
+    return hl===name?" tutorial-spotlight":" tutorial-dim";
+  }
+  function getTutorialDialogue(){
+    switch(tutorialStep){
+      case"intro":return{speaker:"nichols",text:"Hi, you must be the new director. I'm your deputy director Chris Nichols. Let me show you around...",showBtn:true};
+      case"heroes":return{speaker:"nichols",text:"These are your heroes. You can click on each to learn more, but for now, all you need to know is that these are the superheroes on our roster to help save the world from threats.",showBtn:true};
+      case"threats":
+        if(!t1SpawnedRef.current)return{speaker:"nichols",text:"These are your threats. It's been pretty quiet as far as the job goes.",showBtn:true};
+        return{speaker:"nichols",text:"As I told you, it's never quiet for long. Go ahead and click on the threat, Deploy Heroes, and then click on a hero to deploy. This band of villains is pretty harmless, so you can send just about anyone... Then click deploy....",showBtn:false};
+      case"mission1_success":return{speaker:"nichols",text:"Great, see? No problem. You're already getting the hang of this.",showBtn:true};
+      case"hospital":return{speaker:"nichols",text:"This is the hospital unit, specifically designed to get heroes back into the field faster. Go ahead and add the heroes you deployed.",showBtn:false};
+      case"threat2":return{speaker:"nichols",text:"This one's not a threat, even if public speaking can feel like it. Go ahead and pick a hero to speak at the assembly. You'll of course be expected to speak as well...",showBtn:false};
+      case"final1":return{speaker:"nichols",text:"You're ready director! Let's go save the world!",showBtn:true};
+      case"final2":return{speaker:"cassonik",text:"Aren't you forgetting something Deputy Director?",showBtn:true};
+      case"final3":return{speaker:"nichols",text:"Well I didn't want to overwhelm... But yes. Each hero has different abilities, relationships, weaknesses, and more. In order to really succeed as a director, you'll want to learn the ins and outs of your roster. You can do this by clicking on the hero in the roster section. You can also use the codex to learn even more, once you unlock enough credit with the institution...",showBtn:true};
+      case"final4":return{speaker:"cassonik",text:"Former Director Ali chose you. We know you'll do a good job. Good luck Director.",showBtn:true,finalBtn:true};
+      default:return null;
+    }
+  }
+
   function handleWin(){
     const pts=extMode?WIN2:WIN1;
     const nb=bank+pts;saveAndUpdateBank(nb);
@@ -298,7 +377,7 @@ function App(){
   }
 
   useEffect(()=>{
-    if(screen!=="game"||gameOver)return;
+    if(screen!=="game"||gameOver||tutorialActive)return;
     const iv=setInterval(()=>{
       tick.current++;const t=tick.current;
       setLogTime(`${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`);
@@ -901,6 +980,30 @@ function App(){
       }    },4000+Math.random()*2000);
   }
 
+  // ─── TUTORIAL: auto-advance on player actions ───────────────────────────
+  useEffect(()=>{
+    if(!tutorialActive||tutorialStep!=="threats")return;
+    if(t1SpawnedRef.current&&!threats.some(t=>t.id===9001)){
+      setTutorialStep("mission1_success");
+    }
+  },[threats,tutorialActive,tutorialStep]);
+
+  useEffect(()=>{
+    if(!tutorialActive||tutorialStep!=="hospital")return;
+    if(hospitalIds.length>0&&!t2SpawnedRef.current){
+      t2SpawnedRef.current=true;
+      setThreats(prev=>[...prev,{...TUTORIAL_THREAT_2,timer:TUTORIAL_THREAT_2.maxTimer}]);
+      setTutorialStep("threat2");
+    }
+  },[hospitalIds,tutorialActive,tutorialStep]);
+
+  useEffect(()=>{
+    if(!tutorialActive||tutorialStep!=="threat2")return;
+    if(t2SpawnedRef.current&&!threats.some(t=>t.id===9002)){
+      setTutorialStep("final1");
+    }
+  },[threats,tutorialActive,tutorialStep]);
+
   const sortedHeroes=useMemo(()=>{
     const active=heroes.filter(h=>!["shopLocked","gameLocked","kia"].includes(h.status));
     const shopL=heroes.filter(h=>h.status==="shopLocked");
@@ -924,6 +1027,7 @@ function App(){
       React.createElement("input",{className:"menu-input",value:nameInput,onChange:e=>setNameInput(e.target.value),onKeyDown:e=>e.key==="Enter"&&nameInput.trim()&&startGame(),placeholder:"Director Name...",autoFocus:true})
     ),
     React.createElement("button",{className:"mbtn",onClick:()=>startGame(),disabled:!nameInput.trim()},"▶ BEGIN COMMAND"),
+    React.createElement("button",{className:"mbtn tutorial-menu-btn",onClick:()=>startTutorial()},"◈ RUN 2 MINUTE TUTORIAL"),
     React.createElement("button",{className:"mbtn gold",onClick:()=>setScreen("shop")},"🛒 HERO SHOP"),
     React.createElement("button",{className:"mbtn purple",onClick:()=>setScreen("codex")},"📖 INFORMATION CODEX"),
     React.createElement("button",{className:"mbtn",style:{background:"var(--bg3)",borderColor:"var(--text3)",color:"var(--text2)"},onClick:()=>setScreen("acknowledgements")},"◈ ACKNOWLEDGEMENTS"),
@@ -1083,7 +1187,11 @@ function App(){
       React.createElement("div",{className:"topbar-stat"},"READY ",React.createElement("b",null,allDeployable.length)),
       React.createElement("div",{className:"topbar-stat"},"KIA ",React.createElement("b",{style:{color:"#ff3333"}},heroes.filter(h=>h.status==="kia").length)),
       threats.some(t=>t.priority==="red"||t.priority==="purple")&&React.createElement("div",{className:"topbar-alert"},"⚠ PRIORITY ONE"),
-      React.createElement("button",{className:"exit-btn",onClick:()=>{if(confirm("Exit to menu? You keep points only if you've already won 500+.")){exitToMenu(true);}}},"► EXIT")
+      tutorialActive&&React.createElement("div",{className:"topbar-alert",style:{background:"rgba(0,212,255,.12)",borderColor:"var(--accent)",color:"var(--accent)"}},"◈ TUTORIAL"),
+      React.createElement("button",{className:"exit-btn",onClick:()=>{
+        if(tutorialActive){if(confirm("Skip the tutorial?"))exitTutorial();return;}
+        if(confirm("Exit to menu? You keep points only if you've already won 500+.")){exitToMenu(true);}
+      }},tutorialActive?"► SKIP TUTORIAL":"► EXIT")
     ),
     React.createElement("div",{className:"news-ticker-bar"},
       React.createElement("div",{className:"news-ticker-label"},"NEWS"),
@@ -1093,7 +1201,7 @@ function App(){
     ),
     React.createElement("div",{className:"main"},
       // HERO PANEL
-      React.createElement("div",{className:"heroes-panel",style:{width:heroPanelOpen?290:36,minWidth:heroPanelOpen?290:36,transition:"width 0.2s"}},
+      React.createElement("div",{className:"heroes-panel"+tSec("heroes"),style:{width:heroPanelOpen?290:36,minWidth:heroPanelOpen?290:36,transition:"width 0.2s"}},
         React.createElement("div",{className:"panel-header",style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
           heroPanelOpen&&React.createElement("span",null,"◈ HERO ROSTER"),
           React.createElement("button",{className:"panel-toggle-btn",onClick:()=>setHeroPanelOpen(o=>!o),title:heroPanelOpen?"Collapse Hero Panel":"Expand Hero Panel"},heroPanelOpen?"◄":"►")
@@ -1160,18 +1268,20 @@ function App(){
         })
       ),
       // MAP
-      React.createElement(WorldMap,{threats,depMap,score,target,extMode,zoom:mapZoom,pan:mapPan,
-        onZoomIn:()=>setMapZoom(z=>Math.min(4,+(z+0.25).toFixed(2))),
-        onZoomOut:()=>setMapZoom(z=>Math.max(0.5,+(z-0.25).toFixed(2))),
-        onResetView:()=>{setMapZoom(1);setMapPan({x:0,y:0});}
-      }),
+      React.createElement("div",{className:"map-wrap"+tSec("map")},
+        React.createElement(WorldMap,{threats,depMap,score,target,extMode,zoom:mapZoom,pan:mapPan,
+          onZoomIn:()=>setMapZoom(z=>Math.min(4,+(z+0.25).toFixed(2))),
+          onZoomOut:()=>setMapZoom(z=>Math.max(0.5,+(z-0.25).toFixed(2))),
+          onResetView:()=>{setMapZoom(1);setMapPan({x:0,y:0});}
+        })
+      ),
       // THREATS + HOSPITAL PANEL
       React.createElement("div",{className:"threats-panel",style:{width:threatPanelOpen?252:36,minWidth:threatPanelOpen?252:36,transition:"width 0.2s",overflow:"hidden",flexShrink:0}},
         React.createElement("div",{style:{padding:"7px 7px 0",display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"}},
           React.createElement("button",{className:"panel-toggle-btn",onClick:()=>setThreatPanelOpen(o=>!o),title:threatPanelOpen?"Collapse Threats Panel":"Expand Threats Panel"},threatPanelOpen?"◄":"►"),
           threatPanelOpen&&React.createElement("div",{className:"panel-header",style:{flex:1,margin:0}},"◈ ACTIVE THREATS")
         ),
-        threatPanelOpen&&React.createElement("div",{className:"threat-list"},
+        threatPanelOpen&&React.createElement("div",{className:"threat-list"+tSec("threats")},
           threats.length===0&&React.createElement("div",{style:{fontSize:9,color:"var(--text3)",padding:12,textAlign:"center"}},"No active threats."),
           [...threats].sort((a,b)=>{const pOrder={purple:0,red:1,orange:2,yellow:3};const pa=pOrder[a.priority]??4;const pb=pOrder[b.priority]??4;if(pa!==pb)return pa-pb;return a.timer-b.timer;}).map(t=>{
             const dep=depMap[t.id]&&depMap[t.id].length>0;const c=threatColor(t);
@@ -1192,7 +1302,7 @@ function App(){
           })
         ),
         // ── MEDICAL UNIT / HOSPITAL ──
-        threatPanelOpen&&React.createElement("div",{className:"hospital-panel"},
+        threatPanelOpen&&React.createElement("div",{className:"hospital-panel"+tSec("hospital")},
           React.createElement("div",{className:"panel-header",style:{margin:"8px 0 6px",borderTop:"1px solid var(--border)",paddingTop:6}},"🏥 MEDICAL UNIT"),
           React.createElement("div",{style:{fontSize:9,color:"var(--text3)",marginBottom:5}},`${hospitalIds.length}/5 beds · 7× regen · heroes unavailable`),
           React.createElement("button",{className:"hospital-auto-btn",onClick:autoFillHospital,disabled:hospitalIds.length>=5},"⚕ AUTO-FILL WOUNDED"),
@@ -1311,7 +1421,31 @@ function App(){
         modal.anyKIA&&!modal.turnedVillain&&React.createElement("div",{className:"modal-notice notice-red"},"⚠ HERO LOST IN ACTION. They will not be returning, Director."),
         React.createElement("button",{className:"modal-close",onClick:()=>setModal(null)},"◈ CLOSE DEBRIEF")
       )
-    )
+    ),
+    // TUTORIAL DIALOGUE BOX
+    tutorialActive&&tutorialStep&&(()=>{
+      const dlg=getTutorialDialogue();
+      if(!dlg)return null;
+      const speaker=TUTORIAL_CHARACTERS[dlg.speaker];
+      return React.createElement("div",{className:"tutorial-box"},
+        React.createElement("div",{className:"tutorial-portrait-slot"},
+          speaker.portrait?React.createElement("img",{
+            src:speaker.portrait,alt:speaker.name,
+            onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}
+          }):null,
+          React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:speaker.portrait?"none":"flex"}},
+            speaker.name.split(" ").map(w=>w[0]).join("")
+          )
+        ),
+        React.createElement("div",{className:"tutorial-copy"},
+          React.createElement("div",{className:"tutorial-speaker-name"},speaker.name.toUpperCase()),
+          speaker.title&&React.createElement("div",{className:"tutorial-speaker-title"},speaker.title),
+          React.createElement("div",{className:"tutorial-text"},dlg.text),
+          dlg.showBtn?React.createElement("button",{className:"tutorial-btn",onClick:tutorialContinue},dlg.finalBtn?"◈ FINISH TUTORIAL":"CONTINUE ▶"):
+            React.createElement("div",{className:"tutorial-hint"},"◈ Waiting on you, Director...")
+        )
+      );
+    })()
   );
 }
 
