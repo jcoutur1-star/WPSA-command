@@ -1,7 +1,7 @@
 const {useState,useEffect,useRef,useMemo}=React;
 
 // ─── WORLD MAP COMPONENT (D3 Natural Earth projection) ────────────────────────
-function WorldMap({threats,depMap,score,target,extMode,zoom,pan,onZoomIn,onZoomOut,onResetView}){
+function WorldMap({threats,depMap,score,target,extMode,zoom,pan,onZoomIn,onZoomOut,onResetView,onMarkerClick}){
   const svgRef=useRef(null);
   const [paths,setPaths]=useState([]);
   const [proj,setProj]=useState(null);
@@ -93,7 +93,7 @@ function WorldMap({threats,depMap,score,target,extMode,zoom,pan,onZoomIn,onZoomO
         const [tx,ty]=pt;
         const c=P_COLORS[t.priority]||"#ffaa00";
         const dep=depMap[t.id]&&depMap[t.id].length>0;
-        return React.createElement("g",{key:t.id,filter:"url(#glow)"},
+        return React.createElement("g",{key:t.id,filter:"url(#glow)",style:{cursor:"pointer"},onClick:e=>{e.stopPropagation();onMarkerClick&&onMarkerClick(t.id);}},
           React.createElement("circle",{cx:tx,cy:ty,r:18,fill:`${c}09`,stroke:c,strokeWidth:.5,className:"pulse-ring"}),
           React.createElement("circle",{cx:tx,cy:ty,r:9,fill:`${c}18`,stroke:c,strokeWidth:1}),
           React.createElement("circle",{cx:tx,cy:ty,r:3.5,fill:c}),
@@ -122,6 +122,17 @@ function App(){
   const [bank,setBank]=useState(loadBank);
   const [ownedShop,setOwnedShop]=useState(loadOwned);
   const [codexUnlocked,setCodexUnlocked]=useState(loadCodex);
+  const [hotUnlocked,setHotUnlocked]=useState(loadHotUnlocked);
+  const [team,setTeam]=useState(loadTeam);
+
+  // ─── THE FRANCO SHOW STATE ─────────────────────────────────────────────────
+  const [francoQIdx,setFrancoQIdx]=useState(null);
+  // ─── HEROES OF TOMORROW (scene) STATE ─────────────────────────────────────
+  const [hotPickedHero,setHotPickedHero]=useState(null);
+  // ─── CONFIDENTIAL (Omniviporix) STATE ─────────────────────────────────────
+  const [confPassInput,setConfPassInput]=useState("");
+  const [confError,setConfError]=useState(false);
+  const [confUnlocked,setConfUnlocked]=useState(false);
 
   const [screen,setScreen]=useState("menu");
   const [nameInput,setNameInput]=useState("");
@@ -190,6 +201,21 @@ function App(){
   function saveAndUpdateBank(n){setBank(n);saveBank(n);}
   function saveAndUpdateOwned(a){setOwnedShop(a);saveOwned(a);}
   function saveAndUpdateCodex(a){setCodexUnlocked(a);saveCodex(a);}
+  function saveAndUpdateHotUnlocked(a){setHotUnlocked(a);saveHotUnlocked(a);}
+  function saveAndUpdateTeam(t){setTeam(t);saveTeam(t);}
+
+  function unlockHotHero(title){
+    if(hotUnlocked.includes(title))return;
+    const nh=[...hotUnlocked,title];
+    saveAndUpdateHotUnlocked(nh);
+    // If a game is already in progress, unlock the hero live too
+    setHeroes(prev=>prev.map(h=>h.title===title&&h.hotLocked?{...h,status:"ready",gameLocked:false}:h));
+  }
+  function setTeamName(name){saveAndUpdateTeam({...team,name});}
+  function toggleTeamMember(title){
+    const members=team.members.includes(title)?team.members.filter(t=>t!==title):[...team.members,title];
+    saveAndUpdateTeam({...team,members});
+  }
 
   function addToHospital(heroId){
     setHospitalIds(prev=>{
@@ -253,7 +279,8 @@ function App(){
   function buildInitHeroes(){
     return ALL_HERO_DEFS.map(h=>{
       const isShopLocked=h.shopLocked&&!ownedShop.includes(h.title);
-      const isGameLocked=h.gameLocked;
+      const isHotLocked=h.hotLocked&&!hotUnlocked.includes(h.title);
+      const isGameLocked=h.gameLocked||isHotLocked;
       const status=isShopLocked?"shopLocked":isGameLocked?"gameLocked":"ready";
       const{maxHP}=effStats({...h,status:"ready"},{},{});
       return{...h,currentHP:maxHP,status,regenTimer:0,xp:0,levelUpFlash:false,speechBubble:null,romancePartner:null};
@@ -354,7 +381,7 @@ function App(){
   }
   function getTutorialDialogue(){
     switch(tutorialStep){
-      case"intro":return{speaker:"nichols",text:"Hi, you must be the new director. I'm your deputy director George H. Nichols. Let me show you around...",showBtn:true};
+      case"intro":return{speaker:"nichols",text:"Hi, you must be the new director. I'm your deputy director George Nichols. Let me show you around...",showBtn:true};
       case"heroes":return{speaker:"nichols",text:"These are your heroes. You can click on each to learn more, but for now, all you need to know is that these are the superheroes on our roster to help save the world from threats.",showBtn:true};
       case"threats":
         if(!t1SpawnedRef.current)return{speaker:"nichols",text:"These are your threats. It's been pretty quiet as far as the job goes.",showBtn:true};
@@ -930,8 +957,6 @@ function App(){
         if(threat.name==="Cult of Fashion")setHeroes(prev=>prev.map(h=>h.title==="Blink"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
         // Unlock Tremor after defeating Baba Yaga
         if(threat.name&&threat.name.includes("Baba Yaga"))setHeroes(prev=>prev.map(h=>h.title==="Tremor"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
-        // Unlock Skull Crusher after North American Blackout (threat id 231)
-        if(threat.name==="North American Blackout")setHeroes(prev=>prev.map(h=>h.title==="Skull Crusher"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
         // Unlock Eclipso after defeating Blight threat
         if(threat.name&&threat.name.toLowerCase().includes("blight"))setHeroes(prev=>prev.map(h=>h.title==="Eclipso"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
         if(threat.isRogueCouncil||threat.isCKJohnTeamUp){
@@ -1005,13 +1030,19 @@ function App(){
   },[threats,tutorialActive,tutorialStep]);
 
   const sortedHeroes=useMemo(()=>{
+    // Locked heroes (shopLocked / gameLocked, incl. Heroes of Tomorrow-locked) are hidden from the roster during gameplay.
     const active=heroes.filter(h=>!["shopLocked","gameLocked","kia"].includes(h.status));
-    const shopL=heroes.filter(h=>h.status==="shopLocked");
-    const gameL=heroes.filter(h=>h.status==="gameLocked");
     const kia=heroes.filter(h=>h.status==="kia");
     const sort=arr=>[...arr].sort((a,b)=>effStats(b,rom,dis).power-effStats(a,rom,dis).power);
-    return[...sort(active),...sort(shopL),...sort(gameL),...kia];
+    return[...sort(active),...kia];
   },[heroes,rom,dis]);
+
+  const rosterSummary=useMemo(()=>{
+    const shopCount=ALL_HERO_DEFS.filter(h=>h.shopLocked&&!ownedShop.includes(h.title)).length;
+    const hotCount=ALL_HERO_DEFS.filter(h=>h.hotLocked&&!hotUnlocked.includes(h.title)).length;
+    const gameplayCount=ALL_HERO_DEFS.filter(h=>h.gameLocked&&!h.hotLocked).length;
+    return{shopCount,hotCount,gameplayCount};
+  },[ownedShop,hotUnlocked]);
 
   const allDeployable=heroes.filter(canDeploy);
   const target=extMode?WIN2:WIN1;
@@ -1028,17 +1059,45 @@ function App(){
     ),
     React.createElement("button",{className:"mbtn",onClick:()=>startGame(),disabled:!nameInput.trim()},"▶ BEGIN COMMAND"),
     React.createElement("button",{className:"mbtn tutorial-menu-btn",onClick:()=>startTutorial()},"◈ RUN 2 MINUTE TUTORIAL"),
-    React.createElement("button",{className:"mbtn gold",onClick:()=>setScreen("shop")},"🛒 HERO SHOP"),
-    React.createElement("button",{className:"mbtn purple",onClick:()=>setScreen("codex")},"📖 INFORMATION CODEX"),
-    React.createElement("button",{className:"mbtn",style:{background:"var(--bg3)",borderColor:"var(--text3)",color:"var(--text2)"},onClick:()=>setScreen("acknowledgements")},"◈ ACKNOWLEDGEMENTS"),
+    React.createElement("button",{className:"mbtn purple",onClick:()=>setScreen("hq")},"🖥 HEADQUARTERS"),
     shopMsg&&React.createElement("div",{style:{fontSize:9,color:"var(--green)",textAlign:"center",maxWidth:300}},shopMsg)
   );
+
+  // ── HEADQUARTERS HUB ──
+  if(screen==="hq"){
+    const hqEntries=[
+      {key:"codex",label:"CODEX.SYS",desc:"Hero, villain & threat database"},
+      {key:"shop",label:"SHOP.SYS",desc:"Recruit locked heroes & villains"},
+      {key:"acknowledgements",label:"ACK.TXT",desc:"A note from the developer"},
+      {key:"teamdev",label:"TEAMDEV.SYS",desc:"Build your named strike team"},
+      {key:"franco",label:"FRANCO.MOV",desc:"The Franco Show — roster rankings & Q&A"},
+      {key:"hot",label:"PROSPECTS.SYS",desc:"Heroes of Tomorrow — meet new recruits"},
+      {key:"confidential",label:"CONFIDENTIAL",desc:"⚠ RESTRICTED ACCESS"}
+    ];
+    return React.createElement("div",{className:"hq-screen"},
+      React.createElement("div",{className:"hq-header"},
+        React.createElement("div",{className:"hq-title"},"◈ W.S.P.A. HEADQUARTERS — DIRECTOR TERMINAL ◈"),
+        React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("menu")},"← BACK")
+      ),
+      React.createElement("div",{className:"hq-subline"},`DIR. ${(directorName||"UNKNOWN").toUpperCase()} — AUTHENTICATED — BANK: ${bank} PTS`),
+      React.createElement("div",{className:"hq-filelist"},
+        hqEntries.map(e=>React.createElement("div",{key:e.key,className:"hq-file-card",onClick:()=>setScreen(e.key)},
+          React.createElement("div",{className:"hq-file-icon"},"▣"),
+          React.createElement("div",{className:"hq-file-info"},
+            React.createElement("div",{className:"hq-file-label"},e.label),
+            React.createElement("div",{className:"hq-file-desc"},e.desc)
+          ),
+          React.createElement("div",{className:"hq-file-arrow"},"›")
+        ))
+      )
+    );
+  }
 
   // ── ACKNOWLEDGEMENTS ──
   if(screen==="acknowledgements")return React.createElement("div",{className:"full-panel"},
     React.createElement("div",{className:"full-panel-header"},
       React.createElement("div",{className:"full-panel-title"},"◈ ACKNOWLEDGEMENTS"),
-      React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("menu")},"← BACK")
+      React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("hq")},"← BACK")
     ),
     React.createElement("div",{className:"full-panel-body"},
       React.createElement("div",{style:{maxWidth:600,margin:"0 auto",padding:"20px 12px"}},
@@ -1057,7 +1116,7 @@ function App(){
       React.createElement("div",{className:"full-panel-title"},"🛒 HERO SHOP"),
       React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
         React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--gold)"}},"BANK: "+bank+" PTS"),
-        React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("menu")},"← BACK")
+        React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("hq")},"← BACK")
       )
     ),
     React.createElement("div",{className:"full-panel-body"},
@@ -1101,7 +1160,7 @@ function App(){
       React.createElement("div",{className:"full-panel-title"},"📖 INFORMATION CODEX"),
       React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
         React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--gold)"}},"BANK: "+bank+" PTS"),
-        React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("menu")},"← BACK")
+        React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("hq")},"← BACK")
       )
     ),
     React.createElement("div",{className:"full-panel-body"},
@@ -1153,6 +1212,148 @@ function App(){
       )
     )
   );
+
+  // ── TEAM DEVELOPMENT ──
+  if(screen==="teamdev")return React.createElement("div",{className:"full-panel"},
+    React.createElement("div",{className:"full-panel-header"},
+      React.createElement("div",{className:"full-panel-title"},"◈ TEAM DEVELOPMENT"),
+      React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("hq")},"← BACK")
+    ),
+    React.createElement("div",{className:"full-panel-body"},
+      React.createElement("div",{style:{fontSize:12,color:"var(--text3)",marginBottom:14,maxWidth:640}},"Build one named team from any heroes on the roster. This is a roleplay feature only — team members get no combat bonus for being on the team. In the Deploy Heroes screen during a mission, a button will let you deploy your team's presently-available members in one click."),
+      React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",marginBottom:16,flexWrap:"wrap"}},
+        React.createElement("div",{style:{fontSize:10,color:"var(--text2)",fontFamily:"var(--font-head)"}},"TEAM NAME:"),
+        React.createElement("input",{className:"menu-input",style:{width:220},value:team.name,onChange:e=>setTeamName(e.target.value),placeholder:"e.g. The Avengers"})
+      ),
+      React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--purple)",letterSpacing:1,margin:"10px 0"}},`CURRENT ROSTER — ${team.members.length} MEMBER${team.members.length!==1?"S":""}`),
+      React.createElement("div",{className:"shop-grid"},
+        ALL_HERO_DEFS.map(h=>{
+          const on=team.members.includes(h.title);
+          return React.createElement("div",{key:h.id,className:"shop-card"+(on?" owned":""),style:{cursor:"pointer"},onClick:()=>toggleTeamMember(h.title)},
+            React.createElement("div",{className:"shop-card-name"},h.title),
+            React.createElement("div",{className:"shop-card-meta"},`${h.cls.toUpperCase()} · PWR ${h.basePower}`),
+            React.createElement("div",{className:"shop-card-price",style:{color:on?"var(--green)":"var(--text3)"}},on?"✓ ON TEAM":"click to add"),
+            React.createElement("button",{className:"shop-buy-btn",style:on?{borderColor:"var(--red)",color:"var(--red)"}:{}},on?"REMOVE":"ADD")
+          );
+        })
+      )
+    )
+  );
+
+  // ── THE FRANCO SHOW ──
+  if(screen==="franco"){
+    const heroRank=[...ALL_HERO_DEFS].sort((a,b)=>b.basePower-a.basePower);
+    const villRank=[...VILLAIN_DEFS].sort((a,b)=>b.basePower-a.basePower);
+    const questions=[
+      {q:"Does Sakura have what it takes to be the GOAT?",a:"Sakura isn't even the GOAT in her own family. Her mother Kimiko was a beast."},
+      {q:"Who would win in a fight between Captain Shamrock and Skull Crusher?",a:"The Audience."},
+      {q:"Who are the top 5 heroes right now?",a:"John. Anything else is a cope. Pure, undiluted cope. At #2 I've got TCK. Generational talent. Absolute legend. My #3 is The Anchor. It pains me to say it, I know he lost to James but we forget how much of a menace Jordan P. Shrimperson was. My #4 is Morgana. If she's moving, everybody's moving. Seriously. Underrated player. Not able to put up the numbers of the players above her but you'll feel it if she's gone! My #5, it's gotta go with Ironside. Yeah, I said it."},
+      {q:"Who is the most powerful villain right now?",a:"Maniac. Not even close. Silphana would be next, but she does not want the smoke with Maniac. Maniac lives rent free in the mind of every hero, every director."},
+      {q:"Who was the GOAT of the Golden Age?",a:"Hughes Captain Shamrock. Maybe Jordan P. Shrimperson if he took on more fights. I stand by it. The Monster of Mariana, the Icon of Iberia, Sultan of the Sea was no joke."},
+      {q:"Who was the GOAT of the Silver Age?",a:"Cinderman would tell you it's him. Anyone on continental Europe says Elegus. Anyone in Ireland or The Americas says Captain Shamrock. Some contrarian liar will say The Anchor or Seraph. In Asia, they argue for Kimiko's Dragon Of the Daimyo."},
+      {q:"Why is being the WSPA Director so stressful?",a:"It's not."}
+    ];
+    const activeQ=questions[francoQIdx!=null?francoQIdx:-1];
+    return React.createElement("div",{className:"scene-screen",style:{backgroundImage:"url(portraits/Franco.JPG)"}},
+      React.createElement("button",{className:"mbtn scene-back-btn",onClick:()=>{setScreen("hq");setFrancoQIdx(null);}},"← BACK"),
+      React.createElement("div",{className:"scene-title"},"THE FRANCO SHOW"),
+      React.createElement("div",{className:"scene-columns"},
+        React.createElement("div",{className:"scene-side-list"},
+          React.createElement("div",{className:"scene-side-title"},"VILLAIN POWER RANKINGS"),
+          villRank.map((v,i)=>React.createElement("div",{key:v.id,className:"scene-rank-row"},`#${i+1} ${v.title}`," ",React.createElement("span",{style:{color:"var(--text3)"}},v.basePower)))
+        ),
+        React.createElement("div",{className:"scene-questions"},
+          questions.map((qq,i)=>React.createElement("button",{key:i,className:"mbtn"+(francoQIdx===i?" purple":""),style:{display:"block",width:"100%",margin:"4px 0"},onClick:()=>setFrancoQIdx(i)},qq.q))
+        ),
+        React.createElement("div",{className:"scene-side-list"},
+          React.createElement("div",{className:"scene-side-title"},"HERO POWER RANKINGS"),
+          heroRank.map((h,i)=>React.createElement("div",{key:h.id,className:"scene-rank-row"},`#${i+1} ${h.title}`," ",React.createElement("span",{style:{color:"var(--text3)"}},h.basePower)))
+        )
+      ),
+      React.createElement("div",{className:"tutorial-box",style:{position:"absolute"}},
+        React.createElement("div",{className:"tutorial-portrait-slot"},
+          React.createElement("img",{src:"portraits/Franco.JPG",alt:"Franco",onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}),
+          React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:"none"}},"F")
+        ),
+        React.createElement("div",{className:"tutorial-copy"},
+          React.createElement("div",{className:"tutorial-speaker-name"},"FRANCO"),
+          React.createElement("div",{className:"tutorial-text"},activeQ?activeQ.a:"Pick a question, Director — I've got opinions on all of it.")
+        )
+      )
+    );
+  }
+
+  // ── HEROES OF TOMORROW ──
+  if(screen==="hot"){
+    const candidates=HOT_LOCK_TITLES.map(t=>ALL_HERO_DEFS.find(h=>h.title===t)).filter(Boolean);
+    const remaining=candidates.filter(h=>!hotUnlocked.includes(h.title));
+    const monologues={
+      "Captain Shamrock":"Hi, I'm Amos. I'm the third Captain Shamrock. I may not be as big as my mentor, but everyone gets home on my watch. I don't need to save the world to make a difference. I've got what it takes, let's do this together.",
+      "Skull Crusher":"I… I'd shake your hand but I haven't quite mastered not crushing it. I'm sorry. And I'm sorry about the plane. I shake my legs when I get nervous. I know I was born with a rare ability, and I have the chance to do real good. I just need your help. We'll do this together?",
+      "The Dragon of the Daimyo":"Hi! You're the new director! It's so nice to meet you! Are we friends on social media? We are now! You don't have many followers do you? That's okay! Say cheese! Oh, you weren't smiling. That's fine. Are you okay with being in my new TV show? It's about me! All my friends are going to be in it as I save the world again! My parents are going to be so proud of me! Come on! Let's go!"
+    };
+    const picked=hotPickedHero?candidates.find(h=>h.title===hotPickedHero):null;
+    const allDone=remaining.length===0;
+    return React.createElement("div",{className:"scene-screen",style:{backgroundImage:"url(portraits/WSPAHQ.JPG)"}},
+      React.createElement("button",{className:"mbtn scene-back-btn",onClick:()=>{setScreen("hq");setHotPickedHero(null);}},"← BACK"),
+      React.createElement("div",{className:"scene-title"},"HEROES OF TOMORROW"),
+      !allDone&&React.createElement("div",{className:"scene-columns",style:{gridTemplateColumns:"1fr"}},
+        React.createElement("div",{className:"scene-side-list",style:{maxWidth:320}},
+          React.createElement("div",{className:"scene-side-title"},"CANDIDATES"),
+          remaining.map(h=>React.createElement("div",{key:h.id,className:"scene-rank-row hq-file-card",style:{cursor:"pointer",marginBottom:6},onClick:()=>setHotPickedHero(h.title)},h.title))
+        )
+      ),
+      React.createElement("div",{className:"tutorial-box",style:{position:"absolute"}},
+        React.createElement("div",{className:"tutorial-portrait-slot"},
+          React.createElement("img",{src:TUTORIAL_CHARACTERS.nichols.portrait,alt:"George Nichols",onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}),
+          React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:"none"}},"GN")
+        ),
+        React.createElement("div",{className:"tutorial-copy"},
+          React.createElement("div",{className:"tutorial-speaker-name"},picked?picked.title.toUpperCase():"GEORGE NICHOLS"),
+          React.createElement("div",{className:"tutorial-text"},
+            allDone?"We're looking for more prospects, Director.":
+            picked?monologues[picked.title]:
+            "Hey Director. These are the three heroes that the analysts believe will inspire the next generation. Which do you want to chat with first?"
+          ),
+          picked&&React.createElement("button",{className:"tutorial-btn",onClick:()=>{unlockHotHero(picked.title);setHotPickedHero(null);}},"◈ WELCOME THEM TO THE ROSTER"),
+          allDone&&React.createElement("button",{className:"tutorial-btn",onClick:()=>setScreen("hq")},"◈ RETURN TO HQ")
+        )
+      )
+    );
+  }
+
+  // ── CONFIDENTIAL (OMNIVIPORIX BRIEFING) ──
+  if(screen==="confidential"){
+    if(!confUnlocked)return React.createElement("div",{className:"confidential-lock-screen"},
+      React.createElement("div",{className:"confidential-lock-box"},
+        React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--red)",letterSpacing:2,marginBottom:14}},"RESTRICTED — ENTER ACCESS CODE"),
+        React.createElement("input",{className:"menu-input",type:"password",value:confPassInput,onChange:e=>{setConfPassInput(e.target.value);setConfError(false);},onKeyDown:e=>{if(e.key==="Enter"){if(confPassInput.trim().toUpperCase()==="KRONOS"){setConfUnlocked(true);setConfError(false);}else{setConfError(true);}}},placeholder:"PASSWORD",autoFocus:true}),
+        React.createElement("button",{className:"mbtn red",style:{marginTop:10},onClick:()=>{if(confPassInput.trim().toUpperCase()==="KRONOS"){setConfUnlocked(true);setConfError(false);}else{setConfError(true);}}},"▶ RUN"),
+        confError&&React.createElement("div",{style:{color:"var(--red)",fontSize:11,marginTop:10}},"Incorrect Password"),
+        React.createElement("button",{className:"mbtn",style:{marginTop:24,borderColor:"var(--text3)",color:"var(--text3)"},onClick:()=>{setScreen("hq");setConfPassInput("");setConfError(false);}},"← ABORT")
+      )
+    );
+    const heroList=ALL_HERO_DEFS.filter(h=>!h.isJohn).sort((a,b)=>b.basePower-a.basePower);
+    return React.createElement("div",{className:"full-panel",style:{background:"#000"}},
+      React.createElement("div",{className:"full-panel-header"},
+        React.createElement("div",{className:"full-panel-title"},"⚠ CONFIDENTIAL — OMNIVIPORIX BRIEFING"),
+        React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>{setScreen("hq");setConfUnlocked(false);setConfPassInput("");}},"← EXIT")
+      ),
+      React.createElement("div",{className:"full-panel-body"},
+        React.createElement("div",{style:{display:"flex",gap:20,flexWrap:"wrap"}},
+          React.createElement("div",{style:{flex:"1 1 320px"}},
+            React.createElement("img",{src:"portraits/Omniviporix.png",alt:"Omniviporix",style:{width:"100%",maxWidth:340,borderRadius:4,border:"1px solid var(--red)",display:"block",marginBottom:12}}),
+            React.createElement("div",{style:{fontSize:13,color:"var(--text2)",lineHeight:1.8}},"Someone extremely intelligent is designing hyper advanced artificial intelligence androids capable of killing most superheroes. Every time this droid is defeated, it has come back stronger. Extreme ongoing threat. 6 hero fatalities at this point. Deeply concerned that it can kill any hero on the roster. Only solution, teamwork.")
+          ),
+          React.createElement("div",{style:{flex:"1 1 260px"}},
+            React.createElement("div",{style:{fontSize:12,color:"var(--red)",fontStyle:"italic",marginBottom:10,lineHeight:1.6}},"\"Odds of defeating Omniviporix in single combat calculated at less than 3% among our top tier. Less than a tenth of a percent for any hero with a power level lower than 5. Current threat level only surpassed by Maniac, Silphana, Typhon, and Leviathan. Future threat level unmatched.\" — George Nichols"),
+            React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:6}},"FULL ROSTER — SINGLE COMBAT LOSS PROJECTIONS"),
+            heroList.map(h=>React.createElement("div",{key:h.id,className:"scene-rank-row"},h.title))
+          )
+        )
+      )
+    );
+  }
 
   // ── GAME OVER ──
   if(screen==="gameover")return React.createElement("div",{className:"menu"},
@@ -1265,14 +1466,20 @@ function App(){
               h.unlockCondition&&React.createElement("div",{className:"detail-section",style:{color:"var(--gold)"}},React.createElement("b",null,"Unlock: "),h.unlockCondition)
             )
           );
-        })
+        }),
+        heroPanelOpen&&React.createElement("div",{className:"roster-summary-card"},
+          React.createElement("div",{className:"roster-summary-row"},`◈ ${rosterSummary.shopCount} heroes available for recruitment in the Shop`),
+          React.createElement("div",{className:"roster-summary-row"},`◈ ${rosterSummary.hotCount} heroes are available in the Heroes of Tomorrow`),
+          React.createElement("div",{className:"roster-summary-row"},`◈ ${rosterSummary.gameplayCount} heroes can be unlocked by gameplay`)
+        )
       ),
       // MAP
       React.createElement("div",{className:"map-wrap"+tSec("map")},
         React.createElement(WorldMap,{threats,depMap,score,target,extMode,zoom:mapZoom,pan:mapPan,
           onZoomIn:()=>setMapZoom(z=>Math.min(4,+(z+0.25).toFixed(2))),
           onZoomOut:()=>setMapZoom(z=>Math.max(0.5,+(z-0.25).toFixed(2))),
-          onResetView:()=>{setMapZoom(1);setMapPan({x:0,y:0});}
+          onResetView:()=>{setMapZoom(1);setMapPan({x:0,y:0});},
+          onMarkerClick:(id)=>{setThreatPanelOpen(true);setSelThreat(id);}
         })
       ),
       // THREATS + HOSPITAL PANEL
@@ -1363,6 +1570,15 @@ function App(){
               setPicked(deployable.map(h=>h.id));
             }
           },"◈ SELECT ALL"),
+          team.name&&team.members.length>0&&React.createElement("button",{
+            className:"confirm-btn",
+            style:{fontSize:9,padding:"4px 10px",borderColor:"var(--purple)",color:"var(--purple)",background:"rgba(170,68,255,.06)"},
+            title:team.members.join(", "),
+            onClick:()=>{
+              const deployable=heroes.filter(h=>canDeploy(h)&&!["shopLocked","gameLocked","kia","rogue","offworld"].includes(h.status)&&team.members.includes(h.title));
+              setPicked(deployable.map(h=>h.id));
+            }
+          },`◈ DEPLOY ${team.name.toUpperCase()}`),
           picked.length>0&&React.createElement("button",{
             className:"modal-close",
             style:{fontSize:9,padding:"4px 10px",marginTop:0},
