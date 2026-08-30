@@ -231,3 +231,36 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 
 /* ── MAP ZOOM LABEL ── */
 .map-zoom-label{font-family:var(--font-head);font-size:9px;color:var(--text3);text-align:center;letter-spacing:1px;padding-top:2px}
+
+/* ── ROSTER SUMMARY CARD ── */
+.roster-summary-card{background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:8px 9px;margin-top:8px}
+.roster-summary-row{font-size:9px;color:var(--text2);line-height:1.7}
+
+/* ── HEADQUARTERS HUB ── */
+.hq-screen{position:fixed;inset:0;background:radial-gradient(circle at 50% 0%,#04182c 0%,var(--bg) 70%);z-index:400;display:flex;flex-direction:column;padding:20px;overflow-y:auto}
+.hq-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px}
+.hq-title{font-family:var(--font-head);font-size:15px;color:var(--purple);letter-spacing:2px;text-shadow:0 0 18px rgba(170,68,255,.5)}
+.hq-subline{font-size:10px;color:var(--text3);letter-spacing:1px;margin-bottom:22px;font-family:var(--font-mono)}
+.hq-filelist{display:flex;flex-direction:column;gap:8px;max-width:640px;width:100%;margin:0 auto}
+.hq-file-card{display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:2px;padding:12px 14px;cursor:pointer;transition:.15s}
+.hq-file-card:hover{background:var(--panel2);border-color:var(--border2);border-left-color:var(--accent);transform:translateX(2px)}
+.hq-file-icon{font-size:16px;color:var(--purple);flex-shrink:0}
+.hq-file-info{flex:1;min-width:0}
+.hq-file-label{font-family:var(--font-head);font-size:12px;color:var(--text);letter-spacing:1.5px}
+.hq-file-desc{font-size:10px;color:var(--text3);margin-top:2px}
+.hq-file-arrow{font-size:16px;color:var(--text3);flex-shrink:0}
+
+/* ── SCENE SCREENS (Franco Show / Heroes of Tomorrow) ── */
+.scene-screen{position:fixed;inset:0;z-index:400;background-size:cover;background-position:center;background-color:#000;display:flex;flex-direction:column;padding:20px;overflow:hidden}
+.scene-screen::before{content:'';position:absolute;inset:0;background:rgba(2,13,24,.55);z-index:0}
+.scene-back-btn{position:relative;z-index:2;align-self:flex-start;margin-bottom:10px}
+.scene-title{position:relative;z-index:2;font-family:var(--font-head);font-size:18px;color:var(--accent);letter-spacing:3px;text-shadow:0 0 20px var(--accent);text-align:center;margin-bottom:14px}
+.scene-columns{position:relative;z-index:2;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;flex:1;overflow-y:auto;padding-bottom:160px}
+.scene-side-list{background:rgba(2,13,24,.72);border:1px solid var(--border2);border-radius:4px;padding:12px;overflow-y:auto;max-height:100%}
+.scene-side-title{font-family:var(--font-head);font-size:10px;color:var(--gold);letter-spacing:1.5px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:5px}
+.scene-rank-row{font-size:11px;color:var(--text2);padding:3px 0;display:flex;justify-content:space-between}
+.scene-questions{display:flex;flex-direction:column;gap:2px}
+
+/* ── CONFIDENTIAL ── */
+.confidential-lock-screen{position:fixed;inset:0;z-index:500;background:#000;display:flex;align-items:center;justify-content:center}
+.confidential-lock-box{display:flex;flex-direction:column;align-items:center;text-align:center}
