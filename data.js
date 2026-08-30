@@ -11,6 +11,67 @@ function saveHotUnlocked(a){try{localStorage.setItem("wspa_hot_unlocked",JSON.st
 // Team Development — one named team of hero titles, persists like ownedShop/codexUnlocked
 function loadTeam(){try{return JSON.parse(localStorage.getItem("wspa_team")||'{"name":"","members":[]}');}catch(e){return{name:"",members:[]};}}
 function saveTeam(t){try{localStorage.setItem("wspa_team",JSON.stringify(t));}catch(e){}}
+// Achievements — permanent, one-time unlocks (achievement keys), persists like ownedShop/codexUnlocked
+function loadAchievements(){try{return JSON.parse(localStorage.getItem("wspa_achievements")||"[]");}catch(e){return[];}}
+function saveAchievements(a){try{localStorage.setItem("wspa_achievements",JSON.stringify(a));}catch(e){}}
+
+// ─── ACHIEVEMENTS ─────────────────────────────────────────────────────────────
+const ACHIEVEMENT_DEFS=[
+  {key:"watch_mine",title:"The Watch is mine",desc:"Beat the tutorial for the first time."},
+  {key:"new_beginnings",title:"New Beginnings",desc:"Get all three heroes from Heroes of Tomorrow for the first time."},
+  {key:"understand_it_now",title:"I understand it now",desc:"Unlock Morgana Pulse for the first time."},
+  {key:"do_your_history",title:"Do your History",desc:"Learn from Franco about the prior hero ages for the first time."},
+  {key:"why",title:"Why?",desc:"Stop the Silver Meadows HOA for the first time."},
+  {key:"my_bad",title:"My bad",desc:"Send a team of 8 or more heroes to fight the Leviathan for the first time."},
+  {key:"father_of_monsters",title:"Father of Monsters",desc:"Defeat Typhon for the first time."},
+  {key:"beat_a_game",title:"Beat a game",desc:"Reach 1000 points in a single game for the first time."},
+  {key:"civil_war",title:"Civil War",desc:"Make a hero go rogue for the first time."},
+  {key:"something_to_believe_in",title:"Something to believe in",desc:"Convert a villain to a hero for the first time."}
+];
+
+// ─── CONFIDENTIAL BRIEFINGS (password-gated) ───────────────────────────────────
+// Each key is the password (case-insensitive) the player types on the CONFIDENTIAL screen.
+// excludeTitles are hero titles to leave off the "Single Combat Loss Projections" list,
+// in addition to John, who is always excluded (via isJohn).
+const CONFIDENTIAL_BRIEFINGS={
+  KRONOS:{
+    heading:"⚠ CONFIDENTIAL — OMNIVIPORIX BRIEFING",
+    portrait:"portraits/Omniviporix.png",
+    desc:"Someone extremely intelligent is designing hyper advanced artificial intelligence androids capable of killing most superheroes. Every time this droid is defeated, it has come back stronger. Extreme ongoing threat. 6 hero fatalities at this point. Deeply concerned that it can kill any hero on the roster. Only solution, teamwork.",
+    quote:"\"Odds of defeating Omniviporix in single combat calculated at less than 3% among our top tier. Less than a tenth of a percent for any hero with a power level lower than 5. Current threat level only surpassed by Maniac, Silphana, Typhon, and Leviathan. Future threat level unmatched.\" — George Nichols",
+    excludeTitles:[]
+  },
+  TYPHON:{
+    heading:"⚠ CONFIDENTIAL — TYPHON: FATHER OF MONSTERS BRIEFING",
+    portrait:"portraits/Typhon.png",
+    desc:"Father of Monsters. This creature is unbelievably powerful. No heroes would survive single combat. None. Hasn't woken for thousands of years, try to keep it that way.",
+    quote:"\"I'm not certain if this is the exact creature the Greeks were writing about, but it makes sense. It also would explain a lot of flood stories we see throughout history. And why several ages and continents disappeared. If you're ever wondering what happened to Atlantis, why Pangea broke up, or what happened to Old Zealand, we believe now that this is the thing that did it. A lot of what we know comes from the Shrimp people, but it's extremely meticulous and I'm inclined to believe it.\" — George Nichols",
+    excludeTitles:[]
+  },
+  MANIAC:{
+    heading:"⚠ CONFIDENTIAL — MANIAC BRIEFING",
+    portrait:"portraits/Maniac.jpg",
+    desc:"A being of extreme chaos and power. Almost no heroes can stand toe to toe with Maniac for very long, and many who have fought Maniac claim that their body and power withered the longer the fight continued. The survivors are few, but each has come back with severe radiation burns. There have been no bodies of non survivors. Only solution: Full stack high powered cannon, tank, and support teams.",
+    quote:"\"We've beaten Maniac before at great cost. None of our current roster has done it, or at least, not alone. The Flip and The Anchor were on the last team that took down Maniac, but I chalk that up to the silver age glory of Captain Shamrock and Elegus at their absolute prime. On paper, I think several of our top tier heroes can pull it off. Any of our A listers like TCK, The Anchor, and Seraph could do it at fifty fifty, I just think the casualties and destruction are sure to be high regardless.\" — George Nichols",
+    excludeTitles:["The Crimson Knight","The Anchor","Seraph"]
+  }
+};
+
+// ─── WSPA ORG CHART (password: WSPA) ───────────────────────────────────────────
+const WSPA_ORG_CHART={
+  director:"Director (Formerly Abbas Ali)",
+  reports:[
+    {title:"Deputy Director",name:"George Nichols"},
+    {title:"Special Advisor",name:"Cassandra Onik",note:"(Former Special Operations Senior Analyst)"}
+  ],
+  analysts:[
+    {title:"Former Special Operations Senior Analyst",name:"Alexandria Aeros",note:"(Now Rogue)"},
+    {title:"Special Operations Analyst",name:"Adam Chris"},
+    {title:"Special Operations Analyst",name:"Neela Deepak"}
+  ],
+  departments:["Special Operations Department","Tactical Response Department","Human Resources","Information and Innovation Technology Department","Finance Department","Supply Planning Department","Public Relations Department"]
+};
+const WSPA_NICHOLS_BRIEFING="\"I'll continue to cover the covert operations while you cover the public facing hero work. We've been staying ahead, but there are four clear subterfuge threats to our ability to maintain peace. Division 7, Division 8, The Accelerationists, and the GGRU. I've got assets in the right places, and I'll do my part to try and avoid any major meltdowns. That's always been the arrangement, you save the world, I keep you covered. I should be able to get you plenty of insight before things get hot. Losing Aeros is a big issue, but adding on Agent Deepak has really alleviated the hole Aeros left behind. Deepak and Chris make for an excellent duo, and Cass has still been helping where she can. I wanted to discuss with you about bringing on another analyst or two and promoting one up to senior that will actually stick around this time. I didn't think it would be this hard of a role to keep filled. Who knows, maybe Franco wants the job? (just a joke). I know Aeros and I were particularly close, she was a very dear personal friend and even a mace to the rib won't change that I care for her but I won't let that get in the way of my duties. I know she needs to be stopped, and I believe that if we separate her from that mace she'll go back to being the hyper rational and very honest woman that I remember so dearly.\"";
 
 // ─── CAREER ───────────────────────────────────────────────────────────────────
 const CAREER={beginner:{mult:1.0,label:"BEGINNER",next:"intermediate"},intermediate:{mult:1.05,label:"INTER.",next:"veteran"},veteran:{mult:1.11,label:"VETERAN",next:null}};
