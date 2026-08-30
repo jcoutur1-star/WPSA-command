@@ -124,6 +124,7 @@ function App(){
   const [codexUnlocked,setCodexUnlocked]=useState(loadCodex);
   const [hotUnlocked,setHotUnlocked]=useState(loadHotUnlocked);
   const [team,setTeam]=useState(loadTeam);
+  const [achievements,setAchievements]=useState(loadAchievements);
 
   // ─── THE FRANCO SHOW STATE ─────────────────────────────────────────────────
   const [francoQIdx,setFrancoQIdx]=useState(null);
@@ -132,7 +133,7 @@ function App(){
   // ─── CONFIDENTIAL (Omniviporix) STATE ─────────────────────────────────────
   const [confPassInput,setConfPassInput]=useState("");
   const [confError,setConfError]=useState(false);
-  const [confUnlocked,setConfUnlocked]=useState(false);
+  const [confUnlocked,setConfUnlocked]=useState(null);
 
   const [screen,setScreen]=useState("menu");
   const [nameInput,setNameInput]=useState("");
@@ -197,6 +198,7 @@ function App(){
   const extRef=useRef(extMode);extRef.current=extMode;
   const tqRef=useRef(threatQueue);tqRef.current=threatQueue;
   const johnOffRef=useRef(johnOffworldTimer);johnOffRef.current=johnOffworldTimer;
+  const achievementsRef=useRef(achievements);achievementsRef.current=achievements;
 
   function saveAndUpdateBank(n){setBank(n);saveBank(n);}
   function saveAndUpdateOwned(a){setOwnedShop(a);saveOwned(a);}
@@ -204,12 +206,29 @@ function App(){
   function saveAndUpdateHotUnlocked(a){setHotUnlocked(a);saveHotUnlocked(a);}
   function saveAndUpdateTeam(t){setTeam(t);saveTeam(t);}
 
+  function unlockAchievement(key){
+    if(achievementsRef.current.includes(key))return;
+    const updated=[...achievementsRef.current,key];
+    achievementsRef.current=updated;
+    setAchievements(updated);
+    saveAchievements(updated);
+    const def=ACHIEVEMENT_DEFS.find(a=>a.key===key);
+    if(def)setLog(`🏆 ACHIEVEMENT UNLOCKED: ${def.title}`);
+  }
+
+  function tryConfPass(){
+    const p=confPassInput.trim().toUpperCase();
+    if(p==="WSPA"||CONFIDENTIAL_BRIEFINGS[p]){setConfUnlocked(p);setConfError(false);}
+    else setConfError(true);
+  }
+
   function unlockHotHero(title){
     if(hotUnlocked.includes(title))return;
     const nh=[...hotUnlocked,title];
     saveAndUpdateHotUnlocked(nh);
     // If a game is already in progress, unlock the hero live too
     setHeroes(prev=>prev.map(h=>h.title===title&&h.hotLocked?{...h,status:"ready",gameLocked:false}:h));
+    if(HOT_LOCK_TITLES.every(t=>nh.includes(t)))unlockAchievement("new_beginnings");
   }
   function setTeamName(name){saveAndUpdateTeam({...team,name});}
   function toggleTeamMember(title){
@@ -365,7 +384,7 @@ function App(){
     if(tutorialStep==="final1"){setTutorialStep("final2");return;}
     if(tutorialStep==="final2"){setTutorialStep("final3");return;}
     if(tutorialStep==="final3"){setTutorialStep("final4");return;}
-    if(tutorialStep==="final4"){exitTutorial();return;}
+    if(tutorialStep==="final4"){unlockAchievement("watch_mine");exitTutorial();return;}
   }
   function tutorialHighlightFor(step){
     if(step==="heroes")return"heroes";
@@ -400,6 +419,7 @@ function App(){
   function handleWin(){
     const pts=extMode?WIN2:WIN1;
     const nb=bank+pts;saveAndUpdateBank(nb);
+    if(extMode)unlockAchievement("beat_a_game");
     setGameOver("win");setScreen("gameover");
   }
 
@@ -453,7 +473,7 @@ function App(){
         // Argos veteran special: fully recovers every 3 minutes (180s)
         const argosVet=prev.find(h=>h.title==="Argos"&&h.career==="veteran"&&!["kia","gameLocked","shopLocked","deployed"].includes(h.status));
         const argosPulse=argosVet&&t>0&&t%180===0;
-        if(morganaPulse)setLog("✨ Morgana veteran pulse — all heroes restored!");
+        if(morganaPulse){setLog("✨ Morgana veteran pulse — all heroes restored!");unlockAchievement("understand_it_now");}
         if(flipUnlock)setLog("⭐ The Flip is VETERAN — Adrenaline Junkie unlocked!");
         if(argosPulse)setLog("💰 Argos: Money Talks — fully recovered!");
         return prev.map(h=>{
@@ -604,6 +624,7 @@ function App(){
     const threat=depModal;
     const assigned=hRef.current.filter(h=>picked.includes(h.id));
     setDepModal(null);
+    if(threat.leviathanEffect&&assigned.length>=8)unlockAchievement("my_bad");
     const iceP=assigned.some(h=>h.title==="IceBerg");
     const conductorP=assigned.some(h=>h.title==="The Conductor");
     const gummyP=assigned.some(h=>h.title==="The Gummy Bear");
@@ -699,6 +720,7 @@ function App(){
         cands.forEach(villain=>{
           if(Math.random()<0.2){
             redeemedVillains.push(villain);
+            unlockAchievement("something_to_believe_in");
             // Mark redeemed in villain list
             setVillains(prev=>prev.map(v=>v.id===villain.id?{...v,redeemed:true}:v));
             // Add or update hero roster
@@ -764,6 +786,7 @@ function App(){
                 villainId:null,rogueHeroId:h.id,rogueHero:h,recurring:true,redeemable:true
               };
               setThreats(p2=>[...p2,rogueThreat]);
+              unlockAchievement("civil_war");
               return{...h,currentHP:1,status:"rogue",rogueHero:true,_icebergBonus:false,_conductorBonus:false,speechBubble:"You sent me to die. The director has turned evil — I won't let this stand."};
             } else {
               // Hero dies on suicide mission — still counts
@@ -822,6 +845,7 @@ function App(){
               setHeroes(p2=>p2.map(j=>j.isJohn?{...j,pendingRogue:true}:j));
               setLog("🔴 The Crimson Knight has gone rogue after surviving a suicide mission. She acts on conscience. John is offworld — if he returns, he will join her immediately.");
             }
+            unlockAchievement("civil_war");
             return{...h,currentHP:Math.round(ckMax*0.3),status:"rogue",regenTimer:0,_icebergBonus:false,_conductorBonus:false,speechBubble:"You sent me to die. The director has become the very evil we swore to stop."};
           }
 
@@ -948,6 +972,8 @@ function App(){
       setRom(newRom);setDis(newDis);
 
       if(outcome!=="failure"){
+        if(threat.hoaEffect)unlockAchievement("why");
+        if(threat.typhonEffect)unlockAchievement("father_of_monsters");
         if(threat.unlockHero){setHeroes(prev=>prev.map(h=>h.title===threat.unlockHero?{...h,gameLocked:false,status:"ready"}:h));unlockMsg=`🔓 ${threat.unlockHero} unlocked!`;}
         if(threat.isOcean)setHeroes(prev=>prev.map(h=>h.title==="Hydrothylre"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
         if(threat.isKaiju)setHeroes(prev=>prev.map(h=>h.title==="Dinosia"&&h.status==="gameLocked"?{...h,status:"ready",gameLocked:false}:h));
@@ -1072,6 +1098,7 @@ function App(){
       {key:"teamdev",label:"TEAMDEV.SYS",desc:"Build your named strike team"},
       {key:"franco",label:"FRANCO.MOV",desc:"The Franco Show — roster rankings & Q&A"},
       {key:"hot",label:"PROSPECTS.SYS",desc:"Heroes of Tomorrow — meet new recruits"},
+      {key:"achievements",label:"ACHIEVEMENTS.SYS",desc:`Director milestones (${achievements.length}/${ACHIEVEMENT_DEFS.length})`},
       {key:"confidential",label:"CONFIDENTIAL",desc:"⚠ RESTRICTED ACCESS"}
     ];
     return React.createElement("div",{className:"hq-screen"},
@@ -1092,6 +1119,27 @@ function App(){
       )
     );
   }
+
+  // ── ACHIEVEMENTS ──
+  if(screen==="achievements")return React.createElement("div",{className:"full-panel"},
+    React.createElement("div",{className:"full-panel-header"},
+      React.createElement("div",{className:"full-panel-title"},`◈ ACHIEVEMENTS (${achievements.length}/${ACHIEVEMENT_DEFS.length})`),
+      React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("hq")},"← BACK")
+    ),
+    React.createElement("div",{className:"full-panel-body"},
+      React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:14}},"Once earned, a milestone is checked off for good."),
+      ACHIEVEMENT_DEFS.map(a=>{
+        const done=achievements.includes(a.key);
+        return React.createElement("div",{key:a.key,className:"hq-file-card",style:{cursor:"default",opacity:done?1:0.55}},
+          React.createElement("div",{className:"hq-file-icon",style:{color:done?"var(--green)":"var(--text3)"}},done?"✔":"▢"),
+          React.createElement("div",{className:"hq-file-info"},
+            React.createElement("div",{className:"hq-file-label"},a.title),
+            React.createElement("div",{className:"hq-file-desc"},a.desc)
+          )
+        );
+      })
+    )
+  );
 
   // ── ACKNOWLEDGEMENTS ──
   if(screen==="acknowledgements")return React.createElement("div",{className:"full-panel"},
@@ -1263,7 +1311,7 @@ function App(){
           villRank.map((v,i)=>React.createElement("div",{key:v.id,className:"scene-rank-row"},`#${i+1} ${v.title}`," ",React.createElement("span",{style:{color:"var(--text3)"}},v.basePower)))
         ),
         React.createElement("div",{className:"scene-questions"},
-          questions.map((qq,i)=>React.createElement("button",{key:i,className:"mbtn"+(francoQIdx===i?" purple":""),style:{display:"block",width:"100%",margin:"4px 0"},onClick:()=>setFrancoQIdx(i)},qq.q))
+          questions.map((qq,i)=>React.createElement("button",{key:i,className:"mbtn"+(francoQIdx===i?" purple":""),style:{display:"block",width:"100%",margin:"4px 0"},onClick:()=>{setFrancoQIdx(i);if(qq.q.includes("Golden Age")||qq.q.includes("Silver Age"))unlockAchievement("do_your_history");}},qq.q))
         ),
         React.createElement("div",{className:"scene-side-list"},
           React.createElement("div",{className:"scene-side-title"},"HERO POWER RANKINGS"),
@@ -1322,31 +1370,83 @@ function App(){
     );
   }
 
-  // ── CONFIDENTIAL (OMNIVIPORIX BRIEFING) ──
+  // ── CONFIDENTIAL (PASSWORD-GATED BRIEFINGS: KRONOS / TYPHON / MANIAC / WSPA) ──
   if(screen==="confidential"){
     if(!confUnlocked)return React.createElement("div",{className:"confidential-lock-screen"},
       React.createElement("div",{className:"confidential-lock-box"},
         React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--red)",letterSpacing:2,marginBottom:14}},"RESTRICTED — ENTER ACCESS CODE"),
-        React.createElement("input",{className:"menu-input",type:"password",value:confPassInput,onChange:e=>{setConfPassInput(e.target.value);setConfError(false);},onKeyDown:e=>{if(e.key==="Enter"){if(confPassInput.trim().toUpperCase()==="KRONOS"){setConfUnlocked(true);setConfError(false);}else{setConfError(true);}}},placeholder:"PASSWORD",autoFocus:true}),
-        React.createElement("button",{className:"mbtn red",style:{marginTop:10},onClick:()=>{if(confPassInput.trim().toUpperCase()==="KRONOS"){setConfUnlocked(true);setConfError(false);}else{setConfError(true);}}},"▶ RUN"),
+        React.createElement("input",{className:"menu-input",type:"password",value:confPassInput,onChange:e=>{setConfPassInput(e.target.value);setConfError(false);},onKeyDown:e=>{if(e.key==="Enter")tryConfPass();},placeholder:"PASSWORD",autoFocus:true}),
+        React.createElement("button",{className:"mbtn red",style:{marginTop:10},onClick:()=>tryConfPass()},"▶ RUN"),
         confError&&React.createElement("div",{style:{color:"var(--red)",fontSize:11,marginTop:10}},"Incorrect Password"),
         React.createElement("button",{className:"mbtn",style:{marginTop:24,borderColor:"var(--text3)",color:"var(--text3)"},onClick:()=>{setScreen("hq");setConfPassInput("");setConfError(false);}},"← ABORT")
       )
     );
-    const heroList=ALL_HERO_DEFS.filter(h=>!h.isJohn).sort((a,b)=>b.basePower-a.basePower);
+
+    // ── WSPA: org chart & agency directory (its own layout) ──
+    if(confUnlocked==="WSPA"){
+      const allHeroesList=[...ALL_HERO_DEFS].sort((a,b)=>b.basePower-a.basePower);
+      const orgBox=(label,sub,note,accent)=>React.createElement("div",{style:{border:`1px solid ${accent||"var(--text3)"}`,borderRadius:4,padding:"8px 12px",background:"rgba(255,255,255,.03)",textAlign:"center",minWidth:150}},
+        React.createElement("div",{style:{fontSize:12,color:accent||"var(--text)",fontFamily:"var(--font-head)"}},label),
+        sub&&React.createElement("div",{style:{fontSize:11,color:"var(--text2)",marginTop:2}},sub),
+        note&&React.createElement("div",{style:{fontSize:10,color:"var(--red)",marginTop:2,fontStyle:"italic"}},note)
+      );
+      return React.createElement("div",{className:"full-panel",style:{background:"#000"}},
+        React.createElement("div",{className:"full-panel-header"},
+          React.createElement("div",{className:"full-panel-title"},"⚠ CONFIDENTIAL — W.S.P.A. AGENCY DIRECTORY"),
+          React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>{setScreen("hq");setConfUnlocked(null);setConfPassInput("");}},"← EXIT")
+        ),
+        React.createElement("div",{className:"full-panel-body"},
+          React.createElement("img",{src:"portraits/WSPAHQ.jpg",alt:"WSPA HQ",style:{width:"100%",maxWidth:420,borderRadius:4,border:"1px solid var(--text3)",display:"block",marginBottom:14}}),
+          React.createElement("div",{style:{fontSize:12,color:"var(--text3)",marginBottom:16}},"World Security & Protection Agency"),
+          React.createElement("div",{style:{fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:6,fontFamily:"var(--font-head)"}},"KNOWN ACCESS CODES"),
+          React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}},
+            ["KRONOS","TYPHON","MANIAC","WSPA"].map(p=>React.createElement("div",{key:p,style:{fontSize:11,color:"var(--text2)",border:"1px solid var(--text3)",borderRadius:4,padding:"4px 10px"}},p))
+          ),
+          React.createElement("div",{style:{fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:10,fontFamily:"var(--font-head)"}},"CURRENT ORGANIZATIONAL CHART"),
+          React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:14,marginBottom:24}},
+            orgBox(WSPA_ORG_CHART.director,null,null,"var(--gold)"),
+            React.createElement("div",{style:{color:"var(--text3)"}},"│"),
+            React.createElement("div",{style:{display:"flex",gap:16,flexWrap:"wrap",justifyContent:"center"}},
+              WSPA_ORG_CHART.reports.map((r,i)=>React.createElement(React.Fragment,{key:i},orgBox(r.title,r.name,r.note)))
+            ),
+            React.createElement("div",{style:{color:"var(--text3)"}},"│"),
+            React.createElement("div",{style:{display:"flex",gap:16,flexWrap:"wrap",justifyContent:"center"}},
+              WSPA_ORG_CHART.analysts.map((a,i)=>React.createElement(React.Fragment,{key:i},orgBox(a.title,a.name,a.note,a.note?"var(--red)":null)))
+            ),
+            React.createElement("div",{style:{color:"var(--text3)"}},"│"),
+            React.createElement("div",{style:{display:"flex",gap:12,flexWrap:"wrap",justifyContent:"center",maxWidth:760}},
+              WSPA_ORG_CHART.departments.map((d,i)=>React.createElement(React.Fragment,{key:i},orgBox(d,null,null,"var(--accent)")))
+            )
+          ),
+          React.createElement("div",{style:{fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:6,fontFamily:"var(--font-head)"}},"HEROES"),
+          React.createElement("div",{style:{marginBottom:24,columns:2,maxWidth:500}},
+            allHeroesList.map(h=>React.createElement("div",{key:h.id,className:"scene-rank-row"},h.title))
+          ),
+          React.createElement("div",{style:{fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:10,fontFamily:"var(--font-head)"}},"DEPUTY DIRECTOR LOG"),
+          React.createElement("div",{style:{display:"flex",gap:20,flexWrap:"wrap"}},
+            React.createElement("img",{src:"portraits/George_Nichols.jpg",alt:"George Nichols",style:{width:180,borderRadius:4,border:"1px solid var(--text3)",display:"block"}}),
+            React.createElement("div",{style:{fontSize:13,color:"var(--text2)",lineHeight:1.8,flex:"1 1 300px"}},WSPA_NICHOLS_BRIEFING)
+          )
+        )
+      );
+    }
+
+    // ── KRONOS / TYPHON / MANIAC: shared briefing layout ──
+    const briefing=CONFIDENTIAL_BRIEFINGS[confUnlocked];
+    const heroList=ALL_HERO_DEFS.filter(h=>!h.isJohn&&!briefing.excludeTitles.includes(h.title)).sort((a,b)=>b.basePower-a.basePower);
     return React.createElement("div",{className:"full-panel",style:{background:"#000"}},
       React.createElement("div",{className:"full-panel-header"},
-        React.createElement("div",{className:"full-panel-title"},"⚠ CONFIDENTIAL — OMNIVIPORIX BRIEFING"),
-        React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>{setScreen("hq");setConfUnlocked(false);setConfPassInput("");}},"← EXIT")
+        React.createElement("div",{className:"full-panel-title"},briefing.heading),
+        React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>{setScreen("hq");setConfUnlocked(null);setConfPassInput("");}},"← EXIT")
       ),
       React.createElement("div",{className:"full-panel-body"},
         React.createElement("div",{style:{display:"flex",gap:20,flexWrap:"wrap"}},
           React.createElement("div",{style:{flex:"1 1 320px"}},
-            React.createElement("img",{src:"portraits/Omniviporix.png",alt:"Omniviporix",style:{width:"100%",maxWidth:340,borderRadius:4,border:"1px solid var(--red)",display:"block",marginBottom:12}}),
-            React.createElement("div",{style:{fontSize:13,color:"var(--text2)",lineHeight:1.8}},"Someone extremely intelligent is designing hyper advanced artificial intelligence androids capable of killing most superheroes. Every time this droid is defeated, it has come back stronger. Extreme ongoing threat. 6 hero fatalities at this point. Deeply concerned that it can kill any hero on the roster. Only solution, teamwork.")
+            React.createElement("img",{src:briefing.portrait,alt:confUnlocked,style:{width:"100%",maxWidth:340,borderRadius:4,border:"1px solid var(--red)",display:"block",marginBottom:12}}),
+            React.createElement("div",{style:{fontSize:13,color:"var(--text2)",lineHeight:1.8}},briefing.desc)
           ),
           React.createElement("div",{style:{flex:"1 1 260px"}},
-            React.createElement("div",{style:{fontSize:12,color:"var(--red)",fontStyle:"italic",marginBottom:10,lineHeight:1.6}},"\"Odds of defeating Omniviporix in single combat calculated at less than 3% among our top tier. Less than a tenth of a percent for any hero with a power level lower than 5. Current threat level only surpassed by Maniac, Silphana, Typhon, and Leviathan. Future threat level unmatched.\" — George Nichols"),
+            React.createElement("div",{style:{fontSize:12,color:"var(--red)",fontStyle:"italic",marginBottom:10,lineHeight:1.6}},briefing.quote),
             React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:6}},"FULL ROSTER — SINGLE COMBAT LOSS PROJECTIONS"),
             heroList.map(h=>React.createElement("div",{key:h.id,className:"scene-rank-row"},h.title))
           )
