@@ -1254,7 +1254,7 @@ function App(){
       {q:"Why is being the WSPA Director so stressful?",a:"It's not."}
     ];
     const activeQ=questions[francoQIdx!=null?francoQIdx:-1];
-    return React.createElement("div",{className:"scene-screen",style:{backgroundImage:"url(portraits/Franco.JPG)"}},
+    return React.createElement("div",{className:"scene-screen",style:{backgroundImage:"url(portraits/Franco.jpg)"}},
       React.createElement("button",{className:"mbtn scene-back-btn",onClick:()=>{setScreen("hq");setFrancoQIdx(null);}},"← BACK"),
       React.createElement("div",{className:"scene-title"},"THE FRANCO SHOW"),
       React.createElement("div",{className:"scene-columns"},
@@ -1272,7 +1272,7 @@ function App(){
       ),
       React.createElement("div",{className:"tutorial-box",style:{position:"absolute"}},
         React.createElement("div",{className:"tutorial-portrait-slot"},
-          React.createElement("img",{src:"portraits/Franco.JPG",alt:"Franco",onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}),
+          React.createElement("img",{src:"portraits/Franco.jpg",alt:"Franco",onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}),
           React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:"none"}},"F")
         ),
         React.createElement("div",{className:"tutorial-copy"},
@@ -1294,7 +1294,7 @@ function App(){
     };
     const picked=hotPickedHero?candidates.find(h=>h.title===hotPickedHero):null;
     const allDone=remaining.length===0;
-    return React.createElement("div",{className:"scene-screen",style:{backgroundImage:"url(portraits/WSPAHQ.JPG)"}},
+    return React.createElement("div",{className:"scene-screen",style:{backgroundImage:"url(portraits/WSPAHQ.jpg)"}},
       React.createElement("button",{className:"mbtn scene-back-btn",onClick:()=>{setScreen("hq");setHotPickedHero(null);}},"← BACK"),
       React.createElement("div",{className:"scene-title"},"HEROES OF TOMORROW"),
       !allDone&&React.createElement("div",{className:"scene-columns",style:{gridTemplateColumns:"1fr"}},
@@ -1305,8 +1305,8 @@ function App(){
       ),
       React.createElement("div",{className:"tutorial-box",style:{position:"absolute"}},
         React.createElement("div",{className:"tutorial-portrait-slot"},
-          React.createElement("img",{src:TUTORIAL_CHARACTERS.nichols.portrait,alt:"George Nichols",onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}),
-          React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:"none"}},"GN")
+          React.createElement("img",{src:picked?picked.portrait:TUTORIAL_CHARACTERS.nichols.portrait,alt:picked?picked.title:"George Nichols",onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}),
+          React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:"none"}},picked?picked.title.split(" ").map(w=>w[0]).join("").slice(0,3):"GN")
         ),
         React.createElement("div",{className:"tutorial-copy"},
           React.createElement("div",{className:"tutorial-speaker-name"},picked?picked.title.toUpperCase():"GEORGE NICHOLS"),
