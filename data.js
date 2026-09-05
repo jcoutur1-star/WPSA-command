@@ -653,3 +653,56 @@ function buildCodexEntries(){
   return entries;
 }
 const CODEX_ENTRIES=buildCodexEntries();
+// ─── COVERT OPERATIONS ──────────────────────────────────────────────────────
+// Country-influence side mode, run through Nichols. Capital ids are the ISO
+// 3166-1 numeric codes used by world-atlas's countries-110m.json (same file
+// the main WorldMap component already loads), so no new map asset is needed.
+const COVOPS_FACTIONS={
+  wspa:{key:"wspa",name:"W.S.P.A.",color:"#00d4ff",capitalId:"840",capitalName:"Washington, D.C."},
+  div7:{key:"div7",name:"DIVISION 7",color:"#ff3333",capitalId:"643",capitalName:"Moscow"},
+  div8:{key:"div8",name:"DIVISION 8",color:"#aa44ff",capitalId:"156",capitalName:"Beijing"},
+  accel:{key:"accel",name:"THE ACCELERATIONISTS",color:"#ffaa00",capitalId:"818",capitalName:"Cairo"}
+};
+const COVOPS_FACTION_LIST=["wspa","div7","div8","accel"];
+const COVOPS_NEUTRAL_COLOR="#141d24";
+
+// Core unit kit — Operators seed cheaply, Analysts defend, Spies go on offense.
+const COVOPS_UNIT_DEFS={
+  operator:{key:"operator",label:"OPERATOR",cost:15,seed:8,defense:1,offense:0.4,
+    desc:"Cheap footholds. Seeds WSPA influence in a region every cycle."},
+  analyst:{key:"analyst",label:"ANALYST",cost:30,seed:3,defense:3,offense:0,
+    desc:"Digs in. Raises the pressure a rival needs to flip a region you hold."},
+  spy:{key:"spy",label:"SPY",cost:35,seed:2,defense:0.5,offense:2.2,
+    desc:"Offense. Can be spent to sabotage the dominant rival faction on the spot."}
+};
+
+// "Great Prophet"-equivalents — Cass, Shadowmere, and Scarlett are borrowed
+// from hero duty for a single covert campaign, then recalled back to the roster.
+const COVOPS_SPECIAL_UNITS={
+  shadowmere:{key:"shadowmere",title:"Shadowmere",baseUnit:"operator",multiplier:3,
+    portrait:"portraits/Shadowmere.jpg",flavor:"Lena's officially \"on loan\" for this one. She won't say from who."},
+  scarlett:{key:"scarlett",title:"Scarlett",baseUnit:"spy",multiplier:3,
+    portrait:"portraits/Scarlett.jpg",flavor:"Scarlett already looks like three other people today."}
+};
+
+const COVOPS_NICHOLS_INTRO="\"Oh, Director — you want to call the shots on this side of the building? The watch is yours. I'll go manage the heroes for you. I can walk you through everything if you'd like?\"";
+
+// Puzzle bank — each solve resolves to a numeric or word code (the in-universe
+// codebreak) and pays out in Intel, the currency spent on the unit kit above.
+function genCovopsPuzzle(){
+  const kind=Math.random()<0.55?"numeric":"word";
+  if(kind==="numeric"){
+    const a=Math.floor(Math.random()*9)+2,b=Math.floor(Math.random()*9)+2,c=Math.floor(Math.random()*9)+2;
+    const ops=[["+",(x,y)=>x+y],["×",(x,y)=>x*y],["-",(x,y)=>x-y]];
+    const[s1,f1]=ops[Math.floor(Math.random()*ops.length)];
+    const[s2,f2]=ops[Math.floor(Math.random()*ops.length)];
+    const answer=f2(f1(a,b),c);
+    return{type:"numeric",prompt:`DECRYPT: (${a} ${s1} ${b}) ${s2} ${c} = ?`,answer:String(answer),reward:12,favors:"operator"};
+  }
+  const bank=[
+    {word:"SHADOW",scrambled:"HOWSAD"},{word:"CIPHER",scrambled:"REPHIC"},{word:"BEACON",scrambled:"CANEOB"},
+    {word:"SILENT",scrambled:"LISTEN"},{word:"ANALYST",scrambled:"LANTASY"},{word:"COVERT",scrambled:"VECTOR"}
+  ];
+  const pick=bank[Math.floor(Math.random()*bank.length)];
+  return{type:"word",prompt:`UNSCRAMBLE: ${pick.scrambled}`,answer:pick.word,reward:14,favors:"spy"};
+}
