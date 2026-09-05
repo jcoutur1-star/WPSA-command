@@ -118,6 +118,75 @@ function WorldMap({threats,depMap,score,target,extMode,zoom,pan,onZoomIn,onZoomO
   );
 }
 
+// ─── COVERT OPERATIONS MAP (dark black-site country-influence map) ────────────
+function CovertOpsMap({countries,capitalOwner,selected,onSelect,onTopologyReady}){
+  const [paths,setPaths]=useState({});
+  const loadedRef=useRef(false);
+  const W=580,H=360;
+
+  useEffect(()=>{
+    fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(r=>r.json()).then(world=>{
+      const projection=d3.geoNaturalEarth1().scale(92).translate([W/2,H/2]);
+      const pathGen=d3.geoPath().projection(projection);
+      const geometries=world.objects.countries.geometries;
+      const featCollection=topojson.feature(world,world.objects.countries);
+      const land=topojson.merge(world,geometries);
+      const graticule=d3.geoGraticule()();
+      const idList=geometries.map(g=>String(g.id));
+      // Border adjacency — this is what lets a country's neighbors pressure it,
+      // the same way a bordering city catches a rival religion in Civ.
+      const neighborIdx=topojson.neighbors(geometries);
+      const neighborMap={};
+      idList.forEach((id,i)=>{neighborMap[id]=neighborIdx[i].map(j=>idList[j]);});
+      const nameMap={};
+      featCollection.features.forEach(f=>{nameMap[String(f.id)]=(f.properties&&f.properties.name)||String(f.id);});
+      const countryPaths=featCollection.features.map(f=>({id:String(f.id),d:pathGen(f),centroid:pathGen.centroid(f)}));
+      setPaths({land:pathGen(land),graticule:pathGen(graticule),countries:countryPaths});
+      if(!loadedRef.current){
+        loadedRef.current=true;
+        onTopologyReady&&onTopologyReady({ids:idList,neighborMap,nameMap});
+      }
+    }).catch(()=>{});
+  },[]);
+
+  function factionColorFor(id){
+    const inf=countries&&countries[id];
+    if(!inf)return"#0c1116";
+    let best="neutral",bestV=inf.neutral==null?100:inf.neutral;
+    COVOPS_FACTION_LIST.forEach(f=>{if((inf[f]||0)>bestV){best=f;bestV=inf[f];}});
+    if(best==="neutral")return COVOPS_NEUTRAL_COLOR;
+    const share=Math.max(0,Math.min(100,bestV))/100;
+    const alpha=Math.round((0.30+0.65*share)*255).toString(16).padStart(2,"0");
+    return COVOPS_FACTIONS[best].color+alpha;
+  }
+
+  return React.createElement("div",{className:"covops-map-area"},
+    React.createElement("svg",{className:"covops-map-svg",viewBox:`0 0 ${W} ${H}`,xmlns:"http://www.w3.org/2000/svg"},
+      React.createElement("rect",{width:W,height:H,fill:"#000000"}),
+      paths.graticule&&React.createElement("path",{d:paths.graticule,fill:"none",stroke:"#0a1620",strokeWidth:.3,strokeDasharray:"1,7"}),
+      paths.countries&&paths.countries.map(c=>
+        React.createElement("path",{
+          key:c.id,d:c.d,fill:factionColorFor(c.id),
+          stroke:selected===c.id?"#eaeaea":"#10181f",
+          strokeWidth:selected===c.id?1.1:.35,
+          style:{cursor:"pointer",transition:"fill .5s"},
+          onClick:()=>onSelect&&onSelect(c.id)
+        })
+      ),
+      paths.land&&React.createElement("path",{d:paths.land,fill:"none",stroke:"#16232c",strokeWidth:.6}),
+      paths.countries&&capitalOwner&&paths.countries.filter(c=>capitalOwner[c.id]).map(c=>{
+        const fac=COVOPS_FACTIONS[capitalOwner[c.id]];
+        const cx=c.centroid[0],cy=c.centroid[1];
+        return React.createElement("g",{key:"cap-"+c.id,style:{pointerEvents:"none"}},
+          React.createElement("circle",{cx,cy,r:4,fill:"none",stroke:fac.color,strokeWidth:1.2}),
+          React.createElement("circle",{cx,cy,r:1.3,fill:fac.color}),
+          React.createElement("text",{x:cx,y:cy-7,textAnchor:"middle",fontSize:5.5,fill:fac.color,fontFamily:"'Share Tech Mono',monospace",letterSpacing:.5},"★ "+fac.capitalName.toUpperCase())
+        );
+      })
+    )
+  );
+}
+
 function App(){
   const [bank,setBank]=useState(loadBank);
   const [ownedShop,setOwnedShop]=useState(loadOwned);
@@ -187,6 +256,14 @@ function App(){
   const [mapPan,setMapPan]=useState({x:0,y:0});
   const mapDragRef=useRef(null);
 
+  // ─── COVERT OPERATIONS STATE (separate mode — no long-term crossover) ─────
+  const [covOps,setCovOps]=useState(null);
+  const [covOpsSelected,setCovOpsSelected]=useState(null);
+  const [covOpsPuzzle,setCovOpsPuzzle]=useState(null);
+  const [covOpsPuzzleInput,setCovOpsPuzzleInput]=useState("");
+  const [covOpsMsg,setCovOpsMsg]=useState("");
+  const [covOpsTutorialStep,setCovOpsTutorialStep]=useState(null);
+
   const tick=useRef(0);
   const lastHeadlineTick=useRef(0); // tracks last tick a headline was pushed
   const hRef=useRef(heroes);hRef.current=heroes;
@@ -205,6 +282,139 @@ function App(){
   function saveAndUpdateCodex(a){setCodexUnlocked(a);saveCodex(a);}
   function saveAndUpdateHotUnlocked(a){setHotUnlocked(a);saveHotUnlocked(a);}
   function saveAndUpdateTeam(t){setTeam(t);saveTeam(t);}
+
+  // ─── COVERT OPERATIONS ──────────────────────────────────────────────────
+  function initCovOps(){
+    setCovOps({
+      topologyReady:false,names:{},neighbors:{},countries:{},capitalOwner:{},
+      garrisons:{},intel:20,cycle:0,
+      specialsUsed:{shadowmere:false,scarlett:false},specialsAt:{shadowmere:null,scarlett:null}
+    });
+    setCovOpsSelected(null);setCovOpsPuzzle(null);setCovOpsPuzzleInput("");setCovOpsMsg("");
+  }
+
+  function onCovopsTopologyReady({ids,neighborMap,nameMap}){
+    setCovOps(prev=>{
+      if(!prev||prev.topologyReady)return prev;
+      const capitalOwner={};
+      COVOPS_FACTION_LIST.forEach(fk=>{
+        const cid=String(COVOPS_FACTIONS[fk].capitalId);
+        if(ids.includes(cid))capitalOwner[cid]=fk;
+      });
+      const countries={};
+      ids.forEach(id=>{
+        const blank=covopsBlank();
+        if(capitalOwner[id])blank[capitalOwner[id]]=100;
+        countries[id]=blank;
+      });
+      return{...prev,topologyReady:true,names:nameMap,neighbors:neighborMap,capitalOwner,countries};
+    });
+  }
+
+  function covopsRollPuzzle(){
+    setCovOpsPuzzle(genCovopsPuzzle());
+    setCovOpsPuzzleInput("");
+    setCovOpsMsg("");
+  }
+
+  function covopsSubmitPuzzle(){
+    if(!covOpsPuzzle)return;
+    const correct=covOpsPuzzleInput.trim().toUpperCase()===String(covOpsPuzzle.answer).toUpperCase();
+    if(correct){
+      setCovOps(prev=>prev?{...prev,intel:prev.intel+covOpsPuzzle.reward}:prev);
+      setCovOpsMsg(`✓ CODE CONFIRMED — +${covOpsPuzzle.reward} INTEL`);
+    }else{
+      setCovOpsMsg("✗ CODE REJECTED — try another intercept.");
+    }
+    setCovOpsPuzzle(null);setCovOpsPuzzleInput("");
+  }
+
+  function covopsDeployUnit(type){
+    if(!covOps||!covOpsSelected)return;
+    if(covOps.capitalOwner[covOpsSelected]){setCovOpsMsg("Can't insert into a hardened capital.");return;}
+    const def=COVOPS_UNIT_DEFS[type];
+    if(!def||covOps.intel<def.cost){setCovOpsMsg("Not enough Intel.");return;}
+    const unit={id:"u"+Math.random().toString(36).slice(2,9),type,faction:"wspa",
+      defense:def.defense,offense:def.offense,seedPerCycle:def.seed*0.35};
+    setCovOps(prev=>{
+      const g={...prev.garrisons};
+      g[covOpsSelected]=[...(g[covOpsSelected]||[]),unit];
+      return{...prev,garrisons:g,intel:prev.intel-def.cost};
+    });
+    setCovOpsMsg(`${def.label} inserted.`);
+  }
+
+  function covopsDeploySpecial(key){
+    if(!covOps||!covOpsSelected)return;
+    if(covOps.specialsUsed[key]){setCovOpsMsg("Already deployed this campaign.");return;}
+    if(covOps.capitalOwner[covOpsSelected]){setCovOpsMsg("Can't insert into a hardened capital.");return;}
+    const spec=COVOPS_SPECIAL_UNITS[key];
+    const base=COVOPS_UNIT_DEFS[spec.baseUnit];
+    const unit={id:"special_"+key,type:spec.baseUnit,faction:"wspa",special:key,
+      defense:base.defense*spec.multiplier,offense:base.offense*spec.multiplier,seedPerCycle:base.seed*spec.multiplier*0.35};
+    setCovOps(prev=>{
+      const g={...prev.garrisons};
+      g[covOpsSelected]=[...(g[covOpsSelected]||[]),unit];
+      return{...prev,garrisons:g,specialsUsed:{...prev.specialsUsed,[key]:true},specialsAt:{...prev.specialsAt,[key]:covOpsSelected}};
+    });
+    setCovOpsMsg(`${spec.title} is borrowed for this op. ${spec.flavor}`);
+  }
+
+  function covopsRecallSpecial(key){
+    setCovOps(prev=>{
+      if(!prev||!prev.specialsAt[key])return prev;
+      const cid=prev.specialsAt[key];
+      const g={...prev.garrisons};
+      g[cid]=(g[cid]||[]).filter(u=>u.special!==key);
+      return{...prev,garrisons:g,specialsAt:{...prev.specialsAt,[key]:null}};
+    });
+    setCovOpsMsg(`${COVOPS_SPECIAL_UNITS[key].title} recalled to hero duty.`);
+  }
+
+  function covopsSabotage(){
+    // Consumes a stationed Spy to instantly strip influence from whichever
+    // rival faction currently dominates the selected region.
+    if(!covOps||!covOpsSelected)return;
+    const g=covOps.garrisons[covOpsSelected]||[];
+    const spyIdx=g.findIndex(u=>u.type==="spy");
+    if(spyIdx===-1){setCovOpsMsg("No spy stationed here.");return;}
+    const spy=g[spyIdx];
+    const inf=covOps.countries[covOpsSelected];
+    let dom="neutral",domV=inf.neutral;
+    COVOPS_FACTION_LIST.forEach(f=>{if(f!=="wspa"&&inf[f]>domV){dom=f;domV=inf[f];}});
+    if(dom==="neutral"||domV<=0){setCovOpsMsg("Nothing to sabotage here.");return;}
+    const strip=Math.min(domV,10+(spy.special?20:0));
+    setCovOps(prev=>{
+      const c={...prev.countries};
+      const nv={...c[covOpsSelected]};
+      nv[dom]=Math.max(0,nv[dom]-strip);
+      nv.neutral=Math.max(0,100-COVOPS_FACTION_LIST.reduce((a,f)=>a+nv[f],0));
+      c[covOpsSelected]=nv;
+      const garrisons={...prev.garrisons};
+      garrisons[covOpsSelected]=g.filter((_,i)=>i!==spyIdx);
+      return{...prev,countries:c,garrisons};
+    });
+    setCovOpsMsg(`Sabotage successful — ${COVOPS_FACTIONS[dom].name} lost ${strip.toFixed(0)} influence.`);
+  }
+
+  function covopsAdvance(){
+    if(!covOps||!covOps.topologyReady)return;
+    setCovOps(prev=>({...prev,countries:covopsAdvanceCycle(prev.countries,prev.neighbors,prev.garrisons,prev.capitalOwner),cycle:prev.cycle+1}));
+  }
+
+  function covopsTutorialText(step){
+    switch(step){
+      case 1:return"Every country leans toward whoever's been leaning on it. Washington, Moscow, Beijing, and Cairo are locked in — those are the capitals, they don't flip. Everything else is up for grabs.";
+      case 2:return"Solve an intercept for Intel, then spend it on the left: Operators are cheap and seed influence, Analysts dig in and defend a region, Spies go on offense. Click a country to insert a unit there.";
+      case 3:return"Shadowmere and Scarlett are on loan from hero duty for this one — three times the strength of a normal Operator or Spy, but only once per campaign, and you can recall them back to the roster whenever you're done with them.";
+      case 4:return"Run an influence cycle when you're ready to see the board move. This one's separate from the hero side of the house — nothing here follows you back to the main game. Good hunting, Director.";
+      default:return"";
+    }
+  }
+
+  useEffect(()=>{
+    if(screen==="covops"&&!covOps)initCovOps();
+  },[screen,covOps]);
 
   function unlockAchievement(key){
     if(achievementsRef.current.includes(key))return;
@@ -1099,6 +1309,7 @@ function App(){
       {key:"franco",label:"FRANCO.MOV",desc:"The Franco Show — roster rankings & Q&A"},
       {key:"hot",label:"PROSPECTS.SYS",desc:"Heroes of Tomorrow — meet new recruits"},
       {key:"achievements",label:"ACHIEVEMENTS.SYS",desc:`Director milestones (${achievements.length}/${ACHIEVEMENT_DEFS.length})`},
+      {key:"covops_intro",label:"COVERT-OPS.SYS",desc:"Run the black-site side of the war — with Nichols"},
       {key:"confidential",label:"CONFIDENTIAL",desc:"⚠ RESTRICTED ACCESS"}
     ];
     return React.createElement("div",{className:"hq-screen"},
@@ -1116,6 +1327,151 @@ function App(){
           ),
           React.createElement("div",{className:"hq-file-arrow"},"›")
         ))
+      )
+    );
+  }
+
+  // ── COVERT OPERATIONS: NICHOLS HANDOFF ──
+  if(screen==="covops_intro"){
+    return React.createElement("div",{className:"covops-intro-screen"},
+      React.createElement("button",{className:"mbtn",style:{position:"absolute",top:16,left:16},onClick:()=>setScreen("hq")},"← BACK"),
+      React.createElement("div",{className:"covops-intro-box"},
+        React.createElement("div",{className:"tutorial-portrait-slot",style:{width:100,height:132}},
+          React.createElement("img",{src:TUTORIAL_CHARACTERS.nichols.portrait,alt:"George Nichols",onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}),
+          React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:"none"}},"GN")
+        ),
+        React.createElement("div",{className:"tutorial-copy"},
+          React.createElement("div",{className:"tutorial-speaker-name"},"GEORGE NICHOLS"),
+          React.createElement("div",{className:"tutorial-speaker-title"},"DEPUTY DIRECTOR"),
+          React.createElement("div",{className:"tutorial-text"},COVOPS_NICHOLS_INTRO),
+          React.createElement("div",{style:{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}},
+            React.createElement("button",{className:"mbtn covops-btn",onClick:()=>{
+              if(!covOps)initCovOps();
+              setCovOpsTutorialStep(1);
+              setScreen("covops");
+            }},"◈ WALK ME THROUGH IT"),
+            React.createElement("button",{className:"mbtn",onClick:()=>{
+              if(!covOps)initCovOps();
+              setCovOpsTutorialStep(null);
+              setScreen("covops");
+            }},"▶ THE WATCH IS MINE")
+          )
+        )
+      )
+    );
+  }
+
+  // ── COVERT OPERATIONS: MAIN BOARD ──
+  if(screen==="covops"){
+    const c=covOps||{};
+    const sel=covOpsSelected;
+    const selInf=sel&&c.countries?c.countries[sel]:null;
+    const selName=sel&&c.names?c.names[sel]:null;
+    const selGarrison=(sel&&c.garrisons&&c.garrisons[sel])||[];
+    const selIsCapital=sel&&c.capitalOwner&&c.capitalOwner[sel];
+    const tally={wspa:0,div7:0,div8:0,accel:0,neutral:0};
+    if(c.countries)Object.values(c.countries).forEach(inf=>{
+      let best="neutral",bestV=inf.neutral;
+      COVOPS_FACTION_LIST.forEach(f=>{if(inf[f]>bestV){best=f;bestV=inf[f];}});
+      tally[best]++;
+    });
+
+    return React.createElement("div",{className:"covops-screen"},
+      React.createElement("div",{className:"covops-header"},
+        React.createElement("div",{className:"covops-title"},"◈ COVERT OPERATIONS — BLACK SITE COMMAND ◈"),
+        React.createElement("div",{className:"covops-scoreboard"},
+          COVOPS_FACTION_LIST.map(f=>React.createElement("span",{key:f,style:{color:COVOPS_FACTIONS[f].color}},`${COVOPS_FACTIONS[f].name}: ${tally[f]}`)),
+          React.createElement("span",{style:{color:"#666"}},`NEUTRAL: ${tally.neutral}`)
+        ),
+        React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+          React.createElement("div",{className:"covops-intel"},`◈ INTEL: ${c.intel||0}`),
+          React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("hq")},"← EXIT TO HQ")
+        )
+      ),
+      React.createElement("div",{className:"covops-body"},
+        React.createElement("div",{className:"covops-side-panel"},
+          React.createElement("div",{className:"covops-panel-title"},"CODEBREAKING"),
+          React.createElement("button",{className:"mbtn covops-btn",onClick:covopsRollPuzzle},"◈ INTERCEPT A SIGNAL"),
+          covOpsPuzzle&&React.createElement("div",{className:"covops-puzzle-box"},
+            React.createElement("div",{className:"covops-puzzle-prompt"},covOpsPuzzle.prompt),
+            React.createElement("input",{className:"covops-puzzle-input",value:covOpsPuzzleInput,onChange:e=>setCovOpsPuzzleInput(e.target.value),onKeyDown:e=>e.key==="Enter"&&covopsSubmitPuzzle(),placeholder:covOpsPuzzle.type==="numeric"?"numeric code...":"word code...",autoFocus:true}),
+            React.createElement("button",{className:"mbtn covops-btn",onClick:covopsSubmitPuzzle},"SUBMIT")
+          ),
+          covOpsMsg&&React.createElement("div",{className:"covops-msg"},covOpsMsg),
+          React.createElement("div",{className:"covops-panel-title",style:{marginTop:14}},"ADVANCE"),
+          React.createElement("button",{className:"mbtn covops-btn",onClick:covopsAdvance},`◈ RUN INFLUENCE CYCLE (${c.cycle||0})`),
+          React.createElement("div",{className:"covops-panel-title",style:{marginTop:14}},"THE ROSTER"),
+          Object.keys(COVOPS_UNIT_DEFS).map(t=>{
+            const d=COVOPS_UNIT_DEFS[t];
+            return React.createElement("div",{key:t,className:"covops-unit-row"},
+              React.createElement("div",null,
+                React.createElement("div",{className:"covops-unit-label"},d.label+" — "+d.cost+" INTEL"),
+                React.createElement("div",{className:"covops-unit-desc"},d.desc)
+              )
+            );
+          }),
+          React.createElement("div",{className:"covops-panel-title",style:{marginTop:14}},"ON LOAN FROM HERO DUTY"),
+          Object.keys(COVOPS_SPECIAL_UNITS).map(k=>{
+            const s=COVOPS_SPECIAL_UNITS[k];
+            const used=c.specialsUsed&&c.specialsUsed[k];
+            const at=c.specialsAt&&c.specialsAt[k];
+            return React.createElement("div",{key:k,className:"covops-unit-row"},
+              React.createElement("div",null,
+                React.createElement("div",{className:"covops-unit-label"},s.title+" (×3 "+s.baseUnit+")"),
+                React.createElement("div",{className:"covops-unit-desc"},used?(at?`Stationed in ${c.names?c.names[at]:at}`:"Recalled to hero duty."):"Not yet deployed this campaign.")
+              ),
+              !used&&React.createElement("button",{className:"mbtn covops-mini-btn",disabled:!sel||!!selIsCapital,onClick:()=>covopsDeploySpecial(k)},"DEPLOY"),
+              used&&at&&React.createElement("button",{className:"mbtn covops-mini-btn",onClick:()=>covopsRecallSpecial(k)},"RECALL")
+            );
+          })
+        ),
+        React.createElement("div",{className:"covops-map-wrap"},
+          React.createElement(CovertOpsMap,{
+            countries:c.countries||{},capitalOwner:c.capitalOwner||{},selected:covOpsSelected,
+            onSelect:id=>setCovOpsSelected(id),onTopologyReady:onCovopsTopologyReady
+          })
+        ),
+        React.createElement("div",{className:"covops-side-panel"},
+          React.createElement("div",{className:"covops-panel-title"},"REGION FILE"),
+          !sel&&React.createElement("div",{className:"covops-hint"},"Select a country on the map."),
+          sel&&React.createElement("div",null,
+            React.createElement("div",{className:"covops-region-name"},(selName||sel).toUpperCase()),
+            selIsCapital&&React.createElement("div",{className:"covops-region-capital"},`★ ${COVOPS_FACTIONS[selIsCapital].name} CAPITAL — locked`),
+            selInf&&COVOPS_FACTION_LIST.concat("neutral").map(f=>{
+              const label=f==="neutral"?"NEUTRAL":COVOPS_FACTIONS[f].name;
+              const color=f==="neutral"?"#888":COVOPS_FACTIONS[f].color;
+              const val=selInf[f]||0;
+              return React.createElement("div",{key:f,className:"covops-bar-row"},
+                React.createElement("div",{className:"covops-bar-label",style:{color}},`${label} ${val.toFixed(0)}%`),
+                React.createElement("div",{className:"covops-bar-track"},
+                  React.createElement("div",{className:"covops-bar-fill",style:{width:`${val}%`,background:color}})
+                )
+              );
+            }),
+            !selIsCapital&&React.createElement("div",{style:{marginTop:10}},
+              React.createElement("div",{className:"covops-panel-title"},"INSERT UNIT"),
+              Object.keys(COVOPS_UNIT_DEFS).map(t=>React.createElement("button",{key:t,className:"mbtn covops-mini-btn",disabled:!c.intel||c.intel<COVOPS_UNIT_DEFS[t].cost,onClick:()=>covopsDeployUnit(t)},`+ ${COVOPS_UNIT_DEFS[t].label}`))
+            ),
+            React.createElement("div",{className:"covops-panel-title",style:{marginTop:10}},"GARRISON"),
+            selGarrison.length===0&&React.createElement("div",{className:"covops-hint"},"No WSPA assets stationed here."),
+            selGarrison.map(u=>React.createElement("div",{key:u.id,className:"covops-garrison-row"},
+              u.special?COVOPS_SPECIAL_UNITS[u.special].title:COVOPS_UNIT_DEFS[u.type].label
+            )),
+            selGarrison.some(u=>u.type==="spy")&&React.createElement("button",{className:"mbtn red covops-mini-btn",style:{marginTop:6},onClick:covopsSabotage},"⚠ SABOTAGE (consumes a Spy)")
+          )
+        )
+      ),
+      covOpsTutorialStep&&React.createElement("div",{className:"tutorial-box"},
+        React.createElement("div",{className:"tutorial-portrait-slot"},
+          React.createElement("img",{src:TUTORIAL_CHARACTERS.nichols.portrait,alt:"George Nichols",onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}),
+          React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:"none"}},"GN")
+        ),
+        React.createElement("div",{className:"tutorial-copy"},
+          React.createElement("div",{className:"tutorial-speaker-name"},"GEORGE NICHOLS"),
+          React.createElement("div",{className:"tutorial-speaker-title"},"DEPUTY DIRECTOR"),
+          React.createElement("div",{className:"tutorial-text"},covopsTutorialText(covOpsTutorialStep)),
+          React.createElement("button",{className:"tutorial-btn",onClick:()=>setCovOpsTutorialStep(prev=>prev>=4?null:prev+1)},covOpsTutorialStep>=4?"GOT IT, I'LL TAKE IT FROM HERE":"NEXT")
+        )
       )
     );
   }
