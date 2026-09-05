@@ -223,3 +223,53 @@ function calcDmg(outcome,hero,threat,allDeployed){
 }
 
 const WIN1=500,WIN2=1000,VILLAIN_TEAM_SCORE=120;
+// ─── COVERT OPERATIONS LOGIC ────────────────────────────────────────────────
+// influence vector shape: {wspa,div7,div8,accel,neutral}, always summing to 100
+function covopsBlank(){return{wspa:0,div7:0,div8:0,accel:0,neutral:100};}
+
+const COVOPS_PRESSURE_RATE=0.09; // how hard a neighbor's dominant faction leans on you
+const COVOPS_DECAY=0.985;        // slow decay keeps swings gradual, Civ-religion style
+
+// Runs one influence cycle: every non-capital country is pressured by its
+// bordering neighbors' dominant faction, tempered by any WSPA garrison
+// (Analysts blunt incoming rival pressure, Operators/Spies seed WSPA's own).
+// Capitals are fixed anchors — 100% owner-controlled, never contested.
+function covopsAdvanceCycle(countries,neighborMap,garrisons,capitalOwner){
+  const ids=Object.keys(countries);
+  const next={};
+  ids.forEach(id=>{
+    if(capitalOwner[id]){
+      const blank=covopsBlank();
+      blank[capitalOwner[id]]=100;
+      next[id]=blank;
+      return;
+    }
+    const cur=countries[id];
+    const localUnits=garrisons[id]||[];
+    const defense=1+localUnits.filter(u=>u.faction==="wspa").reduce((a,u)=>a+u.defense,0)*0.12;
+    const gain={wspa:0,div7:0,div8:0,accel:0};
+    (neighborMap[id]||[]).forEach(nid=>{
+      const ninf=countries[nid];if(!ninf)return;
+      const nUnits=garrisons[nid]||[];
+      Object.keys(gain).forEach(f=>{
+        const share=ninf[f]||0;if(share<=0)return;
+        const offenseBoost=1+nUnits.filter(u=>u.faction===f).reduce((a,u)=>a+u.offense,0)*0.15;
+        const resist=f==="wspa"?1:defense; // a WSPA garrison only blunts rival pressure, not its own
+        gain[f]+=(share*COVOPS_PRESSURE_RATE*offenseBoost)/resist;
+      });
+    });
+    const seed=localUnits.filter(u=>u.faction==="wspa").reduce((a,u)=>a+(u.seedPerCycle||0),0);
+    gain.wspa+=seed;
+    let vec={
+      wspa:cur.wspa*COVOPS_DECAY+gain.wspa,
+      div7:cur.div7*COVOPS_DECAY+gain.div7,
+      div8:cur.div8*COVOPS_DECAY+gain.div8,
+      accel:cur.accel*COVOPS_DECAY+gain.accel
+    };
+    let total=vec.wspa+vec.div7+vec.div8+vec.accel;
+    if(total>100){const s=100/total;Object.keys(vec).forEach(f=>vec[f]*=s);total=100;}
+    vec.neutral=Math.max(0,100-total);
+    next[id]=vec;
+  });
+  return next;
+}
