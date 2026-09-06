@@ -301,3 +301,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 .covops-bar-track{height:5px;background:#151515;border-radius:2px;overflow:hidden}
 .covops-bar-fill{height:100%;transition:width .5s}
 .covops-garrison-row{font-size:9.5px;color:#bbb;padding:3px 0;border-bottom:1px solid #151515}
+
+/* ── COVERT OPERATIONS v2 additions ── */
+.covops-turn-clock{font-family:var(--font-head);font-size:10px;color:#ff5566;letter-spacing:1px;border:1px solid #331a1a;padding:3px 8px;border-radius:2px}
+.covops-puzzle-solved{font-size:9.5px;color:#39d66a;margin-top:4px}
+.covops-puzzle-locked{font-size:9.5px;color:#ff5566;margin-top:4px}
+.covops-puzzle-attempts{font-size:8.5px;color:#777;margin-top:4px}
+.covops-special-portrait{width:32px;height:42px;object-fit:cover;border-radius:2px;border:1px solid #333;flex-shrink:0}
+.covops-region-status{font-size:9px;letter-spacing:1px;margin-bottom:8px;font-weight:bold}
+.covops-faction-row{font-size:9.5px;padding:4px 0;cursor:pointer;letter-spacing:.5px}
+.covops-faction-row:hover{opacity:.8}
+.covops-legend{position:absolute;bottom:10px;left:10px;right:10px;background:rgba(0,0,0,.85);border:1px solid #333;border-radius:3px;padding:6px 10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:8.5px}
+.covops-map-wrap{position:relative}
+.covops-matrix{width:100%;border-collapse:collapse;font-size:8.5px}
+.covops-matrix th,.covops-matrix td{padding:2px 4px;text-align:center;border-bottom:1px solid #161616}
+.covops-matrix th{color:#666;font-weight:normal}
