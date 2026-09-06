@@ -223,53 +223,183 @@ function calcDmg(outcome,hero,threat,allDeployed){
 }
 
 const WIN1=500,WIN2=1000,VILLAIN_TEAM_SCORE=120;
+
 // ─── COVERT OPERATIONS LOGIC ────────────────────────────────────────────────
-// influence vector shape: {wspa,div7,div8,accel,neutral}, always summing to 100
-function covopsBlank(){return{wspa:0,div7:0,div8:0,accel:0,neutral:100};}
+// influence vector shape: {wspa,div7,div8,accel,ggru,neutral}, summing to 100.
+// Capitals are NOT force-reset here anymore — they start at 100% for their
+// owner but obey the same math as everywhere else, so they can be captured.
+function covopsBlank(){return{wspa:0,div7:0,div8:0,accel:0,ggru:0,neutral:100};}
+
+// Dominant = highest share, used for map coloring and the scoreboard tally.
+function covopsDominantFaction(inf){
+  let best="neutral",bestV=inf.neutral==null?100:inf.neutral;
+  COVOPS_FACTION_LIST.forEach(f=>{if((inf[f]||0)>bestV){best=f;bestV=inf[f];}});
+  return best;
+}
+// Majority = strictly over 50%. Only a majority holder collects a country's
+// per-turn income — a contested country (no one over 50%) pays out to no one.
+function covopsMajorityFaction(inf){
+  let best=null,bestV=50;
+  COVOPS_FACTION_LIST.forEach(f=>{if((inf[f]||0)>bestV){best=f;bestV=inf[f];}});
+  return best;
+}
+function covopsCollectIncome(countries,names){
+  const income={wspa:0,div7:0,div8:0,accel:0,ggru:0};
+  Object.keys(countries).forEach(id=>{
+    const maj=covopsMajorityFaction(countries[id]);
+    if(!maj)return;
+    income[maj]+=covopsTierForCountry((names&&names[id])||"");
+  });
+  return income;
+}
 
 const COVOPS_PRESSURE_RATE=0.09; // how hard a neighbor's dominant faction leans on you
 const COVOPS_DECAY=0.985;        // slow decay keeps swings gradual, Civ-religion style
 
-// Runs one influence cycle: every non-capital country is pressured by its
-// bordering neighbors' dominant faction, tempered by any WSPA garrison
-// (Analysts blunt incoming rival pressure, Operators/Spies seed WSPA's own).
-// Capitals are fixed anchors — 100% owner-controlled, never contested.
-function covopsAdvanceCycle(countries,neighborMap,garrisons,capitalOwner){
+// Runs one influence cycle: every country is pressured by its bordering
+// neighbors, weighted by the *neighbor's* own point-tier (a tier-20 neighbor
+// like the US leans on Mexico harder than Mexico leans back), and tempered by
+// whichever faction currently holds a majority here (their own Analysts blunt
+// incoming rival pressure; a contested country gets no such discount).
+function covopsAdvanceCycle(countries,neighborMap,garrisons,names){
   const ids=Object.keys(countries);
   const next={};
   ids.forEach(id=>{
-    if(capitalOwner[id]){
-      const blank=covopsBlank();
-      blank[capitalOwner[id]]=100;
-      next[id]=blank;
-      return;
-    }
     const cur=countries[id];
     const localUnits=garrisons[id]||[];
-    const defense=1+localUnits.filter(u=>u.faction==="wspa").reduce((a,u)=>a+u.defense,0)*0.12;
-    const gain={wspa:0,div7:0,div8:0,accel:0};
+    const incumbent=covopsMajorityFaction(cur);
+    const gain={};
+    COVOPS_FACTION_LIST.forEach(f=>gain[f]=0);
     (neighborMap[id]||[]).forEach(nid=>{
       const ninf=countries[nid];if(!ninf)return;
       const nUnits=garrisons[nid]||[];
-      Object.keys(gain).forEach(f=>{
+      const exportWeight=Math.max(0.5,covopsTierForCountry((names&&names[nid])||"")/10);
+      COVOPS_FACTION_LIST.forEach(f=>{
         const share=ninf[f]||0;if(share<=0)return;
         const offenseBoost=1+nUnits.filter(u=>u.faction===f).reduce((a,u)=>a+u.offense,0)*0.15;
-        const resist=f==="wspa"?1:defense; // a WSPA garrison only blunts rival pressure, not its own
-        gain[f]+=(share*COVOPS_PRESSURE_RATE*offenseBoost)/resist;
+        let raw=share*COVOPS_PRESSURE_RATE*offenseBoost*exportWeight;
+        if(incumbent&&f!==incumbent){
+          const defenseVal=1+localUnits.filter(u=>u.faction===incumbent).reduce((a,u)=>a+u.defense,0)*0.12;
+          raw/=defenseVal;
+        }
+        gain[f]+=raw;
       });
     });
-    const seed=localUnits.filter(u=>u.faction==="wspa").reduce((a,u)=>a+(u.seedPerCycle||0),0);
-    gain.wspa+=seed;
-    let vec={
-      wspa:cur.wspa*COVOPS_DECAY+gain.wspa,
-      div7:cur.div7*COVOPS_DECAY+gain.div7,
-      div8:cur.div8*COVOPS_DECAY+gain.div8,
-      accel:cur.accel*COVOPS_DECAY+gain.accel
-    };
-    let total=vec.wspa+vec.div7+vec.div8+vec.accel;
-    if(total>100){const s=100/total;Object.keys(vec).forEach(f=>vec[f]*=s);total=100;}
+    COVOPS_FACTION_LIST.forEach(f=>{
+      const seed=localUnits.filter(u=>u.faction===f).reduce((a,u)=>a+(u.seedPerCycle||0),0);
+      gain[f]+=seed;
+    });
+    const vec={};let total=0;
+    COVOPS_FACTION_LIST.forEach(f=>{vec[f]=Math.max(0,(cur[f]||0)*COVOPS_DECAY+gain[f]);total+=vec[f];});
+    if(total>100){const s=100/total;COVOPS_FACTION_LIST.forEach(f=>vec[f]*=s);total=100;}
     vec.neutral=Math.max(0,100-total);
     next[id]=vec;
   });
   return next;
+}
+
+function covopsIdsByName(names,nameList){
+  const set=new Set(nameList);
+  return Object.keys(names).filter(id=>set.has(names[id]));
+}
+function covopsBuyUnit(garrisons,countryId,faction,type,multiplier){
+  multiplier=multiplier||1;
+  const def=COVOPS_UNIT_DEFS[type];
+  const unit={id:faction+"_"+type+"_"+Math.random().toString(36).slice(2,8),type,faction,
+    defense:def.defense*multiplier,offense:def.offense*multiplier,seedPerCycle:def.seed*multiplier*0.35};
+  garrisons[countryId]=[...(garrisons[countryId]||[]),unit];
+  return unit;
+}
+
+// Runs one AI faction's turn: given its point balance, buys and places units
+// per its behavior profile, mutating `garrisons` in place. Returns leftover points.
+function covopsRunAiFaction(key,countries,garrisons,neighborMap,names,points){
+  let budget=points;
+  const home=covopsIdsByName(names,COVOPS_HOME_REGIONS[key]||[]);
+  const allIds=Object.keys(countries);
+  function spend(type,countryId){
+    const cost=COVOPS_UNIT_DEFS[type].cost;
+    if(budget<cost||!countryId)return false;
+    covopsBuyUnit(garrisons,countryId,key,type);
+    budget-=cost;
+    return true;
+  }
+
+  if(key==="accel"){
+    // Incompetent — leaves points unspent almost half the time; otherwise acts at random.
+    if(Math.random()<0.45)return budget;
+    let guard=8;
+    while(budget>=15&&guard-->0){
+      const id=allIds[Math.floor(Math.random()*allIds.length)];
+      const type=["operator","operator","analyst","spy"][Math.floor(Math.random()*4)];
+      if(!spend(type,id))break;
+    }
+    return budget;
+  }
+
+  if(key==="ggru"){
+    // Spends most of its budget holding Cuba/Venezuela, the rest spreading to neighbors.
+    const strongholds=covopsIdsByName(names,COVOPS_START_GGRU_STRONGHOLDS);
+    let hb=Math.floor(budget*0.8);
+    let guard=10;
+    while(hb>=15&&guard-->0&&strongholds.length){
+      const target=strongholds[Math.floor(Math.random()*strongholds.length)];
+      const inf=countries[target];
+      const type=(inf&&(inf.ggru||0)<70)?"analyst":"operator";
+      const cost=COVOPS_UNIT_DEFS[type].cost;
+      if(hb<cost)break;
+      covopsBuyUnit(garrisons,target,key,type);
+      hb-=cost;budget-=cost;
+    }
+    const neighbors=new Set();
+    strongholds.forEach(s=>(neighborMap[s]||[]).forEach(n=>neighbors.add(n)));
+    const spreadTargets=[...neighbors];
+    let sb=budget,guard2=6;
+    while(sb>=15&&guard2-->0&&spreadTargets.length){
+      const target=spreadTargets[Math.floor(Math.random()*spreadTargets.length)];
+      if(!spend("operator",target))break;
+      sb=budget;
+    }
+    return budget;
+  }
+
+  if(key==="div7"){
+    // Defensive until every home country is a supermajority (>=80%), then offense.
+    const weakHome=home.filter(id=>((countries[id]&&countries[id].div7)||0)<80);
+    if(weakHome.length>0){
+      let guard=10;
+      while(budget>=30&&guard-->0&&weakHome.length){
+        weakHome.sort((a,b)=>((countries[a]&&countries[a].div7)||0)-((countries[b]&&countries[b].div7)||0));
+        const target=weakHome[0];
+        if(!spend("analyst",target)&&!spend("operator",target))break;
+        if(((countries[target]&&countries[target].div7)||0)>=80)weakHome.shift();
+      }
+      return budget;
+    }
+    const neighbors=new Set();
+    home.forEach(h=>(neighborMap[h]||[]).forEach(n=>{if(!home.includes(n))neighbors.add(n);}));
+    const targets=[...neighbors];
+    let guard=8;
+    while(budget>=35&&guard-->0&&targets.length){
+      const target=targets[Math.floor(Math.random()*targets.length)];
+      if(!spend("spy",target))break;
+    }
+    return budget;
+  }
+
+  if(key==="div8"){
+    // Very aggressive, expands anywhere, rarely reinforces home except China.
+    const chinaId=covopsIdsByName(names,["China"])[0];
+    if(chinaId&&countries[chinaId]&&(countries[chinaId].div8||0)<90&&Math.random()<0.3)spend("analyst",chinaId);
+    const targets=allIds.filter(id=>!home.includes(id));
+    let guard=10;
+    while(budget>=15&&guard-->0&&targets.length){
+      const target=targets[Math.floor(Math.random()*targets.length)];
+      const type=Math.random()<0.6?"spy":"operator";
+      if(!spend(type,target))break;
+    }
+    return budget;
+  }
+
+  return budget;
 }
