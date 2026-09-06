@@ -653,56 +653,167 @@ function buildCodexEntries(){
   return entries;
 }
 const CODEX_ENTRIES=buildCodexEntries();
+
 // ─── COVERT OPERATIONS ──────────────────────────────────────────────────────
-// Country-influence side mode, run through Nichols. Capital ids are the ISO
-// 3166-1 numeric codes used by world-atlas's countries-110m.json (same file
-// the main WorldMap component already loads), so no new map asset is needed.
+// Country-influence side mode, run through Nichols. All country names below
+// match the exact "properties.name" strings in world-atlas's countries-110m.json
+// (the same file the main WorldMap already fetches), verified against that file
+// directly — so there shouldn't be silent tier/start mismatches.
 const COVOPS_FACTIONS={
-  wspa:{key:"wspa",name:"W.S.P.A.",color:"#00d4ff",capitalId:"840",capitalName:"Washington, D.C."},
-  div7:{key:"div7",name:"DIVISION 7",color:"#ff3333",capitalId:"643",capitalName:"Moscow"},
-  div8:{key:"div8",name:"DIVISION 8",color:"#aa44ff",capitalId:"156",capitalName:"Beijing"},
-  accel:{key:"accel",name:"THE ACCELERATIONISTS",color:"#ffaa00",capitalId:"818",capitalName:"Cairo"}
+  wspa:{key:"wspa",name:"W.S.P.A.",color:"#00d4ff",markerColor:"#aef2ff",capitalId:"840",capitalName:"Washington, D.C.",capitalCountry:"United States of America",tagline:"Holding the center, playing every side evenly."},
+  div7:{key:"div7",name:"DIVISION 7",color:"#ff3333",markerColor:"#ffb3b3",capitalId:"643",capitalName:"Moscow",capitalCountry:"Russia",tagline:"Defensive until dominant, then relentless."},
+  div8:{key:"div8",name:"DIVISION 8",color:"#aa44ff",markerColor:"#e6c2ff",capitalId:"156",capitalName:"Beijing",capitalCountry:"China",tagline:"Aggressive expansion, rarely reinforces."},
+  accel:{key:"accel",name:"THE ACCELERATIONISTS",color:"#ffaa00",markerColor:"#ffe2a8",capitalId:"818",capitalName:"Cairo",capitalCountry:"Egypt",tagline:"Chaotic and undisciplined — often leaves points unspent."},
+  ggru:{key:"ggru",name:"THE GGRU",color:"#39d66a",markerColor:"#c8ffcf",capitalId:"192",capitalName:"Havana",capitalCountry:"Cuba",tagline:"Weak everywhere except Cuba and Venezuela, which they hold hard."}
 };
-const COVOPS_FACTION_LIST=["wspa","div7","div8","accel"];
+const COVOPS_FACTION_LIST=["wspa","div7","div8","accel","ggru"];
 const COVOPS_NEUTRAL_COLOR="#141d24";
+// Real capital coordinates for map markers — deliberately NOT the geometric
+// centroid of the whole country (that's what put Moscow's marker in Siberia).
+const COVOPS_CAPITAL_COORDS={
+  wspa:{lat:38.9,lng:-77.0},div7:{lat:55.75,lng:37.62},div8:{lat:39.90,lng:116.40},
+  accel:{lat:30.04,lng:31.24},ggru:{lat:23.13,lng:-82.38}
+};
+
+const COVOPS_TURN_SECONDS=60;
+const COVOPS_WIN_TURN=20;
 
 // Core unit kit — Operators seed cheaply, Analysts defend, Spies go on offense.
+// Same prices for every faction, WSPA included.
 const COVOPS_UNIT_DEFS={
   operator:{key:"operator",label:"OPERATOR",cost:15,seed:8,defense:1,offense:0.4,
-    desc:"Cheap footholds. Seeds WSPA influence in a region every cycle."},
+    desc:"Cheap footholds. Seeds influence in a region every turn."},
   analyst:{key:"analyst",label:"ANALYST",cost:30,seed:3,defense:3,offense:0,
     desc:"Digs in. Raises the pressure a rival needs to flip a region you hold."},
   spy:{key:"spy",label:"SPY",cost:35,seed:2,defense:0.5,offense:2.2,
     desc:"Offense. Can be spent to sabotage the dominant rival faction on the spot."}
 };
 
-// "Great Prophet"-equivalents — Cass, Shadowmere, and Scarlett are borrowed
-// from hero duty for a single covert campaign, then recalled back to the roster.
+// "Great Prophet"-equivalents — borrowed from hero duty. Each unlocks once at a
+// fixed turn, then goes on a 5-turn (5-minute) cooldown after every use.
 const COVOPS_SPECIAL_UNITS={
-  shadowmere:{key:"shadowmere",title:"Shadowmere",baseUnit:"operator",multiplier:3,
+  shadowmere:{key:"shadowmere",title:"Shadowmere",baseUnit:"operator",multiplier:3,unlockTurn:2,cooldownTurns:5,
     portrait:"portraits/Shadowmere.jpg",flavor:"Lena's officially \"on loan\" for this one. She won't say from who."},
-  scarlett:{key:"scarlett",title:"Scarlett",baseUnit:"spy",multiplier:3,
+  scarlett:{key:"scarlett",title:"Scarlett",baseUnit:"spy",multiplier:3,unlockTurn:4,cooldownTurns:5,
     portrait:"portraits/Scarlett.jpg",flavor:"Scarlett already looks like three other people today."}
 };
 
 const COVOPS_NICHOLS_INTRO="\"Oh, Director — you want to call the shots on this side of the building? The watch is yours. I'll go manage the heroes for you. I can walk you through everything if you'd like?\"";
+const COVOPS_NICHOLS_WIN_PROMPT="\"Good work keeping us in the game. Would you like me to take it from here?\"";
+const COVOPS_NICHOLS_CONTINUE_ACK="\"Your call, Director. I'll keep the lights on and let you finish it.\"";
 
-// Puzzle bank — each solve resolves to a numeric or word code (the in-universe
-// codebreak) and pays out in Intel, the currency spent on the unit kit above.
-function genCovopsPuzzle(){
-  const kind=Math.random()<0.55?"numeric":"word";
-  if(kind==="numeric"){
-    const a=Math.floor(Math.random()*9)+2,b=Math.floor(Math.random()*9)+2,c=Math.floor(Math.random()*9)+2;
-    const ops=[["+",(x,y)=>x+y],["×",(x,y)=>x*y],["-",(x,y)=>x-y]];
-    const[s1,f1]=ops[Math.floor(Math.random()*ops.length)];
-    const[s2,f2]=ops[Math.floor(Math.random()*ops.length)];
-    const answer=f2(f1(a,b),c);
-    return{type:"numeric",prompt:`DECRYPT: (${a} ${s1} ${b}) ${s2} ${c} = ?`,answer:String(answer),reward:12,favors:"operator"};
-  }
-  const bank=[
-    {word:"SHADOW",scrambled:"HOWSAD"},{word:"CIPHER",scrambled:"REPHIC"},{word:"BEACON",scrambled:"CANEOB"},
-    {word:"SILENT",scrambled:"LISTEN"},{word:"ANALYST",scrambled:"LANTASY"},{word:"COVERT",scrambled:"VECTOR"}
-  ];
-  const pick=bank[Math.floor(Math.random()*bank.length)];
-  return{type:"word",prompt:`UNSCRAMBLE: ${pick.scrambled}`,answer:pick.word,reward:14,favors:"spy"};
+// ─── COUNTRY POINT TIERS (income per controlled country per turn) ─────────────
+const COVOPS_TIER_20=["United States of America"];
+const COVOPS_TIER_14=["China","Russia"];
+const COVOPS_TIER_12=["France","Germany","United Kingdom","Italy","Spain","Netherlands","Belgium",
+  "Switzerland","Austria","Portugal","Ireland","Denmark","Sweden","Norway","Finland","Iceland",
+  "Luxembourg","Greece","Australia","Canada","Japan"];
+const COVOPS_TIER_10=["Poland","Czechia","Slovakia","Hungary","Romania","Bulgaria","Ukraine","Belarus",
+  "Estonia","Latvia","Lithuania","Moldova","Serbia","Croatia","Bosnia and Herz.","Montenegro","Macedonia",
+  "Albania","Slovenia","Mexico","India",
+  "Guatemala","Belize","Honduras","El Salvador","Nicaragua","Costa Rica","Panama","Colombia","Venezuela",
+  "Ecuador","Peru","Bolivia","Chile","Argentina","Paraguay","Uruguay","Brazil","Guyana","Suriname",
+  "Cuba","Dominican Rep.","Haiti","Jamaica","Bahamas","Trinidad and Tobago"];
+// Everything not listed above defaults to 6 points/turn.
+function covopsTierForCountry(name){
+  if(COVOPS_TIER_20.includes(name))return 20;
+  if(COVOPS_TIER_14.includes(name))return 14;
+  if(COVOPS_TIER_12.includes(name))return 12;
+  if(COVOPS_TIER_10.includes(name))return 10;
+  return 6;
 }
+
+// ─── STARTING MAP POSITION ──────────────────────────────────────────────────
+// Region rosters, kept as plain editable arrays so specific country calls are
+// easy to correct after playtesting.
+const COVOPS_START_WSPA_90=["Canada","France","Germany","United Kingdom","Italy","Spain","Netherlands",
+  "Belgium","Switzerland","Austria","Portugal","Ireland","Denmark","Sweden","Norway","Finland","Iceland",
+  "Luxembourg","Australia","Japan","Taiwan","Poland"];
+const COVOPS_START_CS_AMERICA=["Mexico","Guatemala","Belize","Honduras","El Salvador","Nicaragua",
+  "Costa Rica","Panama","Colombia","Ecuador","Peru","Bolivia","Chile","Argentina","Paraguay","Uruguay",
+  "Brazil","Guyana","Suriname","Dominican Rep.","Haiti","Jamaica","Bahamas","Trinidad and Tobago"];
+const COVOPS_START_GGRU_STRONGHOLDS=["Cuba","Venezuela"];
+const COVOPS_START_AFRICA_ME=["Libya","Tunisia","Algeria","Morocco","W. Sahara","Sudan","S. Sudan",
+  "Nigeria","Ethiopia","Kenya","Tanzania","Uganda","Ghana","Côte d'Ivoire","Senegal","Mali","Niger","Chad",
+  "Cameroon","Dem. Rep. Congo","Congo","Angola","Zambia","Zimbabwe","Mozambique","Namibia","Botswana",
+  "South Africa","Somalia","Eritrea","Djibouti","Central African Rep.","Gabon","Eq. Guinea","Guinea",
+  "Sierra Leone","Liberia","Burkina Faso","Benin","Togo","Malawi","Rwanda","Burundi","Madagascar",
+  "Mauritania","Gambia","Guinea-Bissau","Lesotho","eSwatini","Saudi Arabia","Iran","Iraq","Israel","Jordan",
+  "Lebanon","Syria","Yemen","Oman","United Arab Emirates","Qatar","Kuwait","Palestine","Turkey","Cyprus"];
+const COVOPS_START_SOVIET=["Ukraine","Belarus","Kazakhstan","Uzbekistan","Turkmenistan","Tajikistan",
+  "Kyrgyzstan","Armenia","Azerbaijan","Georgia","Moldova","Estonia","Latvia","Lithuania"];
+const COVOPS_START_ASIA_D8=["Mongolia","North Korea","South Korea","Vietnam","Laos","Cambodia","Thailand",
+  "Myanmar","Malaysia","Indonesia","Philippines","Brunei","India","Pakistan","Bangladesh","Sri Lanka",
+  "Nepal","Bhutan","Afghanistan"];
+
+function covopsStartingInfluence(name){
+  const blank=covopsBlank();
+  if(name==="United States of America")return{...blank,neutral:0,wspa:100};
+  if(name==="Russia")return{...blank,neutral:0,div7:100};
+  if(name==="China")return{...blank,neutral:0,div8:100};
+  if(name==="Egypt")return{...blank,neutral:0,accel:100};
+  if(COVOPS_START_GGRU_STRONGHOLDS.includes(name))return{...blank,neutral:0,ggru:100};
+  if(COVOPS_START_WSPA_90.includes(name))return{...blank,neutral:10,wspa:90};
+  if(COVOPS_START_CS_AMERICA.includes(name))return{...blank,neutral:0,wspa:80,ggru:20};
+  if(COVOPS_START_AFRICA_ME.includes(name))return{...blank,neutral:0,accel:60,wspa:20,div7:20};
+  if(COVOPS_START_SOVIET.includes(name))return{...blank,neutral:0,div7:76,div8:12,wspa:12};
+  if(COVOPS_START_ASIA_D8.includes(name))return{...blank,neutral:0,div8:80,wspa:10,div7:10};
+  return blank; // fully neutral — not named in any starting bloc
+}
+
+// ─── CODEBREAKING BANK ──────────────────────────────────────────────────────
+// ~100 military / covert-ops / country-name words, 4–7 letters. Scrambles are
+// generated on the fly (not pre-baked) so the same word reads differently each
+// time it comes up.
+const COVOPS_WORD_BANK=[
+  "RECON","SNIPER","BUNKER","MEDIC","RATION","ARMOR","ASSAULT","CONVOY","SQUAD","RADAR",
+  "MISSILE","TARGET","AMBUSH","SENTRY","TRENCH","CANNON","ARSENAL","GRENADE","HELMET","RIFLE",
+  "PISTOL","SABER","MEDAL","RANK","CORPS","FLEET","TROOP","GUARD","ALERT","DRILL",
+  "MARCH","BASE","CAMP","FORT","AGENT","CIPHER","DECODE","SIGNAL","BEACON","SILENT",
+  "LISTEN","COVERT","VECTOR","SHADOW","MASKED","CACHE","DEBRIEF","HANDLER","MOLE","DOSSIER",
+  "ENCRYPT","EXTRACT","INSERT","RECALL","ALIAS","FRONT","DROP","NETWORK","SLEEPER","DEFECT",
+  "TRAITOR","LOYALTY","BETRAY","UNMASK","EXPOSE","BURNED","GHOST","PHANTOM","STEALTH","DECOY",
+  "BLUFF","FEINT","OUTPOST","BORDER","UPLINK","ROUTE","RELAY","SECURE","BREACH","LOCKED",
+  "FRANCE","EGYPT","CHINA","CUBA","SPAIN","ITALY","JAPAN","POLAND","RUSSIA","TAIWAN",
+  "MEXICO","BRAZIL","KENYA","INDIA","SYRIA","YEMEN","ISRAEL","JORDAN","TURKEY","GREECE",
+  "CANADA","CYPRUS","LIBYA","GHANA","CHILE","PERU","CONGO","CHAD","MALI","OMAN"
+];
+function covopsScrambleWord(word){
+  const lower=word.toLowerCase();
+  const letters=lower.split("");
+  let scrambled=lower,tries=0;
+  while((scrambled===lower||tries===0)&&tries<20){
+    for(let i=letters.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [letters[i],letters[j]]=[letters[j],letters[i]];
+    }
+    scrambled=letters.join("");
+    tries++;
+  }
+  return scrambled.charAt(0).toUpperCase()+scrambled.slice(1);
+}
+function genCovopsWordPuzzle(){
+  const word=COVOPS_WORD_BANK[Math.floor(Math.random()*COVOPS_WORD_BANK.length)];
+  return{type:"word",prompt:`UNSCRAMBLE: ${covopsScrambleWord(word)}`,answer:word,reward:7};
+}
+// Simple linear-equation bank ("resolves in X= or Y="), generated rather than
+// pre-baked so it plays like a much larger bank without 100 authored lines.
+function genCovopsMathPuzzle(){
+  const useY=Math.random()<0.5;
+  const v=useY?"Y":"X";
+  const ansVal=Math.floor(Math.random()*12)+1;
+  const coef=Math.floor(Math.random()*6)+2;
+  const addend=Math.floor(Math.random()*15)+1;
+  const sign=Math.random()<0.5?"+":"-";
+  const rhs=sign==="+"?coef*ansVal+addend:coef*ansVal-addend;
+  return{type:"numeric",prompt:`${coef}${v} ${sign} ${addend} = ${rhs}.  ${v} = ?`,answer:String(ansVal),reward:7};
+}
+
+// Home regions per AI faction, used to decide when Division 7 goes on offense
+// (all home countries >=80%) and where GGRU/Division 8 anchor their behavior.
+const COVOPS_HOME_REGIONS={
+  div7:[...COVOPS_START_SOVIET,"Russia"],
+  div8:[...COVOPS_START_ASIA_D8,"China"],
+  accel:[...COVOPS_START_AFRICA_ME,"Egypt"],
+  ggru:[...COVOPS_START_GGRU_STRONGHOLDS]
+};
