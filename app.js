@@ -119,8 +119,9 @@ function WorldMap({threats,depMap,score,target,extMode,zoom,pan,onZoomIn,onZoomO
 }
 
 // ─── COVERT OPERATIONS MAP (dark black-site country-influence map) ────────────
-function CovertOpsMap({countries,capitalOwner,selected,onSelect,onTopologyReady}){
+function CovertOpsMap({countries,capitalOwner,selected,onSelect,onTopologyReady,filterFaction}){
   const [paths,setPaths]=useState({});
+  const [proj,setProj]=useState(null);
   const loadedRef=useRef(false);
   const W=580,H=360;
 
@@ -140,8 +141,9 @@ function CovertOpsMap({countries,capitalOwner,selected,onSelect,onTopologyReady}
       idList.forEach((id,i)=>{neighborMap[id]=neighborIdx[i].map(j=>idList[j]);});
       const nameMap={};
       featCollection.features.forEach(f=>{nameMap[String(f.id)]=(f.properties&&f.properties.name)||String(f.id);});
-      const countryPaths=featCollection.features.map(f=>({id:String(f.id),d:pathGen(f),centroid:pathGen.centroid(f)}));
+      const countryPaths=featCollection.features.map(f=>({id:String(f.id),d:pathGen(f)}));
       setPaths({land:pathGen(land),graticule:pathGen(graticule),countries:countryPaths});
+      setProj(()=>projection);
       if(!loadedRef.current){
         loadedRef.current=true;
         onTopologyReady&&onTopologyReady({ids:idList,neighborMap,nameMap});
@@ -154,10 +156,29 @@ function CovertOpsMap({countries,capitalOwner,selected,onSelect,onTopologyReady}
     if(!inf)return"#0c1116";
     let best="neutral",bestV=inf.neutral==null?100:inf.neutral;
     COVOPS_FACTION_LIST.forEach(f=>{if((inf[f]||0)>bestV){best=f;bestV=inf[f];}});
+    if(filterFaction){
+      // Faction detail view: shade by that faction's own presence tier instead
+      // of who's dominant — nonexistent / minority / majority / supermajority.
+      const share=inf[filterFaction]||0;
+      if(share<=0)return"#0a0d10";
+      if(share>=80)return COVOPS_FACTIONS[filterFaction].color+"f0";
+      if(share>=51)return COVOPS_FACTIONS[filterFaction].color+"a8";
+      return COVOPS_FACTIONS[filterFaction].color+"48";
+    }
     if(best==="neutral")return COVOPS_NEUTRAL_COLOR;
     const share=Math.max(0,Math.min(100,bestV))/100;
     const alpha=Math.round((0.30+0.65*share)*255).toString(16).padStart(2,"0");
     return COVOPS_FACTIONS[best].color+alpha;
+  }
+
+  function projectCapital(fk){
+    if(!proj)return null;
+    const coord=COVOPS_CAPITAL_COORDS[fk];if(!coord)return null;
+    try{
+      const pt=proj([coord.lng,coord.lat]);
+      if(!pt||isNaN(pt[0])||isNaN(pt[1]))return null;
+      return pt;
+    }catch(e){return null;}
   }
 
   return React.createElement("div",{className:"covops-map-area"},
@@ -174,13 +195,14 @@ function CovertOpsMap({countries,capitalOwner,selected,onSelect,onTopologyReady}
         })
       ),
       paths.land&&React.createElement("path",{d:paths.land,fill:"none",stroke:"#16232c",strokeWidth:.6}),
-      paths.countries&&capitalOwner&&paths.countries.filter(c=>capitalOwner[c.id]).map(c=>{
-        const fac=COVOPS_FACTIONS[capitalOwner[c.id]];
-        const cx=c.centroid[0],cy=c.centroid[1];
-        return React.createElement("g",{key:"cap-"+c.id,style:{pointerEvents:"none"}},
-          React.createElement("circle",{cx,cy,r:4,fill:"none",stroke:fac.color,strokeWidth:1.2}),
-          React.createElement("circle",{cx,cy,r:1.3,fill:fac.color}),
-          React.createElement("text",{x:cx,y:cy-7,textAnchor:"middle",fontSize:5.5,fill:fac.color,fontFamily:"'Share Tech Mono',monospace",letterSpacing:.5},"★ "+fac.capitalName.toUpperCase())
+      proj&&COVOPS_FACTION_LIST.filter(fk=>capitalOwner&&Object.values(capitalOwner).includes(fk)).map(fk=>{
+        const pt=projectCapital(fk);if(!pt)return null;
+        const fac=COVOPS_FACTIONS[fk];
+        const [cx,cy]=pt;
+        return React.createElement("g",{key:"cap-"+fk,style:{pointerEvents:"none"}},
+          React.createElement("circle",{cx,cy,r:4,fill:"none",stroke:fac.markerColor,strokeWidth:1.3}),
+          React.createElement("circle",{cx,cy,r:1.3,fill:fac.markerColor}),
+          React.createElement("text",{x:cx,y:cy-7,textAnchor:"middle",fontSize:5.5,fill:"#000000",fontFamily:"'Share Tech Mono',monospace",letterSpacing:.5,fontWeight:"bold"},"★ "+fac.capitalName.toUpperCase())
         );
       })
     )
@@ -259,10 +281,13 @@ function App(){
   // ─── COVERT OPERATIONS STATE (separate mode — no long-term crossover) ─────
   const [covOps,setCovOps]=useState(null);
   const [covOpsSelected,setCovOpsSelected]=useState(null);
-  const [covOpsPuzzle,setCovOpsPuzzle]=useState(null);
-  const [covOpsPuzzleInput,setCovOpsPuzzleInput]=useState("");
+  const [covOpsFactionDetail,setCovOpsFactionDetail]=useState(null);
   const [covOpsMsg,setCovOpsMsg]=useState("");
   const [covOpsTutorialStep,setCovOpsTutorialStep]=useState(null);
+  const [covOpsMathInput,setCovOpsMathInput]=useState("");
+  const [covOpsWordInput,setCovOpsWordInput]=useState("");
+  const covOpsRef=useRef(null);covOpsRef.current=covOps;
+  const covOpsTimerRef=useRef(null);
 
   const tick=useRef(0);
   const lastHeadlineTick=useRef(0); // tracks last tick a headline was pushed
@@ -285,12 +310,26 @@ function App(){
 
   // ─── COVERT OPERATIONS ──────────────────────────────────────────────────
   function initCovOps(){
+    const specials={};
+    Object.keys(COVOPS_SPECIAL_UNITS).forEach(k=>{
+      specials[k]={deployed:false,at:null,nextAvailableTurn:COVOPS_SPECIAL_UNITS[k].unlockTurn};
+    });
     setCovOps({
       topologyReady:false,names:{},neighbors:{},countries:{},capitalOwner:{},
-      garrisons:{},intel:20,cycle:0,
-      specialsUsed:{shadowmere:false,scarlett:false},specialsAt:{shadowmere:null,scarlett:null}
+      garrisons:{},bank:{operator:0,analyst:0,spy:0},
+      points:{wspa:20,div7:0,div8:0,accel:0,ggru:0},
+      turn:0,turnSecondsLeft:COVOPS_TURN_SECONDS,
+      puzzles:{math:{...genCovopsMathPuzzle(),attempts:0,locked:false},word:{...genCovopsWordPuzzle(),attempts:0,locked:false}},
+      specials,gameStatus:"active",wspaEliminatedAtTurn:null,lossReason:null
     });
-    setCovOpsSelected(null);setCovOpsPuzzle(null);setCovOpsPuzzleInput("");setCovOpsMsg("");
+    setCovOpsSelected(null);setCovOpsFactionDetail(null);setCovOpsMsg("");
+    setCovOpsMathInput("");setCovOpsWordInput("");
+  }
+
+  function covopsExitToHQ(){
+    if(covOpsTimerRef.current){clearInterval(covOpsTimerRef.current);covOpsTimerRef.current=null;}
+    setCovOps(null); // leaving always resets — next visit starts a fresh campaign
+    setScreen("hq");
   }
 
   function onCovopsTopologyReady({ids,neighborMap,nameMap}){
@@ -302,52 +341,81 @@ function App(){
         if(ids.includes(cid))capitalOwner[cid]=fk;
       });
       const countries={};
-      ids.forEach(id=>{
-        const blank=covopsBlank();
-        if(capitalOwner[id])blank[capitalOwner[id]]=100;
-        countries[id]=blank;
-      });
+      ids.forEach(id=>{countries[id]=covopsStartingInfluence(nameMap[id]||"");});
       return{...prev,topologyReady:true,names:nameMap,neighbors:neighborMap,capitalOwner,countries};
     });
   }
 
-  function covopsRollPuzzle(){
-    setCovOpsPuzzle(genCovopsPuzzle());
-    setCovOpsPuzzleInput("");
-    setCovOpsMsg("");
-  }
-
-  function covopsSubmitPuzzle(){
-    if(!covOpsPuzzle)return;
-    const correct=covOpsPuzzleInput.trim().toUpperCase()===String(covOpsPuzzle.answer).toUpperCase();
+  function covopsSubmitPuzzle(slot){
+    const cur=covOpsRef.current;if(!cur)return;
+    const p=cur.puzzles[slot];
+    if(!p||p.locked||p.solved)return;
+    const inputVal=slot==="math"?covOpsMathInput:covOpsWordInput;
+    const correct=inputVal.trim().toUpperCase()===String(p.answer).toUpperCase();
     if(correct){
-      setCovOps(prev=>prev?{...prev,intel:prev.intel+covOpsPuzzle.reward}:prev);
-      setCovOpsMsg(`✓ CODE CONFIRMED — +${covOpsPuzzle.reward} INTEL`);
+      setCovOpsMsg(`✓ ${slot==="math"?"DECRYPT":"UNSCRAMBLE"} CONFIRMED — +${p.reward} INFLUENCE`);
+      setCovOps(prev=>({...prev,puzzles:{...prev.puzzles,[slot]:{...prev.puzzles[slot],solved:true,locked:true}},points:{...prev.points,wspa:prev.points.wspa+p.reward}}));
     }else{
-      setCovOpsMsg("✗ CODE REJECTED — try another intercept.");
+      const attempts=p.attempts+1,locked=attempts>=2;
+      setCovOpsMsg(locked?"✗ CODE REJECTED — locked for the rest of this turn.":"✗ CODE REJECTED — one more try.");
+      setCovOps(prev=>({...prev,puzzles:{...prev.puzzles,[slot]:{...prev.puzzles[slot],attempts,locked}}}));
     }
-    setCovOpsPuzzle(null);setCovOpsPuzzleInput("");
+    if(slot==="math")setCovOpsMathInput(""); else setCovOpsWordInput("");
   }
 
-  function covopsDeployUnit(type){
-    if(!covOps||!covOpsSelected)return;
-    if(covOps.capitalOwner[covOpsSelected]){setCovOpsMsg("Can't insert into a hardened capital.");return;}
+  function covopsBuyToBank(type){
+    const cur=covOpsRef.current;if(!cur)return;
     const def=COVOPS_UNIT_DEFS[type];
-    if(!def||covOps.intel<def.cost){setCovOpsMsg("Not enough Intel.");return;}
+    if(cur.points.wspa<def.cost){setCovOpsMsg("Not enough influence points.");return;}
+    setCovOps(prev=>({...prev,points:{...prev.points,wspa:prev.points.wspa-def.cost},bank:{...prev.bank,[type]:prev.bank[type]+1}}));
+    setCovOpsMsg(`${def.label} banked — deploy it from any region whenever you're ready.`);
+  }
+
+  function covopsDeployFromBank(type){
+    const cur=covOpsRef.current;if(!cur||!covOpsSelected)return;
+    if(cur.bank[type]<=0){setCovOpsMsg("None banked.");return;}
+    const def=COVOPS_UNIT_DEFS[type];
     const unit={id:"u"+Math.random().toString(36).slice(2,9),type,faction:"wspa",
       defense:def.defense,offense:def.offense,seedPerCycle:def.seed*0.35};
     setCovOps(prev=>{
       const g={...prev.garrisons};
       g[covOpsSelected]=[...(g[covOpsSelected]||[]),unit];
-      return{...prev,garrisons:g,intel:prev.intel-def.cost};
+      return{...prev,garrisons:g,bank:{...prev.bank,[type]:prev.bank[type]-1}};
     });
-    setCovOpsMsg(`${def.label} inserted.`);
+    setCovOpsMsg(`${def.label} deployed.`);
+  }
+
+  function covopsWithdrawUnit(unitId){
+    const cur=covOpsRef.current;if(!cur||!covOpsSelected)return;
+    const g=cur.garrisons[covOpsSelected]||[];
+    const unit=g.find(u=>u.id===unitId);
+    if(!unit||unit.faction!=="wspa"||unit.special)return;
+    setCovOps(prev=>{
+      const garrisons={...prev.garrisons};
+      garrisons[covOpsSelected]=(garrisons[covOpsSelected]||[]).filter(u=>u.id!==unitId);
+      return{...prev,garrisons,bank:{...prev.bank,[unit.type]:prev.bank[unit.type]+1}};
+    });
+    setCovOpsMsg(`${COVOPS_UNIT_DEFS[unit.type].label} withdrawn to the bank.`);
+  }
+
+  function covopsWithdrawAllOfType(type){
+    const cur=covOpsRef.current;if(!cur||!covOpsSelected)return;
+    const g=cur.garrisons[covOpsSelected]||[];
+    const matching=g.filter(u=>u.faction==="wspa"&&u.type===type&&!u.special);
+    if(!matching.length)return;
+    setCovOps(prev=>{
+      const garrisons={...prev.garrisons};
+      garrisons[covOpsSelected]=(garrisons[covOpsSelected]||[]).filter(u=>!(u.faction==="wspa"&&u.type===type&&!u.special));
+      return{...prev,garrisons,bank:{...prev.bank,[type]:prev.bank[type]+matching.length}};
+    });
+    setCovOpsMsg(`${matching.length} ${COVOPS_UNIT_DEFS[type].label}(S) withdrawn to the bank.`);
   }
 
   function covopsDeploySpecial(key){
-    if(!covOps||!covOpsSelected)return;
-    if(covOps.specialsUsed[key]){setCovOpsMsg("Already deployed this campaign.");return;}
-    if(covOps.capitalOwner[covOpsSelected]){setCovOpsMsg("Can't insert into a hardened capital.");return;}
+    const cur=covOpsRef.current;if(!cur||!covOpsSelected)return;
+    const st=cur.specials[key];
+    if(st.deployed){setCovOpsMsg("Already in the field.");return;}
+    if(cur.turn<st.nextAvailableTurn){setCovOpsMsg(`Still on hero duty — available turn ${st.nextAvailableTurn}.`);return;}
     const spec=COVOPS_SPECIAL_UNITS[key];
     const base=COVOPS_UNIT_DEFS[spec.baseUnit];
     const unit={id:"special_"+key,type:spec.baseUnit,faction:"wspa",special:key,
@@ -355,34 +423,35 @@ function App(){
     setCovOps(prev=>{
       const g={...prev.garrisons};
       g[covOpsSelected]=[...(g[covOpsSelected]||[]),unit];
-      return{...prev,garrisons:g,specialsUsed:{...prev.specialsUsed,[key]:true},specialsAt:{...prev.specialsAt,[key]:covOpsSelected}};
+      return{...prev,garrisons:g,specials:{...prev.specials,[key]:{...prev.specials[key],deployed:true,at:covOpsSelected}}};
     });
     setCovOpsMsg(`${spec.title} is borrowed for this op. ${spec.flavor}`);
   }
 
   function covopsRecallSpecial(key){
+    const cur=covOpsRef.current;if(!cur)return;
+    const st=cur.specials[key];
+    if(!st.deployed||!st.at)return;
+    const cid=st.at;
     setCovOps(prev=>{
-      if(!prev||!prev.specialsAt[key])return prev;
-      const cid=prev.specialsAt[key];
       const g={...prev.garrisons};
       g[cid]=(g[cid]||[]).filter(u=>u.special!==key);
-      return{...prev,garrisons:g,specialsAt:{...prev.specialsAt,[key]:null}};
+      const cooldown=COVOPS_SPECIAL_UNITS[key].cooldownTurns;
+      return{...prev,garrisons:g,specials:{...prev.specials,[key]:{deployed:false,at:null,nextAvailableTurn:prev.turn+cooldown}}};
     });
-    setCovOpsMsg(`${COVOPS_SPECIAL_UNITS[key].title} recalled to hero duty.`);
+    setCovOpsMsg(`${COVOPS_SPECIAL_UNITS[key].title} recalled to hero duty — back off cooldown in ${COVOPS_SPECIAL_UNITS[key].cooldownTurns} turns.`);
   }
 
   function covopsSabotage(){
-    // Consumes a stationed Spy to instantly strip influence from whichever
-    // rival faction currently dominates the selected region.
-    if(!covOps||!covOpsSelected)return;
-    const g=covOps.garrisons[covOpsSelected]||[];
-    const spyIdx=g.findIndex(u=>u.type==="spy");
+    const cur=covOpsRef.current;if(!cur||!covOpsSelected)return;
+    const g=cur.garrisons[covOpsSelected]||[];
+    const spyIdx=g.findIndex(u=>u.faction==="wspa"&&u.type==="spy");
     if(spyIdx===-1){setCovOpsMsg("No spy stationed here.");return;}
     const spy=g[spyIdx];
-    const inf=covOps.countries[covOpsSelected];
-    let dom="neutral",domV=inf.neutral;
-    COVOPS_FACTION_LIST.forEach(f=>{if(f!=="wspa"&&inf[f]>domV){dom=f;domV=inf[f];}});
-    if(dom==="neutral"||domV<=0){setCovOpsMsg("Nothing to sabotage here.");return;}
+    const inf=cur.countries[covOpsSelected];
+    let dom=null,domV=0;
+    COVOPS_FACTION_LIST.forEach(f=>{if(f!=="wspa"&&(inf[f]||0)>domV){dom=f;domV=inf[f];}});
+    if(!dom||domV<=0){setCovOpsMsg("Nothing to sabotage here.");return;}
     const strip=Math.min(domV,10+(spy.special?20:0));
     setCovOps(prev=>{
       const c={...prev.countries};
@@ -397,17 +466,72 @@ function App(){
     setCovOpsMsg(`Sabotage successful — ${COVOPS_FACTIONS[dom].name} lost ${strip.toFixed(0)} influence.`);
   }
 
-  function covopsAdvance(){
-    if(!covOps||!covOps.topologyReady)return;
-    setCovOps(prev=>({...prev,countries:covopsAdvanceCycle(prev.countries,prev.neighbors,prev.garrisons,prev.capitalOwner),cycle:prev.cycle+1}));
+  // Runs at the top of every minute: collect income, let the AI factions spend,
+  // advance the influence map, deal fresh codes, and check win/loss.
+  function covopsResolveTurn(){
+    const cur=covOpsRef.current;
+    if(!cur||!cur.topologyReady||cur.gameStatus!=="active")return;
+
+    const income=covopsCollectIncome(cur.countries,cur.names);
+    const pointsAfterIncome={
+      wspa:cur.points.wspa+income.wspa,div7:cur.points.div7+income.div7,
+      div8:cur.points.div8+income.div8,accel:cur.points.accel+income.accel,ggru:cur.points.ggru+income.ggru
+    };
+
+    const garrisons=JSON.parse(JSON.stringify(cur.garrisons));
+    const pointsAfterAi={...pointsAfterIncome};
+    ["div7","div8","accel","ggru"].forEach(fk=>{
+      pointsAfterAi[fk]=covopsRunAiFaction(fk,cur.countries,garrisons,cur.neighbors,cur.names,pointsAfterAi[fk]);
+    });
+
+    const newCountries=covopsAdvanceCycle(cur.countries,cur.neighbors,garrisons,cur.names);
+    const newTurn=cur.turn+1;
+    const newPuzzles={math:{...genCovopsMathPuzzle(),attempts:0,locked:false},word:{...genCovopsWordPuzzle(),attempts:0,locked:false}};
+
+    const wspaCount=Object.values(newCountries).filter(inf=>covopsDominantFaction(inf)==="wspa").length;
+    let gameStatus=cur.gameStatus,wspaEliminatedAtTurn=cur.wspaEliminatedAtTurn,lossReason=cur.lossReason;
+
+    if(wspaCount===0){
+      if(wspaEliminatedAtTurn==null){
+        wspaEliminatedAtTurn=newTurn;
+        setCovOpsMsg("⚠ WSPA has lost every region. One turn to reclaim a foothold, Director.");
+      }else{
+        gameStatus="lost";lossReason="WSPA was wiped off the map.";
+      }
+    }else{
+      wspaEliminatedAtTurn=null;
+    }
+
+    const rivalCounts={};
+    ["div7","div8","accel","ggru"].forEach(fk=>{rivalCounts[fk]=Object.values(newCountries).filter(inf=>covopsDominantFaction(inf)===fk).length;});
+    const allRivalsWiped=Object.values(rivalCounts).every(c=>c===0);
+    if(gameStatus==="active"&&allRivalsWiped)gameStatus="won_complete";
+    if(gameStatus==="active"&&cur.turn<COVOPS_WIN_TURN&&newTurn>=COVOPS_WIN_TURN)gameStatus="win_prompt";
+
+    setCovOps(prev=>({...prev,countries:newCountries,garrisons,points:pointsAfterAi,turn:newTurn,
+      turnSecondsLeft:COVOPS_TURN_SECONDS,puzzles:newPuzzles,gameStatus,wspaEliminatedAtTurn,lossReason}));
+    setCovOpsMathInput("");setCovOpsWordInput("");
+  }
+
+  function covopsAcceptWin(){
+    const nb=bank+500;saveAndUpdateBank(nb);
+    setCovOps(prev=>prev?{...prev,gameStatus:"won"}:prev);
+  }
+  function covopsContinuePlaying(){
+    setCovOps(prev=>prev?{...prev,gameStatus:"active"}:prev);
+    setCovOpsMsg(COVOPS_NICHOLS_CONTINUE_ACK);
+  }
+  function covopsClaimCompleteVictory(){
+    const nb=bank+1000;saveAndUpdateBank(nb);
+    // gameStatus is already "won_complete" — this just banks the points.
   }
 
   function covopsTutorialText(step){
     switch(step){
-      case 1:return"Every country leans toward whoever's been leaning on it. Washington, Moscow, Beijing, and Cairo are locked in — those are the capitals, they don't flip. Everything else is up for grabs.";
-      case 2:return"Solve an intercept for Intel, then spend it on the left: Operators are cheap and seed influence, Analysts dig in and defend a region, Spies go on offense. Click a country to insert a unit there.";
-      case 3:return"Shadowmere and Scarlett are on loan from hero duty for this one — three times the strength of a normal Operator or Spy, but only once per campaign, and you can recall them back to the roster whenever you're done with them.";
-      case 4:return"Run an influence cycle when you're ready to see the board move. This one's separate from the hero side of the house — nothing here follows you back to the main game. Good hunting, Director.";
+      case 1:return"Every country leans toward whoever's been leaning on it — the bigger the neighbor, the harder it pushes. Washington, Moscow, Beijing, Cairo, and Havana start as capitals, but nothing here is unconquerable anymore. Lose a country, you lose whatever's built on it, capitals included.";
+      case 2:return"Every minute is a turn. Solve the decrypt and the unscramble on the left for influence — two tries each before a code locks for the rest of the turn. Spend influence to bank Operators, Analysts, and Spies, then deploy them from any region's file whenever you're ready.";
+      case 3:return"Shadowmere and Scarlett are on loan from hero duty — triple strength, but each is off doing hero work for 5 turns after you recall them, and Shadowmere isn't even in yet for two more turns.";
+      case 4:return"Survive 20 turns and I'll offer to take the watch back for a clean win. Turn it down and it's a fight to the finish — wipe every rival off the map, or we get wiped ourselves. Good hunting, Director.";
       default:return"";
     }
   }
@@ -415,6 +539,28 @@ function App(){
   useEffect(()=>{
     if(screen==="covops"&&!covOps)initCovOps();
   },[screen,covOps]);
+
+  // Turn clock — ticks once per second, resolves a full turn at zero. Pauses
+  // automatically whenever the game isn't actively running (win prompt, game over).
+  useEffect(()=>{
+    const active=screen==="covops"&&covOps&&covOps.gameStatus==="active";
+    if(!active){
+      if(covOpsTimerRef.current){clearInterval(covOpsTimerRef.current);covOpsTimerRef.current=null;}
+      return;
+    }
+    if(covOpsTimerRef.current)return;
+    covOpsTimerRef.current=setInterval(()=>{
+      setCovOps(prev=>{
+        if(!prev||prev.gameStatus!=="active")return prev;
+        if(prev.turnSecondsLeft<=1){
+          setTimeout(()=>covopsResolveTurn(),0);
+          return{...prev,turnSecondsLeft:0};
+        }
+        return{...prev,turnSecondsLeft:prev.turnSecondsLeft-1};
+      });
+    },1000);
+    return()=>{if(covOpsTimerRef.current){clearInterval(covOpsTimerRef.current);covOpsTimerRef.current=null;}};
+  },[screen,covOps&&covOps.gameStatus]);
 
   function unlockAchievement(key){
     if(achievementsRef.current.includes(key))return;
@@ -1369,12 +1515,28 @@ function App(){
     const selName=sel&&c.names?c.names[sel]:null;
     const selGarrison=(sel&&c.garrisons&&c.garrisons[sel])||[];
     const selIsCapital=sel&&c.capitalOwner&&c.capitalOwner[sel];
-    const tally={wspa:0,div7:0,div8:0,accel:0,neutral:0};
+    const tally={wspa:0,div7:0,div8:0,accel:0,ggru:0,neutral:0};
     if(c.countries)Object.values(c.countries).forEach(inf=>{
-      let best="neutral",bestV=inf.neutral;
-      COVOPS_FACTION_LIST.forEach(f=>{if(inf[f]>bestV){best=f;bestV=inf[f];}});
+      const best=covopsDominantFaction(inf);
       tally[best]++;
     });
+    const unitMatrix={};
+    COVOPS_FACTION_LIST.forEach(f=>{unitMatrix[f]={operator:0,analyst:0,spy:0,total:0};});
+    if(c.garrisons)Object.values(c.garrisons).forEach(list=>(list||[]).forEach(u=>{
+      if(!unitMatrix[u.faction])return;
+      unitMatrix[u.faction][u.type]=(unitMatrix[u.faction][u.type]||0)+1;
+      unitMatrix[u.faction].total++;
+    }));
+    function statusTagFor(inf){
+      const sorted=COVOPS_FACTION_LIST.map(f=>({f,v:inf[f]||0})).sort((a,b)=>b.v-a.v);
+      const top=sorted[0];
+      if(top.v>=80)return{label:"SUPERMAJORITY",color:COVOPS_FACTIONS[top.f].color};
+      if(top.v===50&&sorted[1].v===50)return{label:"SPLIT",color:"#ccc"};
+      if(top.v>50)return{label:"MAJORITY",color:COVOPS_FACTIONS[top.f].color};
+      if(top.v>0)return{label:"CONTESTED",color:"#ccc"};
+      return{label:"NEUTRAL",color:"#888"};
+    }
+    const statusTag=selInf?statusTagFor(selInf):null;
 
     return React.createElement("div",{className:"covops-screen"},
       React.createElement("div",{className:"covops-header"},
@@ -1383,60 +1545,85 @@ function App(){
           COVOPS_FACTION_LIST.map(f=>React.createElement("span",{key:f,style:{color:COVOPS_FACTIONS[f].color}},`${COVOPS_FACTIONS[f].name}: ${tally[f]}`)),
           React.createElement("span",{style:{color:"#666"}},`NEUTRAL: ${tally.neutral}`)
         ),
-        React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
-          React.createElement("div",{className:"covops-intel"},`◈ INTEL: ${c.intel||0}`),
-          React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("hq")},"← EXIT TO HQ")
+        React.createElement("div",{style:{display:"flex",gap:10,alignItems:"center"}},
+          React.createElement("div",{className:"covops-turn-clock"},`TURN ${c.turn||0}/${COVOPS_WIN_TURN} — 0:${String(c.turnSecondsLeft==null?60:c.turnSecondsLeft).padStart(2,"0")}`),
+          React.createElement("div",{className:"covops-intel"},`◈ INFLUENCE: ${(c.points&&c.points.wspa)||0}`),
+          React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:covopsExitToHQ},"← EXIT (ENDS RUN)")
         )
       ),
       React.createElement("div",{className:"covops-body"},
         React.createElement("div",{className:"covops-side-panel"},
           React.createElement("div",{className:"covops-panel-title"},"CODEBREAKING"),
-          React.createElement("button",{className:"mbtn covops-btn",onClick:covopsRollPuzzle},"◈ INTERCEPT A SIGNAL"),
-          covOpsPuzzle&&React.createElement("div",{className:"covops-puzzle-box"},
-            React.createElement("div",{className:"covops-puzzle-prompt"},covOpsPuzzle.prompt),
-            React.createElement("input",{className:"covops-puzzle-input",value:covOpsPuzzleInput,onChange:e=>setCovOpsPuzzleInput(e.target.value),onKeyDown:e=>e.key==="Enter"&&covopsSubmitPuzzle(),placeholder:covOpsPuzzle.type==="numeric"?"numeric code...":"word code...",autoFocus:true}),
-            React.createElement("button",{className:"mbtn covops-btn",onClick:covopsSubmitPuzzle},"SUBMIT")
-          ),
+          ["math","word"].map(slot=>{
+            const p=c.puzzles&&c.puzzles[slot];
+            if(!p)return null;
+            return React.createElement("div",{key:slot,className:"covops-puzzle-box"},
+              React.createElement("div",{className:"covops-puzzle-prompt"},p.prompt),
+              !p.solved&&!p.locked&&React.createElement("div",{style:{display:"flex",gap:4}},
+                React.createElement("input",{className:"covops-puzzle-input",
+                  value:slot==="math"?covOpsMathInput:covOpsWordInput,
+                  onChange:e=>slot==="math"?setCovOpsMathInput(e.target.value):setCovOpsWordInput(e.target.value),
+                  onKeyDown:e=>e.key==="Enter"&&covopsSubmitPuzzle(slot),
+                  placeholder:p.type==="numeric"?"value...":"word..."}),
+                React.createElement("button",{className:"mbtn covops-btn",onClick:()=>covopsSubmitPuzzle(slot)},"◈")
+              ),
+              p.solved&&React.createElement("div",{className:"covops-puzzle-solved"},`✓ SOLVED (+${p.reward})`),
+              !p.solved&&p.locked&&React.createElement("div",{className:"covops-puzzle-locked"},"LOCKED FOR THIS TURN"),
+              !p.solved&&!p.locked&&React.createElement("div",{className:"covops-puzzle-attempts"},`${2-p.attempts} ${p.attempts===1?"try":"tries"} left`)
+            );
+          }),
           covOpsMsg&&React.createElement("div",{className:"covops-msg"},covOpsMsg),
-          React.createElement("div",{className:"covops-panel-title",style:{marginTop:14}},"ADVANCE"),
-          React.createElement("button",{className:"mbtn covops-btn",onClick:covopsAdvance},`◈ RUN INFLUENCE CYCLE (${c.cycle||0})`),
-          React.createElement("div",{className:"covops-panel-title",style:{marginTop:14}},"THE ROSTER"),
+          React.createElement("div",{className:"covops-panel-title",style:{marginTop:14}},"BANK & BUY"),
           Object.keys(COVOPS_UNIT_DEFS).map(t=>{
             const d=COVOPS_UNIT_DEFS[t];
             return React.createElement("div",{key:t,className:"covops-unit-row"},
               React.createElement("div",null,
-                React.createElement("div",{className:"covops-unit-label"},d.label+" — "+d.cost+" INTEL"),
+                React.createElement("div",{className:"covops-unit-label"},`${d.label} — ${d.cost} pts  (banked: ${(c.bank&&c.bank[t])||0})`),
                 React.createElement("div",{className:"covops-unit-desc"},d.desc)
-              )
+              ),
+              React.createElement("button",{className:"mbtn covops-mini-btn",disabled:!c.points||c.points.wspa<d.cost,onClick:()=>covopsBuyToBank(t)},"BUY")
             );
           }),
           React.createElement("div",{className:"covops-panel-title",style:{marginTop:14}},"ON LOAN FROM HERO DUTY"),
           Object.keys(COVOPS_SPECIAL_UNITS).map(k=>{
             const s=COVOPS_SPECIAL_UNITS[k];
-            const used=c.specialsUsed&&c.specialsUsed[k];
-            const at=c.specialsAt&&c.specialsAt[k];
+            const st=(c.specials&&c.specials[k])||{};
+            const ready=!st.deployed&&(c.turn||0)>=st.nextAvailableTurn;
             return React.createElement("div",{key:k,className:"covops-unit-row"},
-              React.createElement("div",null,
+              React.createElement("img",{src:s.portrait,alt:s.title,className:"covops-special-portrait",
+                onError:e=>{e.target.style.visibility="hidden";}}),
+              React.createElement("div",{style:{flex:1}},
                 React.createElement("div",{className:"covops-unit-label"},s.title+" (×3 "+s.baseUnit+")"),
-                React.createElement("div",{className:"covops-unit-desc"},used?(at?`Stationed in ${c.names?c.names[at]:at}`:"Recalled to hero duty."):"Not yet deployed this campaign.")
+                React.createElement("div",{className:"covops-unit-desc"},
+                  st.deployed?`Stationed in ${(c.names&&c.names[st.at])||st.at}`:
+                  ready?"Ready for deployment.":`On hero duty until turn ${st.nextAvailableTurn}.`)
               ),
-              !used&&React.createElement("button",{className:"mbtn covops-mini-btn",disabled:!sel||!!selIsCapital,onClick:()=>covopsDeploySpecial(k)},"DEPLOY"),
-              used&&at&&React.createElement("button",{className:"mbtn covops-mini-btn",onClick:()=>covopsRecallSpecial(k)},"RECALL")
+              !st.deployed&&React.createElement("button",{className:"mbtn covops-mini-btn",disabled:!sel||!ready,onClick:()=>covopsDeploySpecial(k)},"DEPLOY"),
+              st.deployed&&React.createElement("button",{className:"mbtn covops-mini-btn",onClick:()=>covopsRecallSpecial(k)},"RECALL")
             );
           })
         ),
         React.createElement("div",{className:"covops-map-wrap"},
           React.createElement(CovertOpsMap,{
             countries:c.countries||{},capitalOwner:c.capitalOwner||{},selected:covOpsSelected,
-            onSelect:id=>setCovOpsSelected(id),onTopologyReady:onCovopsTopologyReady
-          })
+            onSelect:id=>setCovOpsSelected(id),onTopologyReady:onCovopsTopologyReady,
+            filterFaction:covOpsFactionDetail
+          }),
+          covOpsFactionDetail&&React.createElement("div",{className:"covops-legend"},
+            React.createElement("span",null,`${COVOPS_FACTIONS[covOpsFactionDetail].name} presence:`),
+            React.createElement("span",{style:{color:COVOPS_FACTIONS[covOpsFactionDetail].color}},"■ supermajority (80%+)"),
+            React.createElement("span",{style:{color:COVOPS_FACTIONS[covOpsFactionDetail].color,opacity:.6}},"■ majority (51%+)"),
+            React.createElement("span",{style:{color:COVOPS_FACTIONS[covOpsFactionDetail].color,opacity:.3}},"■ minority presence"),
+            React.createElement("button",{className:"mbtn covops-mini-btn",onClick:()=>setCovOpsFactionDetail(null)},"CLEAR")
+          )
         ),
         React.createElement("div",{className:"covops-side-panel"},
           React.createElement("div",{className:"covops-panel-title"},"REGION FILE"),
           !sel&&React.createElement("div",{className:"covops-hint"},"Select a country on the map."),
           sel&&React.createElement("div",null,
             React.createElement("div",{className:"covops-region-name"},(selName||sel).toUpperCase()),
-            selIsCapital&&React.createElement("div",{className:"covops-region-capital"},`★ ${COVOPS_FACTIONS[selIsCapital].name} CAPITAL — locked`),
+            selIsCapital&&React.createElement("div",{className:"covops-region-capital"},`★ ${COVOPS_FACTIONS[selIsCapital].name} CAPITAL`),
+            statusTag&&React.createElement("div",{className:"covops-region-status",style:{color:statusTag.color}},statusTag.label),
             selInf&&COVOPS_FACTION_LIST.concat("neutral").map(f=>{
               const label=f==="neutral"?"NEUTRAL":COVOPS_FACTIONS[f].name;
               const color=f==="neutral"?"#888":COVOPS_FACTIONS[f].color;
@@ -1448,16 +1635,46 @@ function App(){
                 )
               );
             }),
-            !selIsCapital&&React.createElement("div",{style:{marginTop:10}},
-              React.createElement("div",{className:"covops-panel-title"},"INSERT UNIT"),
-              Object.keys(COVOPS_UNIT_DEFS).map(t=>React.createElement("button",{key:t,className:"mbtn covops-mini-btn",disabled:!c.intel||c.intel<COVOPS_UNIT_DEFS[t].cost,onClick:()=>covopsDeployUnit(t)},`+ ${COVOPS_UNIT_DEFS[t].label}`))
+            React.createElement("div",{style:{marginTop:10}},
+              React.createElement("div",{className:"covops-panel-title"},"DEPLOY FROM BANK"),
+              Object.keys(COVOPS_UNIT_DEFS).map(t=>React.createElement("button",{key:t,className:"mbtn covops-mini-btn",disabled:!c.bank||c.bank[t]<=0,onClick:()=>covopsDeployFromBank(t)},`+ ${COVOPS_UNIT_DEFS[t].label} (${(c.bank&&c.bank[t])||0})`))
             ),
             React.createElement("div",{className:"covops-panel-title",style:{marginTop:10}},"GARRISON"),
-            selGarrison.length===0&&React.createElement("div",{className:"covops-hint"},"No WSPA assets stationed here."),
+            selGarrison.length===0&&React.createElement("div",{className:"covops-hint"},"No assets stationed here."),
             selGarrison.map(u=>React.createElement("div",{key:u.id,className:"covops-garrison-row"},
-              u.special?COVOPS_SPECIAL_UNITS[u.special].title:COVOPS_UNIT_DEFS[u.type].label
+              React.createElement("span",{style:{color:COVOPS_FACTIONS[u.faction].color}},
+                u.special?COVOPS_SPECIAL_UNITS[u.special].title:COVOPS_UNIT_DEFS[u.type].label),
+              u.faction==="wspa"&&!u.special&&React.createElement("button",{className:"mbtn covops-mini-btn",onClick:()=>covopsWithdrawUnit(u.id)},"WITHDRAW")
             )),
-            selGarrison.some(u=>u.type==="spy")&&React.createElement("button",{className:"mbtn red covops-mini-btn",style:{marginTop:6},onClick:covopsSabotage},"⚠ SABOTAGE (consumes a Spy)")
+            ["operator","analyst","spy"].some(t=>selGarrison.some(u=>u.faction==="wspa"&&u.type===t&&!u.special))&&
+              React.createElement("div",{style:{marginTop:6,display:"flex",flexWrap:"wrap",gap:4}},
+                ["operator","analyst","spy"].filter(t=>selGarrison.some(u=>u.faction==="wspa"&&u.type===t&&!u.special)).map(t=>
+                  React.createElement("button",{key:t,className:"mbtn covops-mini-btn",onClick:()=>covopsWithdrawAllOfType(t)},`WITHDRAW ALL ${COVOPS_UNIT_DEFS[t].label}S`)
+                )
+              ),
+            selGarrison.some(u=>u.faction==="wspa"&&u.type==="spy")&&React.createElement("button",{className:"mbtn red covops-mini-btn",style:{marginTop:6},onClick:covopsSabotage},"⚠ SABOTAGE (consumes a Spy)")
+          ),
+          React.createElement("div",{className:"covops-panel-title",style:{marginTop:14}},"FACTIONS"),
+          COVOPS_FACTION_LIST.map(f=>React.createElement("div",{key:f,className:"covops-faction-row",
+            style:{color:COVOPS_FACTIONS[f].color,fontWeight:covOpsFactionDetail===f?"bold":"normal"},
+            onClick:()=>setCovOpsFactionDetail(covOpsFactionDetail===f?null:f)},
+            `${covOpsFactionDetail===f?"● ":"○ "}${COVOPS_FACTIONS[f].name}`
+          )),
+          React.createElement("div",{className:"covops-panel-title",style:{marginTop:14}},"FIELDED UNITS"),
+          React.createElement("table",{className:"covops-matrix"},
+            React.createElement("thead",null,React.createElement("tr",null,
+              React.createElement("th",null,""),
+              React.createElement("th",null,"OP"),React.createElement("th",null,"AN"),React.createElement("th",null,"SP"),React.createElement("th",null,"Σ")
+            )),
+            React.createElement("tbody",null,
+              COVOPS_FACTION_LIST.map(f=>React.createElement("tr",{key:f},
+                React.createElement("td",{style:{color:COVOPS_FACTIONS[f].color}},COVOPS_FACTIONS[f].name.slice(0,4)),
+                React.createElement("td",null,unitMatrix[f].operator),
+                React.createElement("td",null,unitMatrix[f].analyst),
+                React.createElement("td",null,unitMatrix[f].spy),
+                React.createElement("td",null,unitMatrix[f].total)
+              ))
+            )
           )
         )
       ),
@@ -1471,6 +1688,50 @@ function App(){
           React.createElement("div",{className:"tutorial-speaker-title"},"DEPUTY DIRECTOR"),
           React.createElement("div",{className:"tutorial-text"},covopsTutorialText(covOpsTutorialStep)),
           React.createElement("button",{className:"tutorial-btn",onClick:()=>setCovOpsTutorialStep(prev=>prev>=4?null:prev+1)},covOpsTutorialStep>=4?"GOT IT, I'LL TAKE IT FROM HERE":"NEXT")
+        )
+      ),
+      c.gameStatus==="win_prompt"&&React.createElement("div",{className:"covops-intro-screen"},
+        React.createElement("div",{className:"covops-intro-box"},
+          React.createElement("div",{className:"tutorial-portrait-slot",style:{width:100,height:132}},
+            React.createElement("img",{src:TUTORIAL_CHARACTERS.nichols.portrait,alt:"George Nichols",onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}),
+            React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:"none"}},"GN")
+          ),
+          React.createElement("div",{className:"tutorial-copy"},
+            React.createElement("div",{className:"tutorial-speaker-name"},"GEORGE NICHOLS"),
+            React.createElement("div",{className:"tutorial-speaker-title"},"DEPUTY DIRECTOR"),
+            React.createElement("div",{className:"tutorial-text"},COVOPS_NICHOLS_WIN_PROMPT),
+            React.createElement("div",{style:{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}},
+              React.createElement("button",{className:"mbtn covops-btn",onClick:covopsAcceptWin},"YES — WRAP IT UP (+500)"),
+              React.createElement("button",{className:"mbtn",onClick:covopsContinuePlaying},"NAH, LET ME SEE THIS ONE THROUGH")
+            )
+          )
+        )
+      ),
+      c.gameStatus==="won"&&React.createElement("div",{className:"covops-intro-screen"},
+        React.createElement("div",{className:"covops-intro-box"},
+          React.createElement("div",{className:"tutorial-copy"},
+            React.createElement("div",{className:"tutorial-speaker-name"},"CAMPAIGN COMPLETE"),
+            React.createElement("div",{className:"tutorial-text"},"WSPA held the line for 20 turns. +500 banked to your director's fund."),
+            React.createElement("button",{className:"mbtn covops-btn",style:{marginTop:12},onClick:covopsExitToHQ},"◈ RETURN TO HQ")
+          )
+        )
+      ),
+      c.gameStatus==="won_complete"&&React.createElement("div",{className:"covops-intro-screen"},
+        React.createElement("div",{className:"covops-intro-box"},
+          React.createElement("div",{className:"tutorial-copy"},
+            React.createElement("div",{className:"tutorial-speaker-name"},"COMPLETE VICTORY"),
+            React.createElement("div",{className:"tutorial-text"},"Every rival faction has been wiped off the map. +1000 banked to your director's fund."),
+            React.createElement("button",{className:"mbtn covops-btn",style:{marginTop:12},onClick:()=>{covopsClaimCompleteVictory();covopsExitToHQ();}},"◈ RETURN TO HQ")
+          )
+        )
+      ),
+      c.gameStatus==="lost"&&React.createElement("div",{className:"covops-intro-screen"},
+        React.createElement("div",{className:"covops-intro-box"},
+          React.createElement("div",{className:"tutorial-copy"},
+            React.createElement("div",{className:"tutorial-speaker-name"},"OPERATION FAILED"),
+            React.createElement("div",{className:"tutorial-text"},c.lossReason||"WSPA was wiped off the map."),
+            React.createElement("button",{className:"mbtn covops-btn",style:{marginTop:12},onClick:covopsExitToHQ},"◈ RETURN TO HQ")
+          )
         )
       )
     );
