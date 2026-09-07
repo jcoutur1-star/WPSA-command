@@ -265,7 +265,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 .confidential-lock-screen{position:fixed;inset:0;z-index:500;background:#000;display:flex;align-items:center;justify-content:center}
 .confidential-lock-box{display:flex;flex-direction:column;align-items:center;text-align:center}
 
-/* ── COVERT OPERATIONS (black-site theme) ── */
+
+/* ── COVERT OPERATIONS: SIGNAL DECODING (black-site theme) ── */
 .covops-intro-screen{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:400}
 .covops-intro-box{display:flex;gap:16px;align-items:flex-start;max-width:640px;padding:24px;background:linear-gradient(135deg,rgba(10,10,10,.97),rgba(0,0,0,.97));border:1px solid #333;border-radius:4px;box-shadow:0 0 40px rgba(0,0,0,.8)}
 .covops-btn{border-color:#e0e0e0;color:#e0e0e0}
@@ -274,45 +275,35 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 .covops-screen{position:fixed;inset:0;background:#000;z-index:400;display:flex;flex-direction:column;color:#d8d8d8;font-family:var(--font-mono)}
 .covops-header{display:flex;align-items:center;justify-content:space-between;gap:14px;background:#0a0a0a;border-bottom:1px solid #2a2a2a;padding:10px 16px;flex-wrap:wrap}
 .covops-title{font-family:var(--font-head);font-size:13px;letter-spacing:2px;color:#e8e8e8}
-.covops-scoreboard{display:flex;gap:14px;font-size:10px;letter-spacing:1px;flex-wrap:wrap}
+.covops-turn-clock{font-family:var(--font-head);font-size:10px;color:#ff5566;letter-spacing:1px;border:1px solid #331a1a;padding:3px 8px;border-radius:2px}
 .covops-intel{font-family:var(--font-head);font-size:11px;color:#ffcc44;letter-spacing:1px}
-.covops-body{flex:1;display:grid;grid-template-columns:230px 1fr 230px;overflow:hidden}
-.covops-side-panel{background:#060606;border-right:1px solid #1e1e1e;padding:12px;overflow-y:auto;font-size:10px}
-.covops-body>.covops-side-panel:last-child{border-right:none;border-left:1px solid #1e1e1e}
 .covops-panel-title{font-family:var(--font-head);font-size:10px;letter-spacing:1.5px;color:#888;border-bottom:1px solid #222;padding-bottom:4px;margin-bottom:8px}
-.covops-map-wrap{background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:8px}
-.covops-map-area{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
-.covops-map-svg{width:100%;height:100%;max-height:100%}
-.covops-unit-row{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;padding:6px 0;border-bottom:1px solid #161616}
-.covops-unit-label{font-size:9.5px;color:#ddd;letter-spacing:.5px}
-.covops-unit-desc{font-size:8.5px;color:#777;margin-top:2px;line-height:1.4}
-.covops-mini-btn{font-size:8px;padding:4px 8px;margin:0;border-color:#555;color:#ccc;flex-shrink:0}
+.covops-mini-btn{font-size:8px;padding:5px 8px;margin:0;border-color:#555;color:#ccc;flex-shrink:0;width:100%;text-align:left}
 .covops-mini-btn:hover{background:rgba(255,255,255,.08)}
 .covops-mini-btn:disabled{opacity:.3}
-.covops-puzzle-box{margin-top:8px;padding:8px;background:#0d0d0d;border:1px solid #262626;border-radius:3px}
-.covops-puzzle-prompt{font-size:11px;color:#ffd75e;margin-bottom:6px;letter-spacing:.5px}
-.covops-puzzle-input{width:100%;background:#000;border:1px solid #333;color:#eee;font-family:var(--font-mono);padding:6px 8px;margin-bottom:6px;border-radius:2px}
-.covops-msg{font-size:9.5px;color:#8fd6ff;margin-top:8px;line-height:1.5}
-.covops-hint{font-size:9.5px;color:#666;font-style:italic}
-.covops-region-name{font-family:var(--font-head);font-size:12px;color:#fff;letter-spacing:1px;margin-bottom:6px}
-.covops-region-capital{font-size:9px;color:#ffaa00;margin-bottom:8px;letter-spacing:.5px}
-.covops-bar-row{margin-bottom:6px}
-.covops-bar-label{font-size:9px;letter-spacing:.5px;margin-bottom:2px}
-.covops-bar-track{height:5px;background:#151515;border-radius:2px;overflow:hidden}
-.covops-bar-fill{height:100%;transition:width .5s}
-.covops-garrison-row{font-size:9.5px;color:#bbb;padding:3px 0;border-bottom:1px solid #151515}
+.covops-msg{font-size:9.5px;color:#8fd6ff;margin:8px 0;line-height:1.5}
 
-/* ── COVERT OPERATIONS v2 additions ── */
-.covops-turn-clock{font-family:var(--font-head);font-size:10px;color:#ff5566;letter-spacing:1px;border:1px solid #331a1a;padding:3px 8px;border-radius:2px}
-.covops-puzzle-solved{font-size:9.5px;color:#39d66a;margin-top:4px}
-.covops-puzzle-locked{font-size:9.5px;color:#ff5566;margin-top:4px}
-.covops-puzzle-attempts{font-size:8.5px;color:#777;margin-top:4px}
-.covops-special-portrait{width:32px;height:42px;object-fit:cover;border-radius:2px;border:1px solid #333;flex-shrink:0}
-.covops-region-status{font-size:9px;letter-spacing:1px;margin-bottom:8px;font-weight:bold}
-.covops-faction-row{font-size:9.5px;padding:4px 0;cursor:pointer;letter-spacing:.5px}
-.covops-faction-row:hover{opacity:.8}
-.covops-legend{position:absolute;bottom:10px;left:10px;right:10px;background:rgba(0,0,0,.85);border:1px solid #333;border-radius:3px;padding:6px 10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:8.5px}
-.covops-map-wrap{position:relative}
-.covops-matrix{width:100%;border-collapse:collapse;font-size:8.5px}
-.covops-matrix th,.covops-matrix td{padding:2px 4px;text-align:center;border-bottom:1px solid #161616}
-.covops-matrix th{color:#666;font-weight:normal}
+/* Meter: 20 half-step ticks across 10 whole numbers, centered in the header */
+.covops-meter{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;max-width:460px;margin:0 16px}
+.covops-meter-track{display:flex;gap:2px;width:100%}
+.covops-meter-tick{flex:1;height:10px;border-radius:1px;background:#1a1a1a;transition:background .3s}
+.covops-meter-label{font-family:var(--font-head);font-size:10px;letter-spacing:1.5px;color:#ccc}
+
+/* Main decode layout: puzzles on the left, Cassonik's hint desk on the right */
+.covops-decode-body{flex:1;display:grid;grid-template-columns:1fr 220px;overflow:auto;padding:20px;gap:20px}
+.covops-decode-puzzles{display:flex;flex-direction:column;gap:14px;max-width:520px}
+.covops-puzzle-box{padding:14px;background:#0d0d0d;border:1px solid #262626;border-radius:4px}
+.covops-puzzle-heading{font-family:var(--font-head);font-size:10px;letter-spacing:1.5px;color:#888;margin-bottom:8px}
+.covops-wof-display{font-family:'Share Tech Mono',monospace;font-size:20px;letter-spacing:3px;color:#ffd75e;margin-bottom:10px;word-break:break-all;line-height:1.6}
+.covops-puzzle-input{width:100%;background:#000;border:1px solid #333;color:#eee;font-family:var(--font-mono);padding:8px 10px;border-radius:2px;font-size:13px}
+.covops-priority-live{margin-top:8px;font-family:var(--font-head);font-size:11px;letter-spacing:1.5px;color:#39d66a}
+.covops-send-btn{align-self:flex-start;padding:12px 28px;font-size:12px;letter-spacing:1.5px}
+
+.covops-cassonik-panel{background:#060606;border:1px solid #1e1e1e;border-radius:4px;padding:12px;display:flex;flex-direction:column;gap:8px;align-items:center;height:fit-content}
+.covops-cassonik-portrait{width:90px;height:118px;object-fit:cover;border-radius:3px;border:1px solid #333;margin-bottom:10px}
+.covops-hint-buttons{display:flex;flex-direction:column;gap:6px;width:100%}
+.covops-hint-note{font-size:8px;color:#666;margin-top:6px;text-align:center;font-style:italic}
+
+/* Nichols' mid-run banner (High 1 warning / High 9 encouragement) */
+.covops-banner-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:410}
+.covops-banner-box{display:flex;gap:14px;align-items:flex-start;max-width:480px;padding:18px;background:linear-gradient(135deg,rgba(10,10,10,.98),rgba(0,0,0,.98));border:1px solid #333;border-radius:4px;box-shadow:0 0 30px rgba(0,0,0,.8)}
