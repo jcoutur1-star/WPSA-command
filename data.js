@@ -711,12 +711,12 @@ function covopsScrambleBlock(text){
 
 // ── THREAT NAME → letter-reveal puzzle ──
 // Strips punctuation but keeps every word (e.g. "KAIJU: GORGOZAR" -> "KAIJU GORGOZAR"),
-// then reveals 30–40% of its letters at random.
+// then reveals 50–60% of its letters at random.
 function covopsBuildNamePuzzle(rawName){
   const clean=rawName.replace(/[^A-Za-z ]/g," ").replace(/\s+/g," ").trim().toUpperCase();
   const letterIdx=[];
   clean.split("").forEach((ch,i)=>{if(ch!==" ")letterIdx.push(i);});
-  const revealCount=Math.max(1,Math.round(letterIdx.length*(0.30+Math.random()*0.10)));
+  const revealCount=Math.max(1,Math.round(letterIdx.length*(0.50+Math.random()*0.10)));
   const shuffled=[...letterIdx].sort(()=>Math.random()-0.5);
   const revealed=new Array(clean.length).fill(false);
   clean.split("").forEach((ch,i)=>{if(ch===" ")revealed[i]=true;});
