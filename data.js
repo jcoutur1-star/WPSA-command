@@ -54,6 +54,21 @@ const CONFIDENTIAL_BRIEFINGS={
     desc:"A being of extreme chaos and power. Almost no heroes can stand toe to toe with Maniac for very long, and many who have fought Maniac claim that their body and power withered the longer the fight continued. The survivors are few, but each has come back with severe radiation burns. There have been no bodies of non survivors. Only solution: Full stack high powered cannon, tank, and support teams.",
     quote:"\"We've beaten Maniac before at great cost. None of our current roster has done it, or at least, not alone. The Flip and The Anchor were on the last team that took down Maniac, but I chalk that up to the silver age glory of Captain Shamrock and Elegus at their absolute prime. On paper, I think several of our top tier heroes can pull it off. Any of our A listers like TCK, The Anchor, and Seraph could do it at fifty fifty, I just think the casualties and destruction are sure to be high regardless.\" — George Nichols",
     excludeTitles:["The Crimson Knight","The Anchor","Seraph"]
+  },
+  SILPHANA:{
+    heading:"⚠ CONFIDENTIAL — SILPHANA BRIEFING",
+    portrait:"portraits/Silphana.jpg",
+    extraImages:[{src:"portraits/WSPArift.png",caption:"(From left to right: Alexandria Aeros, George Nichols, Cassandra Onik)"}],
+    desc:"An extremely dangerous former senior analyst who has been corrupted by the mace of corruption. She was a normal person, but with that mace she can go toe to toe with just about anyone on the roster, with an advantage against Seraph and TCK. Seraph hasn't been the same since, and that mace is overflowing with the same energy that's been highly effective against TCK in the past. Current objective not known.",
+    quote:"\"She sought order. Alex was always very orderly. She believed in a version of excellence that WSPA simply couldn't meet. We lost heroes, we made mistakes, but we still typically were able to manage and save the world. I know she and Cass had their arguments on method, but I was usually able to get those sorted. Saving the day was never enough for Alex. She and I would talk for hours about how to save the world, how to improve it. She and I recovered the mace on a mission in the middle east where it had been buried in an ancient underground temple. We brought it back to HQ to have it studied. I held the mace, but it never spoke to me, and for me it was just a piece of metal. Alex had always been very intense, very straight laced, but after the mace, she was clearly different. Her worldview radicalised, and I think she stopped seeing everyone as worth saving, and our long conversations started to get longer and more heated. She classified me as among the people worth saving, which is why that mace I took to the ribs didn't kill me. She spared me. She didn't spare others, but it's clear that there's enough of her to still care about me. The mace had a hold on her long before she actually wielded it for the first time, and I'm inclined to think a similar quarantine is necessary to save her. I think she might've been my best friend, and I know I was hers. I fear with every passing day that it will mean less to her, because it doesn't mean less to me. We were close. Very close.\" — George Nichols",
+    excludeTitles:[]
+  },
+  LEVIATHAN:{
+    heading:"⚠ CONFIDENTIAL — LEVIATHAN BRIEFING",
+    portrait:"portraits/Leviathan.jpg",
+    desc:"The biblical serpent of the ocean. DO NOT USE TEAMWORK. This creature gets stronger the more people we send, and specifically targets large groups and sweeps them into each other. Estimated length between 60 - 70 meters. 320 - 420 tons. Extremely dangerous.",
+    quote:"\"\"No one is so fierce as to rouse Leviathan.\" Job 41:10. This is the creature that all other creatures are compared against. A monster of immense power and fury. It's a shame it doesn't fight for us. I've got a team running the calculations on who would win between this thing in Typhon. Our hope was that it could be something we piss off as Typhon attacks, and maybe see if these two mythic monsters had a territory dispute over the whole destroying the world thing. Would be a fight for the ages. Hopefully we never find out.\" — George Nichols",
+    excludeTitles:[]
   }
 };
 
@@ -654,135 +669,36 @@ function buildCodexEntries(){
 }
 const CODEX_ENTRIES=buildCodexEntries();
 
-// ─── COVERT OPERATIONS ──────────────────────────────────────────────────────
-// Country-influence side mode, run through Nichols. All country names below
-// match the exact "properties.name" strings in world-atlas's countries-110m.json
-// (the same file the main WorldMap already fetches), verified against that file
-// directly — so there shouldn't be silent tier/start mismatches.
-const COVOPS_FACTIONS={
-  wspa:{key:"wspa",name:"W.S.P.A.",color:"#00d4ff",markerColor:"#aef2ff",capitalId:"840",capitalName:"Washington, D.C.",capitalCountry:"United States of America",tagline:"Holding the center, playing every side evenly."},
-  div7:{key:"div7",name:"DIVISION 7",color:"#ff3333",markerColor:"#ffb3b3",capitalId:"643",capitalName:"Moscow",capitalCountry:"Russia",tagline:"Defensive until dominant, then relentless."},
-  div8:{key:"div8",name:"DIVISION 8",color:"#aa44ff",markerColor:"#e6c2ff",capitalId:"156",capitalName:"Beijing",capitalCountry:"China",tagline:"Aggressive expansion, rarely reinforces."},
-  accel:{key:"accel",name:"THE ACCELERATIONISTS",color:"#ffaa00",markerColor:"#ffe2a8",capitalId:"818",capitalName:"Cairo",capitalCountry:"Egypt",tagline:"Chaotic and undisciplined — often leaves points unspent."},
-  ggru:{key:"ggru",name:"THE GGRU",color:"#39d66a",markerColor:"#c8ffcf",capitalId:"192",capitalName:"Havana",capitalCountry:"Cuba",tagline:"Weak everywhere except Cuba and Venezuela, which they hold hard."}
-};
-const COVOPS_FACTION_LIST=["wspa","div7","div8","accel","ggru"];
-const COVOPS_NEUTRAL_COLOR="#141d24";
-// Real capital coordinates for map markers — deliberately NOT the geometric
-// centroid of the whole country (that's what put Moscow's marker in Siberia).
-const COVOPS_CAPITAL_COORDS={
-  wspa:{lat:38.9,lng:-77.0},div7:{lat:55.75,lng:37.62},div8:{lat:39.90,lng:116.40},
-  accel:{lat:30.04,lng:31.24},ggru:{lat:23.13,lng:-82.38}
-};
 
-const COVOPS_TURN_SECONDS=60;
-const COVOPS_WIN_TURN=20;
+// ─── COVERT OPERATIONS: SIGNAL DECODING ────────────────────────────────────
+// A pure decoding-under-pressure minigame run through Nichols. Every round
+// pulls a real threat (or occasionally a villain) from the roster and builds
+// three puzzles from it: the name (letter reveal), the location (anagram),
+// and the priority (an equation whose answer maps to LOW/MEDIUM/HIGH).
+const COVOPS_ROUND_SECONDS=120;
+const COVOPS_HINT_COST=5;
 
-// Core unit kit — Operators seed cheaply, Analysts defend, Spies go on offense.
-// Same prices for every faction, WSPA included.
-const COVOPS_UNIT_DEFS={
-  operator:{key:"operator",label:"OPERATOR",cost:15,seed:8,defense:1,offense:0.4,
-    desc:"Cheap footholds. Seeds influence in a region every turn."},
-  analyst:{key:"analyst",label:"ANALYST",cost:30,seed:3,defense:3,offense:0,
-    desc:"Digs in. Raises the pressure a rival needs to flip a region you hold."},
-  spy:{key:"spy",label:"SPY",cost:35,seed:2,defense:0.5,offense:2.2,
-    desc:"Offense. Can be spent to sabotage the dominant rival faction on the spot."}
-};
+const COVOPS_NICHOLS_INTRO="\"Oh, Director — you want to run signal intelligence yourself? Command needs a name, a location, and a threat level off every incoming report, fast. I can walk you through how the decoding works, if you'd like?\"";
+const COVOPS_NICHOLS_LOW_WARNING="\"Director. Things aren't looking good. We need intel now!\"";
+const COVOPS_NICHOLS_HIGH_ENCOURAGE="\"Director, keep it up! You're almost there!\"";
 
-// "Great Prophet"-equivalents — borrowed from hero duty. Each unlocks once at a
-// fixed turn, then goes on a 5-turn (5-minute) cooldown after every use.
-const COVOPS_SPECIAL_UNITS={
-  shadowmere:{key:"shadowmere",title:"Shadowmere",baseUnit:"operator",multiplier:3,unlockTurn:2,cooldownTurns:5,
-    portrait:"portraits/Shadowmere.jpg",flavor:"Lena's officially \"on loan\" for this one. She won't say from who."},
-  scarlett:{key:"scarlett",title:"Scarlett",baseUnit:"spy",multiplier:3,unlockTurn:4,cooldownTurns:5,
-    portrait:"portraits/Scarlett.jpg",flavor:"Scarlett already looks like three other people today."}
-};
+// Country/nationality tokens that legitimately end a threat's location string.
+// Deliberately excludes ambiguous bare tokens (e.g. "Georgia" alone in this
+// data means the US state, not the country — it only counts with a "USA" suffix).
+const COVOPS_COUNTRY_TOKENS=["USA","UK","UAE","Korea","Japan","China","Russia","Egypt","India","Brazil",
+  "Iceland","Ireland","Monaco","Germany","Belgium","Switzerland","Turkey","Israel","Scotland","Italy",
+  "Romania","Austria","France","Mexico","Canada","Australia","Spain","Poland","Greece","Cuba","Ghana",
+  "Kenya","Nigeria","Sweden","Norway","Finland","Denmark","Portugal","Netherlands","Argentina","Chile",
+  "Peru","Colombia","Venezuela","Thailand","Vietnam","Indonesia","Philippines","Pakistan","Iran","Iraq",
+  "Syria","Lebanon","Jordan","Yemen","Libya","Morocco","Tunisia","Algeria","Sudan","Ethiopia","Somalia"];
 
-const COVOPS_NICHOLS_INTRO="\"Oh, Director — you want to call the shots on this side of the building? The watch is yours. I'll go manage the heroes for you. I can walk you through everything if you'd like?\"";
-const COVOPS_NICHOLS_WIN_PROMPT="\"Good work keeping us in the game. Would you like me to take it from here?\"";
-const COVOPS_NICHOLS_CONTINUE_ACK="\"Your call, Director. I'll keep the lights on and let you finish it.\"";
-
-// ─── COUNTRY POINT TIERS (income per controlled country per turn) ─────────────
-const COVOPS_TIER_20=["United States of America"];
-const COVOPS_TIER_14=["China","Russia"];
-const COVOPS_TIER_12=["France","Germany","United Kingdom","Italy","Spain","Netherlands","Belgium",
-  "Switzerland","Austria","Portugal","Ireland","Denmark","Sweden","Norway","Finland","Iceland",
-  "Luxembourg","Greece","Australia","Canada","Japan"];
-const COVOPS_TIER_10=["Poland","Czechia","Slovakia","Hungary","Romania","Bulgaria","Ukraine","Belarus",
-  "Estonia","Latvia","Lithuania","Moldova","Serbia","Croatia","Bosnia and Herz.","Montenegro","Macedonia",
-  "Albania","Slovenia","Mexico","India",
-  "Guatemala","Belize","Honduras","El Salvador","Nicaragua","Costa Rica","Panama","Colombia","Venezuela",
-  "Ecuador","Peru","Bolivia","Chile","Argentina","Paraguay","Uruguay","Brazil","Guyana","Suriname",
-  "Cuba","Dominican Rep.","Haiti","Jamaica","Bahamas","Trinidad and Tobago"];
-// Everything not listed above defaults to 6 points/turn.
-function covopsTierForCountry(name){
-  if(COVOPS_TIER_20.includes(name))return 20;
-  if(COVOPS_TIER_14.includes(name))return 14;
-  if(COVOPS_TIER_12.includes(name))return 12;
-  if(COVOPS_TIER_10.includes(name))return 10;
-  return 6;
-}
-
-// ─── STARTING MAP POSITION ──────────────────────────────────────────────────
-// Region rosters, kept as plain editable arrays so specific country calls are
-// easy to correct after playtesting.
-const COVOPS_START_WSPA_90=["Canada","France","Germany","United Kingdom","Italy","Spain","Netherlands",
-  "Belgium","Switzerland","Austria","Portugal","Ireland","Denmark","Sweden","Norway","Finland","Iceland",
-  "Luxembourg","Australia","Japan","Taiwan","Poland"];
-const COVOPS_START_CS_AMERICA=["Mexico","Guatemala","Belize","Honduras","El Salvador","Nicaragua",
-  "Costa Rica","Panama","Colombia","Ecuador","Peru","Bolivia","Chile","Argentina","Paraguay","Uruguay",
-  "Brazil","Guyana","Suriname","Dominican Rep.","Haiti","Jamaica","Bahamas","Trinidad and Tobago"];
-const COVOPS_START_GGRU_STRONGHOLDS=["Cuba","Venezuela"];
-const COVOPS_START_AFRICA_ME=["Libya","Tunisia","Algeria","Morocco","W. Sahara","Sudan","S. Sudan",
-  "Nigeria","Ethiopia","Kenya","Tanzania","Uganda","Ghana","Côte d'Ivoire","Senegal","Mali","Niger","Chad",
-  "Cameroon","Dem. Rep. Congo","Congo","Angola","Zambia","Zimbabwe","Mozambique","Namibia","Botswana",
-  "South Africa","Somalia","Eritrea","Djibouti","Central African Rep.","Gabon","Eq. Guinea","Guinea",
-  "Sierra Leone","Liberia","Burkina Faso","Benin","Togo","Malawi","Rwanda","Burundi","Madagascar",
-  "Mauritania","Gambia","Guinea-Bissau","Lesotho","eSwatini","Saudi Arabia","Iran","Iraq","Israel","Jordan",
-  "Lebanon","Syria","Yemen","Oman","United Arab Emirates","Qatar","Kuwait","Palestine","Turkey","Cyprus"];
-const COVOPS_START_SOVIET=["Ukraine","Belarus","Kazakhstan","Uzbekistan","Turkmenistan","Tajikistan",
-  "Kyrgyzstan","Armenia","Azerbaijan","Georgia","Moldova","Estonia","Latvia","Lithuania"];
-const COVOPS_START_ASIA_D8=["Mongolia","North Korea","South Korea","Vietnam","Laos","Cambodia","Thailand",
-  "Myanmar","Malaysia","Indonesia","Philippines","Brunei","India","Pakistan","Bangladesh","Sri Lanka",
-  "Nepal","Bhutan","Afghanistan"];
-
-function covopsStartingInfluence(name){
-  const blank=covopsBlank();
-  if(name==="United States of America")return{...blank,neutral:0,wspa:100};
-  if(name==="Russia")return{...blank,neutral:0,div7:100};
-  if(name==="China")return{...blank,neutral:0,div8:100};
-  if(name==="Egypt")return{...blank,neutral:0,accel:100};
-  if(COVOPS_START_GGRU_STRONGHOLDS.includes(name))return{...blank,neutral:0,ggru:100};
-  if(COVOPS_START_WSPA_90.includes(name))return{...blank,neutral:10,wspa:90};
-  if(COVOPS_START_CS_AMERICA.includes(name))return{...blank,neutral:0,wspa:80,ggru:20};
-  if(COVOPS_START_AFRICA_ME.includes(name))return{...blank,neutral:0,accel:60,wspa:20,div7:20};
-  if(COVOPS_START_SOVIET.includes(name))return{...blank,neutral:0,div7:76,div8:12,wspa:12};
-  if(COVOPS_START_ASIA_D8.includes(name))return{...blank,neutral:0,div8:80,wspa:10,div7:10};
-  return blank; // fully neutral — not named in any starting bloc
-}
-
-// ─── CODEBREAKING BANK ──────────────────────────────────────────────────────
-// ~100 military / covert-ops / country-name words, 4–7 letters. Scrambles are
-// generated on the fly (not pre-baked) so the same word reads differently each
-// time it comes up.
-const COVOPS_WORD_BANK=[
-  "RECON","SNIPER","BUNKER","MEDIC","RATION","ARMOR","ASSAULT","CONVOY","SQUAD","RADAR",
-  "MISSILE","TARGET","AMBUSH","SENTRY","TRENCH","CANNON","ARSENAL","GRENADE","HELMET","RIFLE",
-  "PISTOL","SABER","MEDAL","RANK","CORPS","FLEET","TROOP","GUARD","ALERT","DRILL",
-  "MARCH","BASE","CAMP","FORT","AGENT","CIPHER","DECODE","SIGNAL","BEACON","SILENT",
-  "LISTEN","COVERT","VECTOR","SHADOW","MASKED","CACHE","DEBRIEF","HANDLER","MOLE","DOSSIER",
-  "ENCRYPT","EXTRACT","INSERT","RECALL","ALIAS","FRONT","DROP","NETWORK","SLEEPER","DEFECT",
-  "TRAITOR","LOYALTY","BETRAY","UNMASK","EXPOSE","BURNED","GHOST","PHANTOM","STEALTH","DECOY",
-  "BLUFF","FEINT","OUTPOST","BORDER","UPLINK","ROUTE","RELAY","SECURE","BREACH","LOCKED",
-  "FRANCE","EGYPT","CHINA","CUBA","SPAIN","ITALY","JAPAN","POLAND","RUSSIA","TAIWAN",
-  "MEXICO","BRAZIL","KENYA","INDIA","SYRIA","YEMEN","ISRAEL","JORDAN","TURKEY","GREECE",
-  "CANADA","CYPRUS","LIBYA","GHANA","CHILE","PERU","CONGO","CHAD","MALI","OMAN"
-];
-function covopsScrambleWord(word){
-  const lower=word.toLowerCase();
-  const letters=lower.split("");
-  let scrambled=lower,tries=0;
-  while((scrambled===lower||tries===0)&&tries<20){
+function covopsCleanWord(w){return (w||"").replace(/[^A-Za-z]/g,"");}
+function covopsScrambleBlock(text){
+  const clean=covopsCleanWord(text).toLowerCase();
+  if(clean.length<2)return clean.toUpperCase();
+  const letters=clean.split("");
+  let scrambled=clean,tries=0;
+  while((scrambled===clean||tries===0)&&tries<20){
     for(let i=letters.length-1;i>0;i--){
       const j=Math.floor(Math.random()*(i+1));
       [letters[i],letters[j]]=[letters[j],letters[i]];
@@ -792,28 +708,147 @@ function covopsScrambleWord(word){
   }
   return scrambled.charAt(0).toUpperCase()+scrambled.slice(1);
 }
-function genCovopsWordPuzzle(){
-  const word=COVOPS_WORD_BANK[Math.floor(Math.random()*COVOPS_WORD_BANK.length)];
-  return{type:"word",prompt:`UNSCRAMBLE: ${covopsScrambleWord(word)}`,answer:word,reward:7};
+
+// ── THREAT NAME → letter-reveal puzzle ──
+// Strips punctuation but keeps every word (e.g. "KAIJU: GORGOZAR" -> "KAIJU GORGOZAR"),
+// then reveals 30–40% of its letters at random.
+function covopsBuildNamePuzzle(rawName){
+  const clean=rawName.replace(/[^A-Za-z ]/g," ").replace(/\s+/g," ").trim().toUpperCase();
+  const letterIdx=[];
+  clean.split("").forEach((ch,i)=>{if(ch!==" ")letterIdx.push(i);});
+  const revealCount=Math.max(1,Math.round(letterIdx.length*(0.30+Math.random()*0.10)));
+  const shuffled=[...letterIdx].sort(()=>Math.random()-0.5);
+  const revealed=new Array(clean.length).fill(false);
+  clean.split("").forEach((ch,i)=>{if(ch===" ")revealed[i]=true;});
+  shuffled.slice(0,revealCount).forEach(i=>revealed[i]=true);
+  return{answer:clean,revealed};
 }
-// Simple linear-equation bank ("resolves in X= or Y="), generated rather than
-// pre-baked so it plays like a much larger bank without 100 authored lines.
-function genCovopsMathPuzzle(){
-  const useY=Math.random()<0.5;
-  const v=useY?"Y":"X";
-  const ansVal=Math.floor(Math.random()*12)+1;
-  const coef=Math.floor(Math.random()*6)+2;
-  const addend=Math.floor(Math.random()*15)+1;
-  const sign=Math.random()<0.5?"+":"-";
-  const rhs=sign==="+"?coef*ansVal+addend:coef*ansVal-addend;
-  return{type:"numeric",prompt:`${coef}${v} ${sign} ${addend} = ${rhs}.  ${v} = ?`,answer:String(ansVal),reward:7};
+function covopsNameDisplay(p){
+  return p.answer.split("").map((ch,i)=>ch===" "?"   ":(p.revealed[i]?ch:"_")).join(" ");
+}
+function covopsHintRevealLetters(p){
+  const hidden=[];
+  p.revealed.forEach((r,i)=>{if(!r)hidden.push(i);});
+  if(!hidden.length)return p;
+  const pick=hidden.sort(()=>Math.random()-0.5).slice(0,Math.min(3,hidden.length));
+  const revealed=[...p.revealed];
+  pick.forEach(i=>revealed[i]=true);
+  return{...p,revealed};
 }
 
-// Home regions per AI faction, used to decide when Division 7 goes on offense
-// (all home countries >=80%) and where GGRU/Division 8 anchor their behavior.
-const COVOPS_HOME_REGIONS={
-  div7:[...COVOPS_START_SOVIET,"Russia"],
-  div8:[...COVOPS_START_ASIA_D8,"China"],
-  accel:[...COVOPS_START_AFRICA_ME,"Egypt"],
-  ggru:[...COVOPS_START_GGRU_STRONGHOLDS]
-};
+// ── LOCATION → anagram puzzle ──
+// If a real country is textually present, scramble just the country. If not,
+// keep the last word as a visible anchor and scramble everything before it —
+// e.g. "Eastern Europe" -> display "Aseertn EUROPE", answer "EASTERN".
+function covopsBuildLocationPuzzle(loc){
+  const segments=loc.split(",").map(s=>s.trim());
+  const last=segments[segments.length-1];
+  const isCountry=s=>COVOPS_COUNTRY_TOKENS.some(c=>c.toLowerCase()===s.toLowerCase());
+  let country=null;
+  if(segments.length>1&&isCountry(last))country=last;
+  else if(isCountry(loc.trim()))country=loc.trim();
+  if(country){
+    const clean=covopsCleanWord(country).toUpperCase();
+    return{answer:clean,scrambled:covopsScrambleBlock(clean),anchor:null,revealedPrefix:0};
+  }
+  const words=loc.replace(/[^A-Za-z ]/g," ").trim().split(/\s+/).filter(Boolean);
+  if(words.length<=1){
+    const clean=covopsCleanWord(words[0]||loc).toUpperCase();
+    return{answer:clean,scrambled:covopsScrambleBlock(clean),anchor:null,revealedPrefix:0};
+  }
+  const anchor=words[words.length-1].toUpperCase();
+  const lead=covopsCleanWord(words.slice(0,-1).join("")).toUpperCase();
+  return{answer:lead,scrambled:covopsScrambleBlock(lead),anchor,revealedPrefix:0};
+}
+function covopsLocationDisplay(p){
+  let word;
+  if(p.revealedPrefix>0){
+    const revealed=p.answer.slice(0,p.revealedPrefix);
+    const blanks=p.answer.slice(p.revealedPrefix).split("").map(()=>"_").join("");
+    word=revealed+blanks;
+  }else{
+    word=p.scrambled;
+  }
+  return p.anchor?`${word} ${p.anchor}`:word;
+}
+function covopsHintRevealLocationHalf(p){
+  const half=Math.max(1,Math.ceil(p.answer.length/2));
+  return{...p,revealedPrefix:Math.max(p.revealedPrefix,half)};
+}
+
+// ── THREAT PRIORITY → equation puzzle ──
+// Real priority tags map to bands: yellow->low(1-3), orange->medium(4-6),
+// red/purple->high(7-10). Villains have no priority field, so per design they
+// always resolve to high.
+function covopsBandForPriorityTag(tag){
+  if(tag==="yellow")return"low";
+  if(tag==="orange")return"medium";
+  return"high";
+}
+function covopsRandomTargetForBand(label){
+  if(label==="high")return 7+Math.floor(Math.random()*4);
+  if(label==="medium")return 4+Math.floor(Math.random()*3);
+  return 1+Math.floor(Math.random()*3);
+}
+function covopsBuildPriorityPuzzle(bandLabel){
+  const target=covopsRandomTargetForBand(bandLabel);
+  const useY=Math.random()<0.5;
+  const v=useY?"Y":"X";
+  const coef=Math.floor(Math.random()*4)+2;
+  const addend=Math.floor(Math.random()*10)+1;
+  const sign=Math.random()<0.5?"+":"-";
+  const rhs=sign==="+"?coef*target+addend:coef*target-addend;
+  return{answer:String(target),v,coef,addend,sign,rhs,simplified:false,band:bandLabel.toUpperCase()};
+}
+function covopsPriorityPromptText(p){
+  if(p.simplified){
+    const rhs2=p.sign==="+"?p.rhs-p.addend:p.rhs+p.addend;
+    return `${p.coef}${p.v} = ${rhs2}.  ${p.v} = ?`;
+  }
+  return `${p.coef}${p.v} ${p.sign} ${p.addend} = ${p.rhs}.  ${p.v} = ?`;
+}
+function covopsPriorityLiveLabel(inputStr){
+  const n=parseInt(inputStr,10);
+  if(isNaN(n))return"";
+  if(n>=7&&n<=10)return"HIGH";
+  if(n>=4&&n<=6)return"MEDIUM";
+  if(n>=1&&n<=3)return"LOW";
+  return"";
+}
+function covopsHintSimplifyPriority(p){return{...p,simplified:true};}
+
+// ── Round assembly, grading, and the meter ──
+function genCovopsRound(){
+  const useVillain=Math.random()<0.25&&typeof VILLAIN_DEFS!=="undefined"&&VILLAIN_DEFS.length;
+  let title,loc,bandLabel;
+  if(useVillain){
+    const v=VILLAIN_DEFS[Math.floor(Math.random()*VILLAIN_DEFS.length)];
+    title=v.title;loc=v.loc;bandLabel="high";
+  }else{
+    const t=ALL_THREATS[Math.floor(Math.random()*ALL_THREATS.length)];
+    title=t.name;loc=t.loc;bandLabel=covopsBandForPriorityTag(t.priority);
+  }
+  return{
+    name:covopsBuildNamePuzzle(title),
+    location:covopsBuildLocationPuzzle(loc),
+    priority:covopsBuildPriorityPuzzle(bandLabel)
+  };
+}
+function covopsGradeRound(round,nameInput,locInput,priInput){
+  const nameOk=(nameInput||"").trim().toUpperCase().replace(/\s+/g," ")===round.name.answer;
+  const locOk=(locInput||"").trim().toUpperCase()===round.location.answer;
+  const priOk=(priInput||"").trim()===round.priority.answer;
+  const correctCount=[nameOk,locOk,priOk].filter(Boolean).length;
+  const points=correctCount*5;
+  const meterDelta=correctCount===3?1:(correctCount<=1?-1:0);
+  return{nameOk,locOk,priOk,correctCount,points,meterDelta};
+}
+// Meter: 20 half-steps across 10 whole numbers — Low N (even offset) / High N
+// (odd offset). Start at Low 4 = position 7. Win at 20 (High 10), lose at 0.
+function covopsMeterLabel(pos){
+  if(pos<=0)return"0";
+  if(pos>=20)return"High 10";
+  const N=Math.floor((pos-1)/2)+1;
+  const sub=(pos-1)%2;
+  return(sub===0?"Low ":"High ")+N;
+}
