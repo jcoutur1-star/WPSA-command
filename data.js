@@ -724,7 +724,10 @@ function covopsBuildNamePuzzle(rawName){
   return{answer:clean,revealed};
 }
 function covopsNameDisplay(p){
-  return p.answer.split("").map((ch,i)=>ch===" "?"   ":(p.revealed[i]?ch:"_")).join(" ");
+  // Word gaps use non-breaking spaces so the browser can't collapse them down
+  // to the same single space used between individual letters — otherwise a
+  // multi-word threat name reads as one unbroken run of letters/underscores.
+  return p.answer.split("").map((ch,i)=>ch===" "?"\u00A0\u00A0\u00A0\u00A0":(p.revealed[i]?ch:"_")).join(" ");
 }
 function covopsHintRevealLetters(p){
   const hidden=[];
@@ -769,7 +772,9 @@ function covopsLocationDisplay(p){
   }else{
     word=p.scrambled;
   }
-  return p.anchor?`${word} ${p.anchor}`:word;
+  // Same fix as the name puzzle: a plain space between the scrambled block
+  // and the anchor word collapses to look identical to a letter-spacing gap.
+  return p.anchor?`${word}\u00A0\u00A0\u00A0\u00A0${p.anchor}`:word;
 }
 function covopsHintRevealLocationHalf(p){
   const half=Math.max(1,Math.ceil(p.answer.length/2));
