@@ -275,7 +275,7 @@ function App(){
       else if(kind==="priority")round.priority=covopsHintSimplifyPriority(round.priority);
       return{...prev,round,points:prev.points-COVOPS_HINT_COST,hintUsedThisRound:true};
     });
-    setCovOpsMsg("Cassonik pitches in.");
+    setCovOpsMsg("Cassonik helps out.");
   }
 
   function covopsTutorialText(step){
@@ -283,7 +283,7 @@ function App(){
       case 1:return"See the meter up top? You start at Low 4. A clean 3-for-3 report moves you up a half-step; two or more misses drops you a half-step; exactly 2 right holds you steady. Climb to High 10 and you've won. Bottom out at 0 and it's over.";
       case 2:return"Every report has three parts: the threat's name as a letter-reveal puzzle, its location as a scrambled word, and its priority as an equation — punch in the number and the priority label fills itself in below it. You've got two minutes per report.";
       case 3:return"Hit Send to Command whenever you're ready — don't wait for the clock, it submits automatically at zero anyway, whatever's filled in at that point.";
-      case 4:return"Stuck? Cassonik's in the corner — spend 5 points for a hint, once per report. She can open up more letters, unscramble half the location, or simplify the math. Good hunting, Director.";
+      case 4:return"Stuck? Cassonik's in the corner — spend 5 points to free up her desk so she can help you. With her experience and powers she can open up more letters, unscramble half the location, or simplify the math. Good hunting, Director.";
       default:return"";
     }
   }
