@@ -1654,7 +1654,7 @@ function App(){
           React.createElement("div",{style:{fontSize:12,color:"var(--text3)",marginBottom:16}},"World Security & Protection Agency"),
           React.createElement("div",{style:{fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:6,fontFamily:"var(--font-head)"}},"KNOWN ACCESS CODES"),
           React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}},
-            ["KRONOS","TYPHON","MANIAC","SILPHANA","LEVIATHAN","WSPA"].map(p=>React.createElement("div",{key:p,style:{fontSize:11,color:"var(--text2)",border:"1px solid var(--text3)",borderRadius:4,padding:"4px 10px"}},p))
+            ["KRONOS","TYPHON","MANIAC","SILPHANA","LEVIATHAN","JOHN","WSPA"].map(p=>React.createElement("div",{key:p,style:{fontSize:11,color:"var(--text2)",border:"1px solid var(--text3)",borderRadius:4,padding:"4px 10px"}},p))
           ),
           React.createElement("div",{style:{fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:10,fontFamily:"var(--font-head)"}},"CURRENT ORGANIZATIONAL CHART"),
           React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:14,marginBottom:24}},
@@ -1705,6 +1705,8 @@ function App(){
           ),
           React.createElement("div",{style:{flex:"1 1 260px"}},
             React.createElement("div",{style:{fontSize:12,color:"var(--red)",fontStyle:"italic",marginBottom:10,lineHeight:1.6}},briefing.quote),
+            briefing.secondQuote&&React.createElement("div",{style:{fontSize:12,color:"var(--text2)",fontStyle:"italic",marginBottom:10,lineHeight:1.6}},briefing.secondQuote),
+            briefing.secretTrait&&React.createElement("div",{style:{fontSize:12,color:"#ff8844",marginBottom:14,lineHeight:1.6}},React.createElement("b",null,"⚠ Secret: "),briefing.secretTrait),
             React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:6}},"FULL ROSTER — SINGLE COMBAT LOSS PROJECTIONS"),
             heroList.map(h=>React.createElement("div",{key:h.id,className:"scene-rank-row"},h.title))
           )
