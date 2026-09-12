@@ -19,7 +19,7 @@ function effStats(hero,rom,dis){
 
 // Note: Hospital heroes are additionally blocked at the App layer (hospitalIds set).
 // Heroes in hospital have status "exhausted" so canDeploy already returns false for them.
-function canDeploy(h){return h.status!=="deployed"&&h.status!=="gameLocked"&&h.status!=="shopLocked"&&h.status!=="kia"&&h.status!=="rogue"&&h.status!=="exhausted"&&h.status!=="offworld";}
+function canDeploy(h){return h.status!=="deployed"&&h.status!=="gameLocked"&&h.status!=="shopLocked"&&h.status!=="kia"&&h.status!=="rogue"&&h.status!=="exhausted"&&h.status!=="offworld"&&h.status!=="bonding";}
 
 function isSuicide(hero,allH,pids){
   if(pids.length!==1)return false;
@@ -223,3 +223,95 @@ function calcDmg(outcome,hero,threat,allDeployed){
 }
 
 const WIN1=500,WIN2=1000,VILLAIN_TEAM_SCORE=120;
+
+// ── LIVE MISSION-SUCCESS CALCULATOR ───────────────────────────────────────────
+// Returns a whole-number 0–100 "Projected Mission Success" percentage for the
+// deploy screen. Mirrors the deterministic math in rollMission() above — same
+// avgP/bonus/penalty formula — but never touches Math.random(), so it can be
+// safely called on every render as heroes are added/removed. It intentionally
+// does NOT reflect the hidden crit-chance "success saves" (Sportsman, hero
+// crits) — those are meant to feel like lucky rescues, not a number the player
+// plans around. If rollMission's formula changes, this needs the same edit.
+function computeMissionSuccessPercent(heroes,threat,rom,dis){
+  if(!heroes||heroes.length===0||!threat)return 0;
+
+  // ── TUTORIAL: scripted missions are always a guaranteed win ──
+  if(threat.tutorialGuaranteed)return 100;
+
+  // ── HERO vs HERO: ratio-based equation ──
+  if(threat.isRogueCouncil||threat.isCKJohnTeamUp){
+    const rogueMembers=threat.rogueMembers||[];
+    const affected=rogueMembers.map(r=>r.title);
+    let R=rogueMembers.reduce((sum,r)=>{
+      const m=CAREER[r.career]?.mult||1;
+      let p=r.basePower*m;
+      if((r.affiliates||[]).some(aff=>affected.includes(aff)))p*=1.15;
+      return sum+p;
+    },0);
+    const johnInRogue=threat.johnPresent||rogueMembers.some(r=>r.isJohn);
+    if(johnInRogue)R*=3.5;
+    // John present flips this to a flat 1% success roll, no partial outcome.
+    if(johnInRogue)return 1;
+    const S=heroes.reduce((sum,h)=>{
+      const m=CAREER[h.career]?.mult||1;
+      let p=h.basePower*m;
+      if((h.affiliates||[]).some(aff=>affected.includes(aff)))p*=0.75;
+      return sum+p;
+    },0);
+    const rawChance=R>0?S/(S+R):0.93;
+    const chance=Math.min(0.93,Math.max(0.01,rawChance));
+    return Math.round(chance*0.55*100);
+  }
+
+  if(heroes.some(h=>h.isJohn))return 100;
+  // El Infinite under-5 fight can only ever resolve partial/failure — no success outcome exists.
+  if(heroes.some(h=>h.title==="El Infinite")&&heroes.length<5)return 0;
+
+  const eclipso=heroes.find(h=>h.eclipsoLonelyPenalty);
+  const eclipsoAlone=eclipso&&!heroes.some(h=>h.id!==eclipso.id&&(eclipso.affiliates||[]).includes(h.title));
+
+  const ironsidePresent=heroes.some(h=>h.title==="Ironside");
+  const stats=heroes.map(h=>{
+    const decorated={...h,_ironsideAura:ironsidePresent&&h.title!=="Ironside"};
+    const s=effStats(decorated,rom,dis);
+    if(h.eclipsoLonelyPenalty&&eclipsoAlone)return{...s,power:s.power*0.7};
+    return s;
+  });
+  const sumW=stats.reduce((a,s)=>a+s.power,0);
+  let avgP=sumW>0?stats.reduce((a,s)=>a+(s.power*s.power),0)/sumW:0;
+  const classes=new Set(heroes.map(h=>h.cls));
+  if(classes.size>1)avgP*=1.04;
+  heroes.forEach(h=>{heroes.forEach(h2=>{if(h.id!==h2.id&&h.affiliates?.includes(h2.title))avgP*=1.04;});});
+  if(heroes.length===1&&heroes[0].title==="Shadowmere")avgP+=0.4;
+  if(heroes.length>=2&&heroes.some(h=>h.title==="Greywulf"))avgP+=0.5;
+  if(threat.isOcean&&heroes.some(h=>h.title==="Hydrothylre"))avgP+=3.4;
+  if(threat.isOcean&&heroes.some(h=>h.title==="Hydrotheppilies"))avgP+=3.4;
+  if(heroes.some(h=>h.title==="Captain Shamrock"))avgP+=1.0;
+  let bonus=0;
+  if(threat.type==="kaiju")bonus+=0.08;
+  if(threat.type==="mystic"&&heroes.some(h=>["Seraph","Morgana","The Crimson Knight"].includes(h.title)))bonus+=0.12;
+  if(threat.type==="tech"&&heroes.some(h=>["Adrenaline Junkie","Dr. Voidance"].includes(h.title)))bonus+=0.1;
+  if(threat.type==="military"&&heroes.some(h=>["Ironside","The Sportsman"].includes(h.title)))bonus+=0.1;
+  const euroLocs=["Europe","Italy","France","Germany","Belgium","Monaco","Switzerland","Austria","Romania","Transylvania","Scotland","Ireland","Iceland"];
+  if(heroes.some(h=>h.title==="Golgotha")&&euroLocs.some(e=>threat.loc?.includes(e)))bonus+=0.15;
+  let disP=0;
+  heroes.forEach(h=>{if(dis[h.id])heroes.forEach(h2=>{if(dis[h.id].includes(h2.id))disP+=0.07;});});
+  const diff=threat.priority==="red"?-0.18:threat.priority==="orange"?-0.10:threat.priority==="yellow"?-0.02:-0.22;
+  let teamUpPenalty=0;
+  if(threat.isTeamUp&&threat.teamUpPower){
+    const combinedMight=threat.teamUpPower;
+    const heroPower=stats.reduce((a,s)=>a+s.power,0)/stats.length;
+    teamUpPenalty=Math.max(0,(combinedMight-heroPower*heroes.length)*0.015);
+  }
+  const chance=Math.min(0.93,Math.min(1,avgP/10)+bonus+diff-disP-teamUpPenalty);
+  return Math.round(Math.max(0,chance)*0.55*100);
+}
+
+// ── WIN TIERS: Easy (250) / Normal (500) / Legendary (1000) ──────────────────
+// winTier index (0,1,2) tracks which target the player is currently pursuing.
+const TIER_TARGETS=[250,WIN1,WIN2];
+const TIER_LABELS=["Easy","Normal","Legendary"];
+const TIER_ACHIEVEMENTS=["easy_does_it","normal_operations","beat_a_game"];
+
+// ── TEAM BONDING ───────────────────────────────────────────────────────────
+const BOND_DURATION=60; // seconds
