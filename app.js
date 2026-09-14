@@ -920,7 +920,8 @@ function App(){
           const av=vRef.current.filter(v=>!v.defeated&&!v.redeemed&&!curThreats.some(p=>p.villainId===v.id));
           if(av.length>0&&Math.random()<0.28){
             const v=av[Math.floor(Math.random()*av.length)];
-            const nt={id:Date.now(),name:v.title,loc:v.loc,lat:v.lat,lng:v.lng,priority:"purple",type:v.threatType||"military",desc:v.personality.slice(0,80)+"…",timer:220,maxTimer:220,reward:v.reward,recurring:true,villainId:v.id};
+            const startPriority=villainStartPriority(v.basePower||1);
+            const nt={id:Date.now(),name:v.title,loc:v.loc,lat:v.lat,lng:v.lng,priority:startPriority,type:v.threatType||"military",desc:v.personality.slice(0,80)+"…",timer:220,maxTimer:220,reward:v.reward,recurring:true,villainId:v.id};
             setLog("⚠ VILLAIN: "+v.title+" — "+v.loc);
             setThreats(prev=>[...prev,nt]);
           } else {
@@ -993,7 +994,7 @@ function App(){
         const villain=threat.villainId?vRef.current.find(v=>v.id===threat.villainId):null;
         const loc=threat.loc;const tname=threat.name;
         const heroList=assigned.map(h=>h.title).join(", ");
-        const outStr=outcome==="success"?"achieved a decisive victory":outcome==="partial"?"secured a partial success":"suffered a defeat";
+        const outStr=outcome==="success"?"achieved a decisive victory":"suffered a defeat";
         let rel="";if(relNotes.length)rel=" "+relNotes.join(" ");
         let vNote="";if(villain)vNote=` They faced off against ${villain.title}.`;
         narration=`${heroList} deployed to ${loc} to confront ${tname} and ${outStr}.${vNote}${rel}`;
@@ -1348,7 +1349,7 @@ function App(){
       }
       setDepMap(prev=>{const n={...prev};delete n[threat.id];return n;});
       // ── FACE THE PRESS: a clear win or loss against a high-priority threat or supervillain queues Augusta ──
-      if((threat.priority==="red"||threat.priority==="purple"||threat.villainId)&&outcome!=="partial"&&!threat.tutorialGuaranteed){
+      if((threat.priority==="red"||threat.priority==="purple"||threat.villainId)&&!threat.tutorialGuaranteed){
         pendingPressRef.current={outcome:outcome==="success"?"win":"loss",threatName:threat.name};
       }
       setModal({threat,heroes:assigned,outcome,narration,damages,anyKIA,turnedVillain,redeemedVillains,levelUps,xpEarned:pts,newRomMsg,newDisMsg,unlockMsg});
@@ -1407,6 +1408,17 @@ function App(){
       setTutorialStep("yellowstone2");
     }
   },[threats,tutorialActive,tutorialStep]);
+
+  // Yellowstone's countdown needs to actually move for dramatic tension, even though the
+  // rest of the tutorial's threat/hero systems stay frozen (see the main tick guard above).
+  // This is a small, isolated ticker scoped only to this one scripted threat.
+  useEffect(()=>{
+    if(!tutorialActive||tutorialStep!=="yellowstone1")return;
+    const iv=setInterval(()=>{
+      setThreats(prev=>prev.map(th=>th.id===9003&&th.timer>0?{...th,timer:th.timer-1}:th));
+    },1000);
+    return()=>clearInterval(iv);
+  },[tutorialActive,tutorialStep]);
 
   const sortedHeroes=useMemo(()=>{
     // Locked heroes (shopLocked / gameLocked, incl. Heroes of Tomorrow-locked) are hidden from the roster during gameplay.
@@ -2102,6 +2114,26 @@ function App(){
         React.createElement("div",{className:"bottom-panel"},
           // ── PUBLIC RELATIONS ──
           React.createElement("div",{className:"pr-section"},
+            (tutorialActive&&tutorialStep&&getTutorialDialogue())?(()=>{
+              const dlg=getTutorialDialogue();
+              const speaker=TUTORIAL_CHARACTERS[dlg.speaker];
+              return React.createElement(React.Fragment,null,
+                React.createElement("div",{className:"pr-portrait"},
+                  speaker.portrait?React.createElement("img",{src:speaker.portrait,alt:speaker.name,
+                    onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}):null,
+                  React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:speaker.portrait?"none":"flex"}},
+                    speaker.name.split(" ").map(w=>w[0]).join(""))
+                ),
+                React.createElement("div",{className:"pr-content"},
+                  React.createElement("div",{className:"pr-speaker-name"},speaker.name.toUpperCase()),
+                  React.createElement("div",{className:"pr-commentary"},dlg.text),
+                  React.createElement("div",{className:"pr-controls"},
+                    dlg.showBtn?React.createElement("button",{className:"pr-option-btn",onClick:tutorialContinue},dlg.finalBtn?"◈ FINISH TUTORIAL":"CONTINUE ▶"):
+                      React.createElement("div",{className:"pr-timer-note"},"◈ Waiting on you, Director...")
+                  )
+                )
+              );
+            })():
             prEvent?(()=>{
               const spk=prEvent.speaker==="nichols"?TUTORIAL_CHARACTERS.nichols:
                          prEvent.speaker==="cassonik"?TUTORIAL_CHARACTERS.cassonik:
@@ -2301,7 +2333,7 @@ function App(){
       React.createElement("div",{className:"modal",onClick:e=>e.stopPropagation()},
         React.createElement("div",{className:"modal-title"},"MISSION DEBRIEF"),
         React.createElement("div",{className:"modal-sub"},`${modal.threat.name} · ${modal.threat.loc}`),
-        React.createElement("div",{className:`modal-outcome outcome-${modal.outcome}`},modal.outcome==="success"?"▲ MISSION SUCCESS":modal.outcome==="partial"?"◈ PARTIAL SUCCESS":"▼ MISSION FAILED"),
+        React.createElement("div",{className:`modal-outcome outcome-${modal.outcome}`},modal.outcome==="success"?"▲ MISSION SUCCESS":"▼ MISSION FAILED"),
         React.createElement("div",{className:"modal-narration"},modal.narration),
         React.createElement("div",{className:"modal-stats"},
           modal.heroes.map(h=>{
@@ -2327,31 +2359,7 @@ function App(){
         modal.anyKIA&&!modal.turnedVillain&&React.createElement("div",{className:"modal-notice notice-red"},"⚠ HERO LOST IN ACTION. They will not be returning, Director."),
         React.createElement("button",{className:"modal-close",onClick:()=>setModal(null)},"◈ CLOSE DEBRIEF")
       )
-    ),
-    // TUTORIAL DIALOGUE BOX
-    tutorialActive&&tutorialStep&&(()=>{
-      const dlg=getTutorialDialogue();
-      if(!dlg)return null;
-      const speaker=TUTORIAL_CHARACTERS[dlg.speaker];
-      return React.createElement("div",{className:"tutorial-box"},
-        React.createElement("div",{className:"tutorial-portrait-slot"},
-          speaker.portrait?React.createElement("img",{
-            src:speaker.portrait,alt:speaker.name,
-            onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}
-          }):null,
-          React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:speaker.portrait?"none":"flex"}},
-            speaker.name.split(" ").map(w=>w[0]).join("")
-          )
-        ),
-        React.createElement("div",{className:"tutorial-copy"},
-          React.createElement("div",{className:"tutorial-speaker-name"},speaker.name.toUpperCase()),
-          speaker.title&&React.createElement("div",{className:"tutorial-speaker-title"},speaker.title),
-          React.createElement("div",{className:"tutorial-text"},dlg.text),
-          dlg.showBtn?React.createElement("button",{className:"tutorial-btn",onClick:tutorialContinue},dlg.finalBtn?"◈ FINISH TUTORIAL":"CONTINUE ▶"):
-            React.createElement("div",{className:"tutorial-hint"},"◈ Waiting on you, Director...")
-        )
-      );
-    })()
+    )
   );
 }
 
