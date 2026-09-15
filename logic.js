@@ -36,7 +36,7 @@ function isSuicide(hero,allH,pids){
 // strong teams — this is what makes raw power feel like it compounds).
 // Final Score = PowerScore + Class Synergy + Team Size + Relationship
 // Success % = clamp(0,100, FinalScore × ThreatMultiplier) + Hero Specials
-const POWER_DECAY=0.4;
+const POWER_DECAY=0.3;
 const POWER_EXPONENT=1.3;
 const THREAT_SUCCESS_MULT={yellow:3.5,orange:3,red:2,purple:1.5};
 
