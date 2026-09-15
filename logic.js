@@ -38,7 +38,7 @@ function isSuicide(hero,allH,pids){
 // Success % = clamp(0,100, FinalScore × ThreatMultiplier) + Hero Specials
 const POWER_DECAY=0.4;
 const POWER_EXPONENT=1.3;
-const THREAT_SUCCESS_MULT={yellow:4,orange:3.5,red:2.5,purple:2};
+const THREAT_SUCCESS_MULT={yellow:3.5,orange:3,red:2,purple:1.5};
 
 // Villain starting priority, derived from their own power level — this is what
 // lets weak villains (e.g. Mrs. Peanut) chain yellow→orange→red like any other
