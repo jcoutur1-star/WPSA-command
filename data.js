@@ -21,6 +21,17 @@ function loadAerosSent(){try{return localStorage.getItem("wspa_aeros_sent")==="1
 function saveAerosSent(v){try{localStorage.setItem("wspa_aeros_sent",v?"1":"0");}catch(e){}}
 function loadSilphanaProspectReady(){try{return localStorage.getItem("wspa_silphana_prospect_ready")==="1";}catch(e){return false;}}
 function saveSilphanaProspectReady(v){try{localStorage.setItem("wspa_silphana_prospect_ready",v?"1":"0");}catch(e){}}
+// High Score board — local top-10 runs by name + points, persists like ownedShop/codexUnlocked
+function loadHighScores(){try{return JSON.parse(localStorage.getItem("wspa_highscores")||"[]");}catch(e){return[];}}
+function saveHighScores(a){try{localStorage.setItem("wspa_highscores",JSON.stringify(a));}catch(e){}}
+function recordHighScore(name,points){
+  const list=loadHighScores();
+  list.push({name:(name||"DIRECTOR").toUpperCase().slice(0,14),points:Math.max(0,Math.floor(points||0))});
+  list.sort((a,b)=>b.points-a.points);
+  const top10=list.slice(0,10);
+  saveHighScores(top10);
+  return top10;
+}
 
 // ─── ACHIEVEMENTS ─────────────────────────────────────────────────────────────
 const ACHIEVEMENT_DEFS=[
