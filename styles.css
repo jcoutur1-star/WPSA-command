@@ -69,7 +69,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 .news-ticker-track{flex:1;overflow:hidden;height:100%;display:flex;align-items:center;position:relative}
 .news-ticker-text{font-size:15px;color:var(--gold);white-space:nowrap;animation:tickerScroll 32s linear forwards;font-family:var(--font-mono);position:absolute;}
 @keyframes tickerScroll{0%{transform:translateX(110vw)}100%{transform:translateX(-110vw)}}
-.main{display:grid;grid-template-columns:auto minmax(200px,240px) 1fr minmax(200px,240px) auto;grid-template-rows:1fr 220px;grid-template-areas:"heroes bonding map scores threats" "pr pr pr pr pr";overflow:hidden}
+.main{display:grid;grid-template-columns:auto minmax(200px,240px) 1fr minmax(200px,240px) auto;grid-template-rows:1fr 220px;grid-template-areas:"heroes bonding map scores threats" "heroes pr pr pr threats";overflow:hidden}
 
 /* ── HERO PANEL ── */
 .heroes-panel{grid-area:heroes;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:visible;padding:44px 8px 8px}
@@ -235,8 +235,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 /* ── PUBLIC RELATIONS: now its own full-width row along the bottom of the app ── */
 .pr-section{grid-area:pr;display:flex;gap:10px;padding:10px 16px;border-top:1px solid var(--border);background:var(--panel);overflow:hidden}
 .pr-idle{margin:auto;font-size:10px;color:var(--text3);font-style:italic;text-align:center}
-.pr-portrait{width:80px;min-width:80px;height:100%;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:#0a0a0a;display:flex;align-items:center;justify-content:center}
-.pr-portrait img{width:100%;height:100%;object-fit:cover}
+.pr-portrait{width:auto;min-width:0;flex-shrink:0;height:100%;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:#0a0a0a;display:flex;align-items:center;justify-content:center}
+.pr-portrait img{width:auto;height:100%;max-width:220px;object-fit:contain;display:block}
 .pr-content{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
 .pr-speaker-name{font-family:var(--font-head);font-size:11px;color:var(--gold);letter-spacing:1px;margin-bottom:4px}
 .pr-commentary{font-size:11px;color:var(--text);line-height:1.5;overflow-y:auto;flex:1;padding-right:4px}
