@@ -54,11 +54,13 @@ function villainStartPriority(basePower){
 // Applies Ironside's Command Aura and Eclipso's loneliness penalty — the same
 // decoration rollMission has always applied before reading power — then
 // returns a plain sorted-descending array of numbers for TeamPower to consume.
-function decoratedPowers(heroes,rom,dis){
+function decoratedPowers(heroes,rom,dis,threat){
   const eclipso=heroes.find(h=>h.eclipsoLonelyPenalty);
   const eclipsoAlone=eclipso&&!heroes.some(h=>h.id!==eclipso.id&&(eclipso.affiliates||[]).includes(h.title));
   const ironsidePresent=heroes.some(h=>h.title==="Ironside");
   return heroes.map(h=>{
+    // Magnetic spiritual vortex: heavy armor can't get a grip on it — Tanks contribute nothing to success rate.
+    if(threat&&threat.vortexEffect&&h.cls==="tank")return 0;
     const decorated={...h,_ironsideAura:ironsidePresent&&h.title!=="Ironside"};
     let power=effStats(decorated,rom,dis).power;
     if(h.eclipsoLonelyPenalty&&eclipsoAlone)power*=0.7;
@@ -66,9 +68,9 @@ function decoratedPowers(heroes,rom,dis){
   }).sort((a,b)=>b-a);
 }
 
-function computeTeamPower(heroes,rom,dis){
+function computeTeamPower(heroes,rom,dis,threat){
   if(!heroes.length)return 0;
-  const powers=decoratedPowers(heroes,rom,dis);
+  const powers=decoratedPowers(heroes,rom,dis,threat);
   return powers.reduce((sum,p,i)=>sum+p*Math.pow(POWER_DECAY,i),0);
 }
 function computeClassSynergyScore(heroes){
@@ -97,8 +99,8 @@ function computeRelationshipScore(heroes,rom,dis){
   }
   return score;
 }
-function missionFinalScore(heroes,rom,dis){
-  const powerScore=Math.pow(computeTeamPower(heroes,rom,dis),POWER_EXPONENT);
+function missionFinalScore(heroes,rom,dis,threat){
+  const powerScore=Math.pow(computeTeamPower(heroes,rom,dis,threat),POWER_EXPONENT);
   return powerScore+computeClassSynergyScore(heroes)+computeTeamSizeScore(heroes.length)+computeRelationshipScore(heroes,rom,dis);
 }
 // Hero Specials — applied at the very end, after the threat multiplier, as a
@@ -119,8 +121,9 @@ function heroSpecialsAdjustment(heroes,threat,rom,dis){
   if(threat.type==="military"&&heroes.some(h=>["Ironside","The Sportsman"].includes(h.title)))adj+=1;
   const euroLocs=["Europe","Italy","France","Germany","Belgium","Monaco","Switzerland","Austria","Romania","Transylvania","Scotland","Ireland","Iceland"];
   if(heroes.some(h=>h.title==="Golgotha")&&euroLocs.some(e=>threat.loc?.includes(e)))adj+=1.5;
+  if(threat.dinoParkEffect&&heroes.some(h=>h.title==="Dinosia"))adj+=30;
   if(threat.isTeamUp&&threat.teamUpPower){
-    const powers=decoratedPowers(heroes,rom,dis);
+    const powers=decoratedPowers(heroes,rom,dis,threat);
     const heroPowerAvg=powers.reduce((a,b)=>a+b,0)/Math.max(1,powers.length);
     const teamUpPenalty=Math.max(0,(threat.teamUpPower-heroPowerAvg*heroes.length)*0.015);
     adj-=teamUpPenalty*100;
@@ -129,7 +132,7 @@ function heroSpecialsAdjustment(heroes,threat,rom,dis){
 }
 // Returns 0–1, the actual probability rollMission uses to resolve the dice roll.
 function missionSuccessChance01(heroes,threat,rom,dis){
-  const finalScore=missionFinalScore(heroes,rom,dis);
+  const finalScore=missionFinalScore(heroes,rom,dis,threat);
   const mult=THREAT_SUCCESS_MULT[threat.priority]??3.5;
   let pct=finalScore*mult;
   pct+=heroSpecialsAdjustment(heroes,threat,rom,dis);
@@ -271,6 +274,30 @@ function calcDmgRaw(outcome,hero,threat,allDeployed){
     if(allHeroes.length===1)return{health:90};
     const base=outcome==="success"?[3,10]:outcome==="partial"?[8,18]:[15,25];
     return{health:Math.floor(Math.random()*(base[1]-base[0])+base[0])};
+  }
+
+  // ── Moscovium Meteor: 2× damage to heroes with power level under 5 ──
+  if(threat&&threat.moscoviumEffect&&(hero.basePower||0)<5){
+    const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
+    return{health:Math.floor(Math.random()*(base[1]-base[0])+base[0])*2};
+  }
+
+  // ── The Phi Am: ×1.2 damage to heroes below 50% health ──
+  if(threat&&threat.phiAmEffect){
+    const m=CAREER[hero.career]?.mult||1;
+    const approxMaxHP=Math.round(hero.baseHP*m)+(hero.mechaBonus||0);
+    const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
+    const raw=Math.floor(Math.random()*(base[1]-base[0])+base[0]);
+    if(hero.currentHP<approxMaxHP*0.5)return{health:Math.round(raw*1.2)};
+    return{health:raw};
+  }
+
+  // ── Apophis: +3 damage to each hero deployed beyond the first 2 ──
+  if(threat&&threat.apophisEffect){
+    const extra=Math.max(0,allHeroes.length-2)*3;
+    const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
+    const raw=Math.floor(Math.random()*(base[1]-base[0])+base[0]);
+    return{health:raw+extra};
   }
 
   // ── Pincerless Pinster: +10% damage per hero over 1 ──
