@@ -14,6 +14,13 @@ function saveTeam(t){try{localStorage.setItem("wspa_team",JSON.stringify(t));}ca
 // Achievements — permanent, one-time unlocks (achievement keys), persists like ownedShop/codexUnlocked
 function loadAchievements(){try{return JSON.parse(localStorage.getItem("wspa_achievements")||"[]");}catch(e){return[];}}
 function saveAchievements(a){try{localStorage.setItem("wspa_achievements",JSON.stringify(a));}catch(e){}}
+// Silphana redemption arc — persists across games like hotUnlocked.
+// aerosSent: the AEROS confidential log has been forwarded to George.
+// silphanaProspectReady: Silphana has since been defeated as a threat and is waiting in Heroes of Tomorrow.
+function loadAerosSent(){try{return localStorage.getItem("wspa_aeros_sent")==="1";}catch(e){return false;}}
+function saveAerosSent(v){try{localStorage.setItem("wspa_aeros_sent",v?"1":"0");}catch(e){}}
+function loadSilphanaProspectReady(){try{return localStorage.getItem("wspa_silphana_prospect_ready")==="1";}catch(e){return false;}}
+function saveSilphanaProspectReady(v){try{localStorage.setItem("wspa_silphana_prospect_ready",v?"1":"0");}catch(e){}}
 
 // ─── ACHIEVEMENTS ─────────────────────────────────────────────────────────────
 const ACHIEVEMENT_DEFS=[
@@ -71,6 +78,19 @@ const CONFIDENTIAL_BRIEFINGS={
     desc:"The biblical serpent of the ocean. DO NOT USE TEAMWORK. This creature gets stronger the more people we send, and specifically targets large groups and sweeps them into each other. Estimated length between 60 - 70 meters. 320 - 420 tons. Extremely dangerous.",
     quote:"\"\"No one is so fierce as to rouse Leviathan.\" Job 41:10. This is the creature that all other creatures are compared against. A monster of immense power and fury. It's a shame it doesn't fight for us. I've got a team running the calculations on who would win between this thing in Typhon. Our hope was that it could be something we piss off as Typhon attacks, and maybe see if these two mythic monsters had a territory dispute over the whole destroying the world thing. Would be a fight for the ages. Hopefully we never find out.\" — George Nichols",
     excludeTitles:[]
+  },
+  AEROS:{
+    heading:"⚠ CONFIDENTIAL — RECOVERED FILES: SENIOR ANALYST ALEXANDRIA AEROS",
+    portrait:"portraits/Silphana.jpg",
+    isAerosLog:true,
+    logs:[
+      "User: Senior Analyst Alexandria Aeros\n\tIt's not enough. Cass believes we can just bring in anyone. She doesn't understand that she's the reason Bari died. He wasn't ready. When Corvair dies that's going to be on her. This isn't a game, people's lives are at stake. Ali says that this is part of the trade, that I need to cool off, but I think he's just trying to cover for his golden girl Cassandra, the precog who sees enough to get us all in trouble. I just can't take it anymore. We're losing people. We're losing heroes. It feels like the world is falling apart at the seams, like it's corrupting into a state of chaos. George and I have spent a long time talking about the changes we'd make. He's the only one I can talk to. I know he listens, and we try to work through these things, but he doesn't understand. The world needs something to be afraid of. It's clear that the only thing that keeps the world from throwing itself off of a cliff is something to be afraid of, and that's not WSPA. Bad kids are afraid of punishment, not losing a reward.",
+      "User: Senior Analyst Alexandria Aeros\n\tGeorge, I've locked my files. If anyone can break it, it's you. I have the power to save the world now, and I wish I didn't. It means I can't have you. You're going to hate me. That's the point, and I need you to believe it. What I intend to do is evil, it's not morally defensible, but I think it will save the world. Well, their world. Not mine. Mine will continue working along dutifully at WSPA HQ to keep them safe. He will keep working until his bones are ground to ashes.\n\nI'm not going to explain it, but know that what I do has a reason… I love you George."
+    ],
+    georgeResponse:[
+      "Lex? She wrote this for me?",
+      "This changes a lot. It's the mace. We have to get that mace away from her! Whatever it takes!"
+    ]
   },
   JOHN:{
     heading:"⚠ CONFIDENTIAL — JOHN DOE BRIEFING",
@@ -694,6 +714,39 @@ const ALL_THREATS=[
   {id:317,name:"The Caresquesque",loc:"Paris, France",lat:48.9,lng:2.3,priority:"red",type:"mystic",desc:"A being that infects mirrors and pulls people into mirror dimensions to consume them. Paris is reporting mass disappearances.",maxTimer:200,reward:58},
   {id:318,name:"Dakuwaqa",loc:"Fiji, Pacific Ocean",lat:-18.0,lng:178.0,priority:"orange",type:"mystic",desc:"The shark god of Fijian legend has awakened in the Pacific and is targeting coastal vessels and settlements.",maxTimer:265,reward:36,isOcean:true},
   {id:319,name:"Marsupials of Unusual Size",loc:"Fire Swamp, Southern France",lat:43.5,lng:3.5,priority:"yellow",type:"bio",desc:"Enormous marsupials of unusual size have been reported in the fire swamps of southern France. They are vicious. They are fast. They are very large.",maxTimer:380,reward:14},
+  // ── V8 THREAT WAVE ──
+  {id:320,name:"A Magnetic Spiritual Vortex In Flux",loc:"Bermuda Triangle",lat:25.0,lng:-71.0,priority:"orange",type:"mystic",desc:"An unstable magnetic-spiritual vortex is warping the region. Its field disrupts heavy armor entirely — Tanks cannot contribute to mission success here.",maxTimer:300,reward:30,vortexEffect:true},
+  {id:321,name:"Moscovium Meteor",loc:"Reykjavik, Iceland",lat:64.1,lng:-21.9,priority:"orange",type:"disaster",desc:"A glowing meteor teeming with Moscovium is making people act strange. Deployed heroes with a power level under 5 are dealt 2× damage.",maxTimer:290,reward:32,moscoviumEffect:true},
+  {id:322,name:"A Meteor The Size Of Ten Thousand Refrigerators",loc:"Australian Outback",lat:-25.0,lng:135.0,priority:"red",type:"disaster",desc:"A meteor roughly the size of ten thousand refrigerators is on a collision course with a populated region.",maxTimer:200,reward:50},
+  {id:323,name:"Four-Nation Trade And Tax War",loc:"Geneva, Switzerland",lat:46.2,lng:6.1,priority:"purple",type:"military",desc:"A regional trade and tax dispute between four sovereign nations has escalated to the brink of open conflict.",maxTimer:190,reward:75},
+  {id:324,name:"Uncontained Belgian Breakout",loc:"Brussels, Belgium",lat:50.8,lng:4.4,priority:"yellow",type:"military",desc:"An uncontained group of Belgians is attempting to break out of a WSPA containment perimeter.",maxTimer:420,reward:10},
+  {id:325,name:"Undead Viking Berserkers",loc:"Reykjavik, Iceland",lat:64.1,lng:-21.9,priority:"yellow",type:"mystic",desc:"Undead Viking berserkers have risen from ancient burial mounds, intent on reclaiming Iceland.",maxTimer:400,reward:14},
+  {id:326,name:"Outraged Italian Football Riots",loc:"Rome, Italy",lat:41.9,lng:12.5,priority:"yellow",type:"military",desc:"Outraged Italians are threatening to riot after failing to qualify for the global soccer tournament for the 14th year straight.",maxTimer:420,reward:8},
+  {id:327,name:"Incompetent Battleship Captain",loc:"Great Barrier Reef, Australia",lat:-18.3,lng:147.7,priority:"yellow",type:"disaster",desc:"A very incompetent battleship captain has just crashed a nuclear battleship into a coral reef.",maxTimer:400,reward:12,isOcean:true},
+  {id:328,name:"Capsized Cruise Liner",loc:"Caribbean Sea",lat:18.0,lng:-72.0,priority:"yellow",type:"disaster",desc:"A cruise liner is floating upside down after being struck by a rogue wave.",maxTimer:400,reward:12,isOcean:true},
+  {id:329,name:"Alien Demands Planetary 1v1",loc:"Washington D.C., USA",lat:38.9,lng:-77.0,priority:"yellow",type:"military",desc:"An alien has arrived demanding a 1v1 duel for ownership of the planet. We don't think he's really all that up to the challenge.",maxTimer:440,reward:8,isNorthAmerica:true},
+  {id:330,name:"The Sheepsquatch Of Boone County",loc:"Boone County, West Virginia, USA",lat:38.0,lng:-81.4,priority:"yellow",type:"mystic",desc:"The Sheepsquatch of Boone County has been sighted again, terrorizing local livestock and hikers.",maxTimer:400,reward:10,isNorthAmerica:true},
+  {id:331,name:"The Fire Dragon Of Pocahontas County",loc:"Pocahontas County, West Virginia, USA",lat:38.3,lng:-79.9,priority:"yellow",type:"mystic",desc:"The Fire Dragon of Pocahontas County has emerged from the hills once again.",maxTimer:400,reward:12,isNorthAmerica:true},
+  {id:332,name:"Dinosaur Theme Park Malfunction",loc:"Costa Rica",lat:9.7,lng:-83.5,priority:"orange",type:"bio",desc:"A dinosaur theme park that both brought back dinosaurs and lost them. Dinosia gets +30 to mission success rate on this mission.",maxTimer:290,reward:30,dinoParkEffect:true},
+  {id:333,name:"A Rakshasa",loc:"Northern India",lat:28.6,lng:77.2,priority:"yellow",type:"mystic",desc:"A Rakshasa of ancient legend has manifested and is preying on nearby villages.",maxTimer:380,reward:16},
+  {id:334,name:"The Phi Am",loc:"Hanoi, Vietnam",lat:21.0,lng:105.8,priority:"yellow",type:"mystic",desc:"The Phi Am has been sighted stalking the outskirts of the city. It deals ×1.2 damage to heroes below 50% health.",maxTimer:380,reward:16,phiAmEffect:true},
+  {id:335,name:"The Kappa",loc:"Kyoto, Japan",lat:35.0,lng:135.8,priority:"yellow",type:"mystic",desc:"The Kappa has resurfaced near the riverbanks, luring in curious civilians.",maxTimer:380,reward:14},
+  {id:336,name:"Apophis",loc:"Cairo, Egypt",lat:30.1,lng:31.2,priority:"purple",type:"mystic",desc:"Apophis has risen. Known as Falak in the Middle East and Jormungand in Norse mythology. Deals +3 damage to each hero deployed beyond the first 2.",maxTimer:190,reward:78,apophisEffect:true},
+  {id:337,name:"Humbaba",loc:"Mesopotamian Ruins, Iraq",lat:33.3,lng:44.4,priority:"orange",type:"mystic",desc:"Humbaba, guardian of the ancient forest, has awoken and is laying waste to the surrounding region.",maxTimer:300,reward:28},
+  {id:338,name:"Sirens Disrupting Global Trade",loc:"Aegean Sea",lat:38.0,lng:25.0,priority:"yellow",type:"mystic",desc:"Sirens have taken to disrupting global shipping lanes with their song.",maxTimer:400,reward:14,isOcean:true},
+  {id:339,name:"A Weeping Demon",loc:"Mexico City, Mexico",lat:19.4,lng:-99.1,priority:"yellow",type:"mystic",desc:"A weeping demon is attempting to drown children near the city's waterways.",maxTimer:380,reward:16},
+  {id:340,name:"A Vibecoding Developer",loc:"Silicon Valley, USA",lat:37.4,lng:-122.0,priority:"yellow",type:"tech",desc:"A vibecoding developer is unknowingly destroying the power grid one deployed commit at a time.",maxTimer:400,reward:10,isNorthAmerica:true},
+  {id:341,name:"Murderous Extraterrestrial Clowns",loc:"Multiple Cities",lat:39.0,lng:-98.0,priority:"orange",type:"military",desc:"Murderous extraterrestrial clowns have landed and are terrorizing multiple cities at once.",maxTimer:290,reward:28},
+  {id:342,name:"A Violent Sentient Tire",loc:"Mojave Desert, USA",lat:35.0,lng:-116.0,priority:"yellow",type:"bio",desc:"A violent, sentient tire is rolling through the desert, destroying everything in its path.",maxTimer:400,reward:10,isNorthAmerica:true},
+  {id:343,name:"Haunted Animatronic Pizza Franchise",loc:"Suburban USA",lat:39.8,lng:-89.6,priority:"yellow",type:"mystic",desc:"A children's pizza franchise with haunted animatronics has come alive after hours.",maxTimer:400,reward:12,isNorthAmerica:true},
+  {id:344,name:"A Growing Blob",loc:"Rural Pennsylvania, USA",lat:40.3,lng:-76.9,priority:"orange",type:"bio",desc:"A growing blob has consumed a small town and keeps growing.",maxTimer:300,reward:28,isNorthAmerica:true},
+  {id:345,name:"Undead Slasher At Summer Camp",loc:"Adirondacks, USA",lat:43.9,lng:-74.2,priority:"yellow",type:"mystic",desc:"An undead slasher figure is stalking a summer camp in the mountains.",maxTimer:380,reward:14,isNorthAmerica:true},
+  {id:346,name:"Hunter Alien",loc:"Amazon Rainforest, Brazil",lat:-3.0,lng:-60.0,priority:"yellow",type:"military",desc:"An honor-bound but very violent alien equipped with stealth technology is hunting in the rainforest.",maxTimer:380,reward:16},
+  {id:347,name:"Supersoldier Freelance Organization",loc:"Eastern Europe",lat:50.0,lng:25.0,priority:"red",type:"military",desc:"A supersoldier freelance organization is committing crimes under a Director trying to bring his wife back from the dead.",maxTimer:210,reward:55,recurring:true},
+  {id:348,name:"A Man In A Killdozer",loc:"Rural Colorado, USA",lat:39.5,lng:-106.0,priority:"yellow",type:"military",desc:"A man in a heavily armored bulldozer is trying to make a statement about local politics.",maxTimer:420,reward:8,isNorthAmerica:true},
+  {id:349,name:"Mount Vesuvius Eruption",loc:"Naples, Italy",lat:40.8,lng:14.4,priority:"yellow",type:"disaster",desc:"Mount Vesuvius has begun to erupt once more.",maxTimer:400,reward:14},
+  {id:350,name:"Popocatepetl Eruption",loc:"Puebla, Mexico",lat:19.0,lng:-98.6,priority:"yellow",type:"disaster",desc:"Popocatepetl is erupting, threatening nearby communities.",maxTimer:400,reward:14},
+  {id:351,name:"Mount Sinabung Eruption",loc:"Sumatra, Indonesia",lat:3.2,lng:98.4,priority:"yellow",type:"disaster",desc:"Mount Sinabung has erupted, spreading ash across the region.",maxTimer:400,reward:14},
 ];
 
 // Fisher-Yates shuffle
