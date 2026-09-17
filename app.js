@@ -164,6 +164,7 @@ function setBgTrack(screen){
 
 function App(){
   const [bank,setBank]=useState(loadBank);
+  const [highScores,setHighScores]=useState(loadHighScores);
   const [ownedShop,setOwnedShop]=useState(loadOwned);
   const [codexUnlocked,setCodexUnlocked]=useState(loadCodex);
   const [hotUnlocked,setHotUnlocked]=useState(loadHotUnlocked);
@@ -229,8 +230,10 @@ function App(){
   const [prEvent,setPrEvent]=useState(null);
   const [augustaInput,setAugustaInput]=useState("");
   const prEventRef=useRef(null);prEventRef.current=prEvent;
-  const prQueueRef=useRef([]); // FIFO queue of pending PR events — {kind:"augusta",outcome,threatName} | {kind:"george_prospect"} — each waits for the current one to resolve or time out before showing
-  const lastPressTickRef=useRef(0);
+  const prQueueRef=useRef([]); // Normal-priority FIFO queue: {kind:"augusta",outcome,threatName} — waits for the current PR event to resolve, and for Augusta's own cooldown, before showing
+  const prUrgentQueueRef=useRef([]); // Urgent-priority FIFO queue: {kind:"nichols30"|"johnsave"|"suicide"|"george_prospect",...} — preempts an interruptible PR event on screen (tip/augusta/franco) and always drains before the normal queue
+  const lastPressTickRef=useRef(0); // Franco's own 5-minute cooldown (independent of Augusta's)
+  const lastAugustaTickRef=useRef(0); // Augusta's own 5-minute cooldown (independent of Franco's)
   const warned30Ref=useRef(new Set());
   // ── TEAM BONDING PANEL ──
   const [bondPick,setBondPick]=useState([]);
@@ -539,6 +542,17 @@ function App(){
     setLog(`📰 Augusta Spin: "${text}" — quoted in the press. (+20 pts)`);
     setPrEvent(null);setAugustaInput("");
   }
+  // ── PR QUEUE: urgent events (Nichols 30s warning, John save, suicide mission, George Prospect) ──
+  // always outrank tips/Augusta/Franco. If one of those is currently on screen, it's killed outright
+  // (not requeued) and the urgent event takes the front of the urgent line instead.
+  function queueUrgentPr(item){
+    const cur=prEventRef.current;
+    if(cur&&["tip","augusta","franco"].includes(cur.type)){
+      setPrEvent(null);
+      if(cur.type==="augusta")setAugustaInput("");
+    }
+    prUrgentQueueRef.current.push(item);
+  }
   function pushHeadline(msg){
     lastHeadlineTick.current=tick.current;
     tickerQueue.current.push(msg);
@@ -621,7 +635,7 @@ function App(){
     setThreatPanelOpen(true);
     setMapZoom(1);setMapPan({x:0,y:0});
     setPrEvent(null);setAugustaInput("");setBondPick([]);
-    prQueueRef.current=[];lastPressTickRef.current=0;warned30Ref.current=new Set();
+    prQueueRef.current=[];prUrgentQueueRef.current=[];lastPressTickRef.current=0;lastAugustaTickRef.current=0;warned30Ref.current=new Set();
     setWinTier(tier);setLog(`Welcome, Director ${n}. WSPA Command online.`);setLogTime("00:00");
     tick.current=0;
     setScreen("game");
@@ -630,6 +644,8 @@ function App(){
   function exitToMenu(keepScore=false){
     // Players keep whatever points they've earned this run, win or lose.
     if(keepScore&&score>0){const nb=bank+score;saveAndUpdateBank(nb);}
+    // An early exit is still a run — record it so players have a personal best to chase, even mid-game.
+    if(score>0){recordHighScore(directorName,score);setHighScores(loadHighScores());}
     setScreen("menu");setGameOver(null);
   }
 
@@ -656,7 +672,7 @@ function App(){
     setHeroPanelOpen(true);setThreatPanelOpen(true);
     setMapZoom(1);setMapPan({x:0,y:0});
     setPrEvent(null);setAugustaInput("");setBondPick([]);
-    prQueueRef.current=[];lastPressTickRef.current=0;warned30Ref.current=new Set();
+    prQueueRef.current=[];prUrgentQueueRef.current=[];lastPressTickRef.current=0;lastAugustaTickRef.current=0;warned30Ref.current=new Set();
     tick.current=0;setLogTime("00:00");
     setLog(`Welcome, Director ${n}. Deputy Director Nichols is walking you through the basics.`);
     t1SpawnedRef.current=false;t2SpawnedRef.current=false;t3SpawnedRef.current=false;
@@ -736,6 +752,7 @@ function App(){
 
   function handleWin(){
     unlockAchievement(TIER_ACHIEVEMENTS[winTierRef.current]);
+    recordHighScore(directorName,scoreRef.current);setHighScores(loadHighScores());
     setGameOver("win");setScreen("gameover");
   }
 
@@ -744,7 +761,6 @@ function App(){
     const iv=setInterval(()=>{
       tick.current++;const t=tick.current;
       setLogTime(`${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`);
-      let prEventQueuedThisTick=false;
 
       setHeroes(prev=>prev.map(h=>{
         if(["deployed","gameLocked","shopLocked","kia","rogue","offworld","bonding"].includes(h.status))return h;
@@ -892,20 +908,18 @@ function App(){
         escalationLogs.forEach(msg=>setLog(msg));
         warnings.forEach(th=>{
           setLog(`⚠ Nichols: "Director. We need to deal with that now!" (${th.name})`);
-          setPrEvent({type:"nichols30",speaker:"nichols",text:"Director. We need to deal with that now!",firedAt:t});
-          prEventQueuedThisTick=true;
+          queueUrgentPr({kind:"nichols30",text:"Director. We need to deal with that now!"});
         });
         if(johnSaves.length){
           johnSaves.forEach(th=>{
             const speaker=Math.random()<0.5?"nichols":"cassonik";
             const line=Math.random()<0.5?"He saved us. But we can't rely on him.":"We're lucky he bailed us out.";
             setLog(`🌟 John secretly stepped in and stopped ${th.name} before it reached zero.`);
-            setPrEvent({type:"johnsave",speaker,text:line,firedAt:t});
-            prEventQueuedThisTick=true;
+            queueUrgentPr({kind:"johnsave",speaker,text:line});
           });
           setHeroes(p=>p.map(h=>h.isJohn?{...h,speechBubble:"Seemed like you could use a little help!"}:h));
         }
-        if(gameEnd){setGameOver("lose");setGameOverReason(gameEnd.name+" reached Priority ONE with no response.");setScreen("gameover");}
+        if(gameEnd){recordHighScore(directorName,scoreRef.current);setHighScores(loadHighScores());setGameOver("lose");setGameOverReason(gameEnd.name+" reached Priority ONE with no response.");setScreen("gameover");}
       }
 
       // ── TEAM BONDING: resolve pairs whose timer has elapsed ──
@@ -968,22 +982,34 @@ function App(){
         }
       }
 
-      // ── PUBLIC RELATIONS PANEL: cadence for Cassonik tips / Franco / Augusta ──
-      if(!prEventRef.current&&!prEventQueuedThisTick){
-        if(prQueueRef.current.length>0){
-          // Drain the FIFO queue first — a queued Augusta/George item always takes priority
-          // over the random Franco/Cassonik cadence, and waits its turn instead of getting lost.
-          const item=prQueueRef.current.shift();
-          lastPressTickRef.current=t;
-          if(item.kind==="augusta"){
-            setPrEvent({type:"augusta",speaker:"augusta",outcome:item.outcome,threatName:item.threatName,
-              text:`Director ${directorName}, what do you have to say about your ${item.outcome==="win"?"win":"loss"} against ${item.threatName}?`,
-              deadlineTick:t+120});
+      // ── PUBLIC RELATIONS PANEL: cadence for Cassonik tips / Franco / Augusta / urgent interrupts ──
+      if(!prEventRef.current){
+        if(prUrgentQueueRef.current.length>0){
+          // Urgent lane always drains first: Nichols 30s warning, John save, suicide mission, George Prospect.
+          // These already preempted (killed) any interruptible event the instant they were queued —
+          // here we're just putting the next urgent item on screen once the slot is free.
+          const item=prUrgentQueueRef.current.shift();
+          if(item.kind==="nichols30"){
+            setPrEvent({type:"nichols30",speaker:"nichols",text:item.text,firedAt:t});
+          } else if(item.kind==="johnsave"){
+            setPrEvent({type:"johnsave",speaker:item.speaker,text:item.text,firedAt:t});
+          } else if(item.kind==="suicide"){
+            setPrEvent({type:"suicide",speaker:"cassonik",text:item.text,firedAt:t});
           } else if(item.kind==="george_prospect"){
             setPrEvent({type:"george_prospect",speaker:"nichols",
               text:"When you have time, check out our new prospect back at HQ!",firedAt:t});
           }
+        } else if(prQueueRef.current.length>0&&t-lastAugustaTickRef.current>=300){
+          // Normal lane: Augusta only fires once her own 5-minute cooldown has elapsed.
+          // If she's still cooling down, we fall through to Franco's cadence / tips below instead
+          // of blocking on her — she just keeps waiting at the front of this queue.
+          const item=prQueueRef.current.shift();
+          lastAugustaTickRef.current=t;
+          setPrEvent({type:"augusta",speaker:"augusta",outcome:item.outcome,threatName:item.threatName,
+            text:`Director ${directorName}, what do you have to say about your ${item.outcome==="win"?"win":"loss"} against ${item.threatName}?`,
+            deadlineTick:t+120});
         } else if(t-lastPressTickRef.current>=300&&Math.random()<0.06){
+          // Franco has his own independent 5-minute cooldown — no longer shares a timer with Augusta.
           lastPressTickRef.current=t;
           fireFrancoEvent();
         } else if(t%50===0&&Math.random()<0.6){
@@ -1200,7 +1226,7 @@ function App(){
           const isSui=isSuicide(h,allSnap,picked);
           if(isSui&&!suicideNoted){
             suicideNoted=true;
-            setPrEvent({type:"suicide",speaker:"cassonik",text:CASSONIK_SUICIDE_QUOTES[Math.floor(Math.random()*CASSONIK_SUICIDE_QUOTES.length)],firedAt:tick.current});
+            queueUrgentPr({kind:"suicide",text:CASSONIK_SUICIDE_QUOTES[Math.floor(Math.random()*CASSONIK_SUICIDE_QUOTES.length)]});
           }
 
           // ── Regular hero on suicide mission: 50% chance goes rogue instead of KIA ──
@@ -1448,7 +1474,7 @@ function App(){
         // time she's defeated as a threat (not redeemed by John) queues her HOT prospect ──
         if(threat.villainId===103&&aerosSentRef.current&&!hotUnlockedRef.current.includes("Silphana")&&!silphanaProspectReadyRef.current){
           setSilphanaProspectReady(true);saveSilphanaProspectReady(true);
-          prQueueRef.current.push({kind:"george_prospect"});
+          queueUrgentPr({kind:"george_prospect"});
         }
         setThreats(prev=>prev.filter(t=>t.id!==threat.id));
         setScore(s=>s+pts);
@@ -2252,7 +2278,49 @@ function App(){
           React.createElement("div",{className:"roster-summary-row"},`◈ ${rosterSummary.gameplayCount} heroes can be unlocked by gameplay`)
         )
       ),
-      // MAP + PR/BONDING COLUMN
+      // ── TEAM BONDING COLUMN (attached to Hero Roster, left of the map) ──
+      (()=>{
+        const bondCandidates=heroes.filter(canDeploy);
+        const mid=Math.ceil(bondCandidates.length/2);
+        const leftHeroes=bondCandidates.slice(0,mid);
+        const rightHeroes=bondCandidates.slice(mid);
+        const seen=new Set();const pairs=[];
+        heroes.forEach(h=>{
+          if(h.status==="bonding"&&!seen.has(h.id)&&h.bondPartner!=null){
+            const partner=heroes.find(x=>x.id===h.bondPartner);
+            if(partner){seen.add(h.id);seen.add(partner.id);pairs.push([h,partner]);}
+          }
+        });
+        const heroRow=(h)=>React.createElement("button",{key:h.id,
+          className:"bonding-row"+(bondPick.includes(h.id)?" sel":""),
+          onClick:()=>setBondPick(prev=>prev.includes(h.id)?prev.filter(x=>x!==h.id):prev.length<2?[...prev,h.id]:prev)
+        },h.title);
+        const pickedNames=bondPick.map(id=>heroes.find(h=>h.id===id)?.title).filter(Boolean);
+        return React.createElement("div",{className:"team-bonding-col"},
+          React.createElement("div",{className:"panel-header"},"◈ TEAM BONDING"),
+          // Two independently-scrolling hero lists, side by side
+          React.createElement("div",{className:"bonding-lists-row"},
+            React.createElement("div",{className:"bonding-side-col"},leftHeroes.map(heroRow)),
+            React.createElement("div",{className:"bonding-side-col"},rightHeroes.map(heroRow))
+          ),
+          // Fixed footer — status + Send button never scroll with the lists above
+          React.createElement("div",{className:"bonding-footer"},
+            pairs.length>0&&React.createElement("div",{className:"bonding-pairs-list"},
+              pairs.map(([a,b])=>{
+                const remaining=Math.max(0,BOND_DURATION-(tick.current-(a.bondStartTick||0)));
+                return React.createElement("div",{key:a.id+"-"+b.id,className:"bonding-pair-card"},`${a.title} & ${b.title} — ${remaining}s`);
+              })
+            ),
+            React.createElement("div",{className:"bonding-status-msg"},
+              pickedNames.length===0?"Select 2 heroes to send.":
+              pickedNames.length===1?`${pickedNames[0]} selected — pick 1 more.`:
+              `${pickedNames[0]} & ${pickedNames[1]} ready to bond.`
+            ),
+            React.createElement("button",{className:"deploy-btn bonding-send-btn",disabled:bondPick.length!==2,onClick:()=>startBonding(bondPick[0],bondPick[1])},"🤝 SEND TO BONDING")
+          )
+        );
+      })(),
+      // MAP COLUMN
       React.createElement("div",{className:"map-column"},
         React.createElement("div",{className:"map-wrap"+tSec("map")},
           React.createElement(WorldMap,{threats,depMap,score,target,tierLabel,zoom:mapZoom,pan:mapPan,
@@ -2261,100 +2329,19 @@ function App(){
             onResetView:()=>{setMapZoom(1);setMapPan({x:0,y:0});},
             onMarkerClick:(id)=>{setThreatPanelOpen(true);setSelThreat(id);}
           })
-        ),
-        // BOTTOM PANEL: Public Relations (left) + Team Bonding (right)
-        React.createElement("div",{className:"bottom-panel"},
-          // ── PUBLIC RELATIONS ──
-          React.createElement("div",{className:"pr-section"},
-            (tutorialActive&&tutorialStep&&getTutorialDialogue())?(()=>{
-              const dlg=getTutorialDialogue();
-              const speaker=TUTORIAL_CHARACTERS[dlg.speaker];
-              return React.createElement(React.Fragment,null,
-                React.createElement("div",{className:"pr-portrait"},
-                  speaker.portrait?React.createElement("img",{src:speaker.portrait,alt:speaker.name,
-                    onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}):null,
-                  React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:speaker.portrait?"none":"flex"}},
-                    speaker.name.split(" ").map(w=>w[0]).join(""))
-                ),
-                React.createElement("div",{className:"pr-content"},
-                  React.createElement("div",{className:"pr-speaker-name"},speaker.name.toUpperCase()),
-                  React.createElement("div",{className:"pr-commentary"},dlg.text),
-                  React.createElement("div",{className:"pr-controls"},
-                    dlg.showBtn?React.createElement("button",{className:"pr-option-btn",onClick:tutorialContinue},dlg.finalBtn?"◈ FINISH TUTORIAL":"CONTINUE ▶"):
-                      React.createElement("div",{className:"pr-timer-note"},"◈ Waiting on you, Director...")
-                  )
-                )
-              );
-            })():
-            prEvent?(()=>{
-              const spk=prEvent.speaker==="nichols"?TUTORIAL_CHARACTERS.nichols:
-                         prEvent.speaker==="cassonik"?TUTORIAL_CHARACTERS.cassonik:
-                         prEvent.speaker==="franco"?{name:"Franco",portrait:"portraits/Franco.jpg"}:
-                         {name:"Augusta Spin",portrait:"portraits/Augusta.jpg"};
-              return React.createElement(React.Fragment,null,
-                React.createElement("div",{className:"pr-portrait"},
-                  React.createElement("img",{src:spk.portrait,alt:spk.name,onError:e=>{e.target.style.display="none";}})
-                ),
-                React.createElement("div",{className:"pr-content"},
-                  React.createElement("div",{className:"pr-speaker-name"},spk.name),
-                  React.createElement("div",{className:"pr-commentary"},prEvent.text),
-                  React.createElement("div",{className:"pr-controls"},
-                    prEvent.type==="franco"?
-                      prEvent.options.map((opt,i)=>React.createElement("button",{key:i,className:"pr-option-btn",onClick:()=>handleFrancoChoice(opt)},opt))
-                    :prEvent.type==="augusta"?
-                      React.createElement(React.Fragment,null,
-                        React.createElement("input",{className:"pr-text-input",maxLength:100,placeholder:"Type your response... (100 chars)",value:augustaInput,
-                          onChange:e=>setAugustaInput(e.target.value),
-                          onKeyDown:e=>{if(e.key==="Enter")handleAugustaSubmit();}}),
-                        React.createElement("button",{className:"pr-option-btn",disabled:!augustaInput.trim(),onClick:handleAugustaSubmit},"SUBMIT ▶"),
-                        React.createElement("div",{className:"pr-timer-note"},`${Math.max(0,prEvent.deadlineTick-tick.current)}s to respond · +20 pts`)
-                      )
-                    :React.createElement("button",{className:"pr-option-btn",onClick:()=>setPrEvent(null)},"COPY THAT")
-                  )
-                )
-              );
-            })():React.createElement("div",{className:"pr-idle"},"◈ PUBLIC RELATIONS — awaiting updates from the field.")
-          ),
-          // ── TEAM BONDING ──
-          (()=>{
-            const bondCandidates=heroes.filter(canDeploy);
-            const mid=Math.ceil(bondCandidates.length/2);
-            const leftHeroes=bondCandidates.slice(0,mid);
-            const rightHeroes=bondCandidates.slice(mid);
-            const seen=new Set();const pairs=[];
-            heroes.forEach(h=>{
-              if(h.status==="bonding"&&!seen.has(h.id)&&h.bondPartner!=null){
-                const partner=heroes.find(x=>x.id===h.bondPartner);
-                if(partner){seen.add(h.id);seen.add(partner.id);pairs.push([h,partner]);}
-              }
-            });
-            const heroRow=(h)=>React.createElement("button",{key:h.id,
-              className:"bonding-row"+(bondPick.includes(h.id)?" sel":""),
-              onClick:()=>setBondPick(prev=>prev.includes(h.id)?prev.filter(x=>x!==h.id):prev.length<2?[...prev,h.id]:prev)
-            },h.title);
-            const pickedNames=bondPick.map(id=>heroes.find(h=>h.id===id)?.title).filter(Boolean);
-            return React.createElement("div",{className:"bonding-section"},
-              React.createElement("div",{className:"panel-header",style:{margin:"0 0 6px"}},"◈ TEAM BONDING"),
-              React.createElement("div",{className:"bonding-grid"},
-                React.createElement("div",{className:"bonding-side-col"},leftHeroes.map(heroRow)),
-                React.createElement("div",{className:"bonding-status-col"},
-                  pairs.length===0?
-                    React.createElement("div",{className:"bonding-status-msg"},"No heroes currently bonding.")
-                  :pairs.map(([a,b])=>{
-                    const remaining=Math.max(0,BOND_DURATION-(tick.current-(a.bondStartTick||0)));
-                    return React.createElement("div",{key:a.id+"-"+b.id,className:"bonding-pair-card"},`${a.title} & ${b.title} — ${remaining}s`);
-                  }),
-                  React.createElement("div",{className:"bonding-status-msg",style:{marginTop:6}},
-                    pickedNames.length===0?"Select 2 heroes to send.":
-                    pickedNames.length===1?`${pickedNames[0]} selected — pick 1 more.`:
-                    `${pickedNames[0]} & ${pickedNames[1]} ready to bond.`
-                  )
-                ),
-                React.createElement("div",{className:"bonding-side-col"},rightHeroes.map(heroRow))
-              ),
-              React.createElement("button",{className:"deploy-btn bonding-send-btn",disabled:bondPick.length!==2,onClick:()=>startBonding(bondPick[0],bondPick[1])},"🤝 SEND TO BONDING")
-            );
-          })()
+        )
+      ),
+      // ── HIGH SCORES COLUMN (attached to Active Threats, right of the map) ──
+      React.createElement("div",{className:"highscore-col"},
+        React.createElement("div",{className:"panel-header"},"◈ TOP RUNS"),
+        React.createElement("div",{className:"highscore-list"},
+          highScores.length===0?
+            React.createElement("div",{className:"highscore-empty"},"No runs recorded yet.\nBe the first Director on the board."):
+            highScores.map((rec,i)=>React.createElement("div",{key:i,className:"highscore-row"+(i<3?` rank-${i+1}`:"")},
+              React.createElement("span",{className:"highscore-rank"},String(i+1).padStart(2,"0")),
+              React.createElement("span",{className:"highscore-name"},rec.name),
+              React.createElement("span",{className:"highscore-pts"},rec.points)
+            ))
         )
       ),
       // THREATS + HOSPITAL PANEL
@@ -2422,6 +2409,57 @@ function App(){
             })
           )
         )
+      ),
+      // ── PUBLIC RELATIONS: full-width row along the bottom of the app ──
+      React.createElement("div",{className:"pr-section"},
+        (tutorialActive&&tutorialStep&&getTutorialDialogue())?(()=>{
+          const dlg=getTutorialDialogue();
+          const speaker=TUTORIAL_CHARACTERS[dlg.speaker];
+          return React.createElement(React.Fragment,null,
+            React.createElement("div",{className:"pr-portrait"},
+              speaker.portrait?React.createElement("img",{src:speaker.portrait,alt:speaker.name,
+                onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}):null,
+              React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:speaker.portrait?"none":"flex"}},
+                speaker.name.split(" ").map(w=>w[0]).join(""))
+            ),
+            React.createElement("div",{className:"pr-content"},
+              React.createElement("div",{className:"pr-speaker-name"},speaker.name.toUpperCase()),
+              React.createElement("div",{className:"pr-commentary"},dlg.text),
+              React.createElement("div",{className:"pr-controls"},
+                dlg.showBtn?React.createElement("button",{className:"pr-option-btn",onClick:tutorialContinue},dlg.finalBtn?"◈ FINISH TUTORIAL":"CONTINUE ▶"):
+                  React.createElement("div",{className:"pr-timer-note"},"◈ Waiting on you, Director...")
+              )
+            )
+          );
+        })():
+        prEvent?(()=>{
+          const spk=prEvent.speaker==="nichols"?TUTORIAL_CHARACTERS.nichols:
+                     prEvent.speaker==="cassonik"?TUTORIAL_CHARACTERS.cassonik:
+                     prEvent.speaker==="franco"?{name:"Franco",portrait:"portraits/Franco.jpg"}:
+                     {name:"Augusta Spin",portrait:"portraits/Augusta.jpg"};
+          return React.createElement(React.Fragment,null,
+            React.createElement("div",{className:"pr-portrait"},
+              React.createElement("img",{src:spk.portrait,alt:spk.name,onError:e=>{e.target.style.display="none";}})
+            ),
+            React.createElement("div",{className:"pr-content"},
+              React.createElement("div",{className:"pr-speaker-name"},spk.name),
+              React.createElement("div",{className:"pr-commentary"},prEvent.text),
+              React.createElement("div",{className:"pr-controls"},
+                prEvent.type==="franco"?
+                  prEvent.options.map((opt,i)=>React.createElement("button",{key:i,className:"pr-option-btn",onClick:()=>handleFrancoChoice(opt)},opt))
+                :prEvent.type==="augusta"?
+                  React.createElement(React.Fragment,null,
+                    React.createElement("input",{className:"pr-text-input",maxLength:100,placeholder:"Type your response... (100 chars)",value:augustaInput,
+                      onChange:e=>setAugustaInput(e.target.value),
+                      onKeyDown:e=>{if(e.key==="Enter")handleAugustaSubmit();}}),
+                    React.createElement("button",{className:"pr-option-btn",disabled:!augustaInput.trim(),onClick:handleAugustaSubmit},"SUBMIT ▶"),
+                    React.createElement("div",{className:"pr-timer-note"},`${Math.max(0,prEvent.deadlineTick-tick.current)}s to respond · +20 pts`)
+                  )
+                :React.createElement("button",{className:"pr-option-btn",onClick:()=>setPrEvent(null)},"COPY THAT")
+              )
+            )
+          );
+        })():React.createElement("div",{className:"pr-idle"},"◈ PUBLIC RELATIONS — awaiting updates from the field.")
       )
     ),
     React.createElement("div",{className:"mission-log"},
