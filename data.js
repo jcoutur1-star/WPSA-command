@@ -81,7 +81,14 @@ const CONFIDENTIAL_BRIEFINGS={
     extraImages:[{src:"portraits/WSPArift.png",caption:"(From left to right: Alexandria Aeros, George Nichols, Cassandra Onik)"}],
     desc:"An extremely dangerous former senior analyst who has been corrupted by the mace of corruption. She was a normal person, but with that mace she can go toe to toe with just about anyone on the roster (with an advantage against Seraph and TCK). Seraph hasn't been the same since that fight, and that mace is overflowing with the same energy that's been highly effective against TCK in the past. Current objective not known.",
     quote:"\"She sought order. Alex was always very orderly. She believed in a version of excellence that WSPA simply couldn't meet. We lost heroes, we made mistakes, but we still typically were able to manage and save the world. I know she and Cass had their arguments on method, but I was usually able to get those sorted. Saving the day was never enough for Alex. She and I would talk for hours about how to save the world, how to improve it. She and I recovered the mace on a mission in the middle east where it had been buried in an ancient underground temple. We brought it back to HQ to have it studied. I held the mace, but it never spoke to me. Alex had always been very intense, very straight laced, but after the mace, she was clearly different. Her worldview radicalised, and I think she stopped seeing everyone as worth saving. Our long conversations started to get longer and more heated. She classified me as among the people worth saving, which is why that mace I took to the ribs didn't kill me. She spared me. She didn't spare others, but it's clear that there's enough of her to still care about me. The mace had a hold on her long before she actually wielded it for the first time, and I'm inclined to think a similar quarantine is necessary to save her. I think she might've been my best friend, and I know I was hers. I fear with every passing day that it will mean less to her, because it doesn't mean less to me. We were close. Very close.\" — George Nichols",
-    excludeTitles:[]
+    excludeTitles:[],
+    epilogue:{
+      portrait:"portraits/WSPAgoodend.jpg",
+      lines:[
+        "\"Director, thank you for everything. This is better than I ever felt I deserved, and I owe it all to you. I intend to propose to George soon. He knows, he just doesn't know when so keep it between us.\" - Lex (AKA the villain formerly known as Silphana)",
+        "\"PS I've been working things over with Seraph. It'll take some time, but I'm doing my best to make things right.\""
+      ]
+    }
   },
   LEVIATHAN:{
     heading:"⚠ CONFIDENTIAL — LEVIATHAN BRIEFING",
@@ -101,7 +108,14 @@ const CONFIDENTIAL_BRIEFINGS={
     georgeResponse:[
       "Lex? She wrote this for me?",
       "This changes a lot. It's the mace. We have to get that mace away from her! Whatever it takes!"
-    ]
+    ],
+    epilogue:{
+      portrait:"portraits/WSPAgoodend.jpg",
+      lines:[
+        "\"Director, thank you for everything. This is better than I ever felt I deserved, and I owe it all to you. I intend to propose to George soon. He knows, he just doesn't know when so keep it between us.\" - Lex (AKA the villain formerly known as Silphana)",
+        "\"PS I've been working things over with Seraph. It'll take some time, but I'm doing my best to make things right.\""
+      ]
+    }
   },
   JOHN:{
     heading:"⚠ CONFIDENTIAL — JOHN DOE BRIEFING",
