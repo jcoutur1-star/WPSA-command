@@ -207,7 +207,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 .map-wrap .map-area{width:100%;height:100%}
 
 /* ── BOTTOM PANEL: Public Relations (left) + Team Bonding (right) ── */
-.bottom-panel{display:flex;height:127px;min-height:127px;border-top:1px solid var(--border);background:var(--panel)}
+.bottom-panel{display:flex;height:220px;min-height:220px;border-top:1px solid var(--border);background:var(--panel)}
 .pr-section{flex:1.4;display:flex;gap:8px;padding:7px;border-right:1px solid var(--border);overflow:hidden}
 .pr-idle{margin:auto;font-size:10px;color:var(--text3);font-style:italic;text-align:center}
 .pr-portrait{width:80px;min-width:80px;height:100%;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:#0a0a0a;display:flex;align-items:center;justify-content:center}
@@ -222,12 +222,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 .pr-text-input{flex:1;min-width:160px;background:#0a0a0a;border:1px solid var(--border);color:var(--text);font-size:10px;padding:6px 8px;border-radius:3px}
 .pr-timer-note{width:100%;font-size:8px;color:var(--text3)}
 .bonding-section{flex:1;display:flex;flex-direction:column;padding:7px;overflow:hidden}
-.bonding-active-list{display:flex;flex-direction:column;gap:3px;margin-bottom:5px;max-height:36px;overflow-y:auto}
-.bonding-pair-card{font-size:9px;color:var(--text2);background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:3px;padding:4px 6px}
-.bonding-picker{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0}
-.bonding-hero-chips{display:flex;flex-wrap:wrap;gap:4px;overflow-y:auto;flex:1;min-height:0}
-.bonding-chip{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text2);font-size:8px;padding:4px 7px;border-radius:10px;cursor:pointer;white-space:nowrap}
-.bonding-chip.sel{background:rgba(0,212,255,.18);border-color:var(--accent);color:var(--accent)}
+.bonding-grid{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:6px;flex:1;min-height:0;margin-bottom:6px}
+.bonding-side-col{display:flex;flex-direction:column;gap:3px;overflow-y:auto;min-height:0}
+.bonding-row{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text2);font-size:9px;padding:4px 7px;border-radius:3px;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bonding-row.sel{background:rgba(0,212,255,.18);border-color:var(--accent);color:var(--accent)}
+.bonding-status-col{display:flex;flex-direction:column;gap:4px;overflow-y:auto;min-height:0;border-left:1px solid var(--border);border-right:1px solid var(--border);padding:0 8px}
+.bonding-status-msg{font-size:9px;color:var(--text3);font-style:italic;text-align:center}
+.bonding-pair-card{font-size:9px;color:var(--text2);background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:3px;padding:4px 6px;text-align:center}
+.bonding-send-btn{flex:none}
 .tutorial-dim{opacity:.14;filter:grayscale(65%);pointer-events:none;transition:opacity .35s,filter .35s}
 .tutorial-spotlight{position:relative;z-index:6;box-shadow:0 0 0 2px var(--accent),0 0 26px rgba(0,212,255,.4);transition:box-shadow .35s}
 .tutorial-box{
@@ -332,3 +334,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 /* Nichols' mid-run banner (High 1 warning / High 9 encouragement) */
 .covops-banner-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:410}
 .covops-banner-box{display:flex;gap:14px;align-items:flex-start;max-width:480px;padding:18px;background:linear-gradient(135deg,rgba(10,10,10,.98),rgba(0,0,0,.98));border:1px solid #333;border-radius:4px;box-shadow:0 0 30px rgba(0,0,0,.8)}
+
+/* Background music mute toggle — plain DOM element, fixed above every screen */
+#music-toggle-btn{position:fixed;top:8px;right:8px;z-index:99999;width:34px;height:34px;border-radius:50%;background:rgba(10,10,10,.85);border:1px solid var(--border,#333);color:#eee;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+#music-toggle-btn:hover{border-color:var(--accent,#00d4ff)}
