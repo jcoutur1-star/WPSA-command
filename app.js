@@ -174,14 +174,6 @@ function App(){
   const [silphanaProspectReady,setSilphanaProspectReady]=useState(loadSilphanaProspectReady);
   const [silphanaStep,setSilphanaStep]=useState(0); // 0=not picked yet, 1..5 = dialogue steps
 
-  // ─── BACKGROUND MUSIC ────────────────────────────────────────────────────────
-  // The music is driven by a plain HTMLAudioElement created once at module scope
-  // (see bottom of file), NOT a React-rendered <audio> tag — every screen in this
-  // app is its own independent early `return`, so a JSX <audio> would unmount and
-  // restart every time the Director changes screens. A module-level singleton
-  // keeps one continuous playback across all of them.
-  useEffect(()=>{setBgTrack(screen);},[screen]);
-
   // ─── THE FRANCO SHOW STATE ─────────────────────────────────────────────────
   const [francoQIdx,setFrancoQIdx]=useState(null);
   // ─── HEROES OF TOMORROW (scene) STATE ─────────────────────────────────────
@@ -193,37 +185,9 @@ function App(){
 
   const [screen,setScreen]=useState("menu");
 
-  // Swap the looping track whenever the screen category changes.
-  useEffect(()=>{
-    const el=musicRef.current;
-    if(!el)return;
-    const track=trackForScreen(screen);
-    if(el.dataset.track!==track){
-      el.dataset.track=track;
-      el.src=track;
-      el.loop=true;
-      if(!musicMuted)el.play().catch(()=>{});
-    }
-  },[screen]);
-
-  // Apply mute state, and try to resume if unmuted.
-  useEffect(()=>{
-    const el=musicRef.current;
-    if(!el)return;
-    el.muted=musicMuted;
-    if(!musicMuted)el.play().catch(()=>{});
-  },[musicMuted]);
-
-  // Browsers block autoplay until the first user gesture — retry once that happens.
-  useEffect(()=>{
-    const unlock=()=>{
-      const el=musicRef.current;
-      if(el&&el.paused&&!musicMuted)el.play().catch(()=>{});
-    };
-    document.addEventListener("click",unlock);
-    document.addEventListener("keydown",unlock);
-    return()=>{document.removeEventListener("click",unlock);document.removeEventListener("keydown",unlock);};
-  },[musicMuted]);
+  // Swap the looping track whenever the screen category changes (module-level
+  // bgMusic singleton — see trackForScreen/setBgTrack near the top of the file).
+  useEffect(()=>{setBgTrack(screen);},[screen]);
   const [nameInput,setNameInput]=useState("");
   const [directorName,setDirectorName]=useState("");
   const [gameOver,setGameOver]=useState(null);
