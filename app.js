@@ -1950,7 +1950,13 @@ function App(){
       {q:"Who is the most powerful villain right now?",a:"Maniac. Not even close. Silphana would be next, but she does not want the smoke with Maniac. Maniac lives rent free in the mind of every hero, every director."},
       {q:"Who was the GOAT of the Golden Age?",a:"Hughes Captain Shamrock. Maybe Jordan P. Shrimperson if he took on more fights. I stand by it. The Monster of Mariana, the Icon of Iberia, Sultan of the Sea was no joke."},
       {q:"Who was the GOAT of the Silver Age?",a:"Cinderman would tell you it's him. Anyone on continental Europe says Elegus. Anyone in Ireland or The Americas says Captain Shamrock. Some contrarian liar will say The Anchor or Seraph. In Asia, they argue for Kimiko's Dragon Of the Daimyo."},
-      {q:"Why is being the WSPA Director so stressful?",a:"It's not."}
+      {q:"Why is being the WSPA Director so stressful?",a:"It's not."},
+      {q:"Who was your favorite hero growing up?",a:"Oh? I had a crush on Lamentia when I was a boy. She wasn't winning any Goat debates except the GOAT of my grade school heart. As a teen, I was old enough to watch the Carrigan Elegus fight. Changed my life."},
+      {q:"How powerful are today's heroes compared to previous generations?",a:"There's more heroes now than there were in the past. WSPA's power levels get leaked pretty often, and if The Anchor is an 8.1, Elegus would've been an 8.5. Styles and Hughes would probably be about 8.3, but that's just my guess. Personally I think The Anchor is overrated though…"},
+      {q:"Who are the most underrated heroes?",a:"Now this is where I get to prove myself. I'll give you my top 3. Number one? Dinosia. Team player. Fun powers that she uses creatively. Can't tank hits like a lot of her teammates, but she's got the speed of a falcon and the bite of a Tyrannosaur. Most of all, however, she's gotta be one of the smartest heroes we've ever had. That's gotta count for something. Number 2? Gummy Bear. When that man is on a team you can rest easy, he's going to hold it down. He doesn't ask for credit. It's not flashy, but it works. You can put him on any team. Not a hero I build a team around, but usually one of the first players I'm looking to add to a team. Number 3 would have to be The Flip. I know, I know. He was a top 5 guy once upon a time. A lot of people, myself included, had made accusations that he never reached his potential. Back in the silver age, we had thought he was going to be the #1 guy after Shamrock and Elegus retired, and it just didn't happen. But the silver age and modern age are different. The Flip was a top 5 hero when there were less heroes. I was too harsh on him. I called him the prince who never became king, but he's actually a generational hero. He's putting in his best work training the next generation, and for that, I'm willing to give him his crown back."},
+      {q:"Can Blink become as powerful as her father?",a:"This one gets me in trouble with the network. Elegus is the man. He and Shamrock are the reason, I believe, why there are so many heroes in the modern age. Golden age heroes didn't last very long, but Elegus and Shamrock actually showed it could be a fruitful and fulfilling career. They trained and inspired the next gen. More people with powers saw what Elegus and Shamrock were doing and felt inspired. The truth is, when I see her fight versus the film of Elegus at her age, it's not a contest. By her age, he was already in the GOAT debate of his age. She's doing okay, but she's not even in my top 20 right now. I couldn't name a year he was active and wasn't top 5."},
+      {q:"What are your thoughts on El Infinite?",a:"Fraud Alert."},
+      {q:"Who are the top 5 villains in your opinion?",a:"I'll give you my favorites. Number 1, Niera is not a villain. She saved the world. Don't like her methods? I don't care. Girly they could never make me hate you. Number 2 has to be Scylla. She just misses her family. So do I ma'am. The most friendly for my job is Chelikere. Him taking on those 1 on 1's has really been useful for my evaluating heroes. Thanks boss! Number 4 would have to be Golgotha for reasons I won't discuss. Lastly, probably Argos because that's probably what I'd be like with that much money."}
     ];
     const activeQ=questions[francoQIdx!=null?francoQIdx:-1];
     return React.createElement("div",{className:"scene-screen",style:{backgroundImage:"url(portraits/Franco.jpg)"}},
@@ -2123,6 +2129,15 @@ function App(){
                 )
               )
             )
+          ),
+          hotUnlocked.includes("Silphana")&&aeros.epilogue&&React.createElement("div",{style:{marginTop:24,paddingTop:18,borderTop:"1px solid rgba(51,255,136,.3)"}},
+            React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"#33ff88",letterSpacing:2,marginBottom:12}},"⟡ ONE LAST MESSAGE"),
+            React.createElement("div",{style:{display:"flex",gap:14,alignItems:"flex-start",flexWrap:"wrap"}},
+              React.createElement("img",{src:aeros.epilogue.portrait,alt:"Lex",onError:e=>{e.target.style.display="none";},style:{width:90,borderRadius:4,border:"1px solid #33ff88"}}),
+              React.createElement("div",{style:{flex:"1 1 260px"}},
+                aeros.epilogue.lines.map((line,i)=>React.createElement("div",{key:i,style:{fontSize:13,color:"#33ff88",fontStyle:"italic",lineHeight:1.6,marginBottom:8,textShadow:"0 0 10px rgba(51,255,136,.25)"}},line))
+              )
+            )
           )
         )
       );
@@ -2152,6 +2167,15 @@ function App(){
             briefing.secretTrait&&React.createElement("div",{style:{fontSize:12,color:"#ff8844",marginBottom:14,lineHeight:1.6}},React.createElement("b",null,"⚠ Secret: "),briefing.secretTrait),
             React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:6}},"FULL ROSTER — SINGLE COMBAT LOSS PROJECTIONS"),
             heroList.map(h=>React.createElement("div",{key:h.id,className:"scene-rank-row"},h.title))
+          )
+        ),
+        briefing.epilogue&&hotUnlocked.includes("Silphana")&&React.createElement("div",{style:{marginTop:24,paddingTop:18,borderTop:"1px solid rgba(51,255,136,.3)"}},
+          React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"#33ff88",letterSpacing:2,marginBottom:12}},"⟡ ONE LAST MESSAGE"),
+          React.createElement("div",{style:{display:"flex",gap:14,alignItems:"flex-start",flexWrap:"wrap"}},
+            React.createElement("img",{src:briefing.epilogue.portrait,alt:"Lex",onError:e=>{e.target.style.display="none";},style:{width:90,borderRadius:4,border:"1px solid #33ff88"}}),
+            React.createElement("div",{style:{flex:"1 1 260px"}},
+              briefing.epilogue.lines.map((line,i)=>React.createElement("div",{key:i,style:{fontSize:13,color:"#33ff88",fontStyle:"italic",lineHeight:1.6,marginBottom:8,textShadow:"0 0 10px rgba(51,255,136,.25)"}},line))
+            )
           )
         )
       )
