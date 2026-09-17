@@ -117,6 +117,51 @@ function WorldMap({threats,depMap,score,target,tierLabel,zoom,pan,onZoomIn,onZoo
     )
   );
 }
+// ─── BACKGROUND MUSIC MANAGER ────────────────────────────────────────────────
+// Plain HTMLAudioElement, deliberately kept outside React state/DOM so it survives
+// every screen swap (each screen in App() is its own independent early `return`).
+const bgMusic=new Audio();
+bgMusic.loop=true;
+bgMusic.volume=0.55;
+let bgMusicMuted=false;
+let bgMusicCurrentTrack=null;
+function trackForScreen(s){
+  if(s==="menu")return"WSPATheme.mp3";
+  if(s==="game"||s==="covops"||s==="covops_intro"||s==="gameover")return"WSPAGameplaytheme.mp3";
+  return"WSPAHQTheme.mp3";
+}
+function setBgTrack(screen){
+  const track=trackForScreen(screen);
+  if(bgMusicCurrentTrack===track)return;
+  bgMusicCurrentTrack=track;
+  bgMusic.src=track;
+  if(!bgMusicMuted)bgMusic.play().catch(()=>{});
+}
+// Browsers block autoplay until a user gesture — retry once one happens.
+["click","keydown"].forEach(evt=>document.addEventListener(evt,()=>{
+  if(bgMusic.paused&&!bgMusicMuted)bgMusic.play().catch(()=>{});
+}));
+// Small fixed mute toggle, built with plain DOM so it renders above every screen
+// regardless of which React branch is currently mounted.
+(function initMusicToggle(){
+  function mount(){
+    if(document.getElementById("music-toggle-btn"))return;
+    const btn=document.createElement("button");
+    btn.id="music-toggle-btn";
+    btn.textContent="🔊";
+    btn.title="Toggle music";
+    btn.onclick=()=>{
+      bgMusicMuted=!bgMusicMuted;
+      bgMusic.muted=bgMusicMuted;
+      btn.textContent=bgMusicMuted?"🔇":"🔊";
+      if(!bgMusicMuted)bgMusic.play().catch(()=>{});
+    };
+    document.body.appendChild(btn);
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",mount);
+  else mount();
+})();
+
 function App(){
   const [bank,setBank]=useState(loadBank);
   const [ownedShop,setOwnedShop]=useState(loadOwned);
@@ -124,6 +169,18 @@ function App(){
   const [hotUnlocked,setHotUnlocked]=useState(loadHotUnlocked);
   const [team,setTeam]=useState(loadTeam);
   const [achievements,setAchievements]=useState(loadAchievements);
+  // ─── SILPHANA REDEMPTION ARC ────────────────────────────────────────────────
+  const [aerosSent,setAerosSent]=useState(loadAerosSent);
+  const [silphanaProspectReady,setSilphanaProspectReady]=useState(loadSilphanaProspectReady);
+  const [silphanaStep,setSilphanaStep]=useState(0); // 0=not picked yet, 1..5 = dialogue steps
+
+  // ─── BACKGROUND MUSIC ────────────────────────────────────────────────────────
+  // The music is driven by a plain HTMLAudioElement created once at module scope
+  // (see bottom of file), NOT a React-rendered <audio> tag — every screen in this
+  // app is its own independent early `return`, so a JSX <audio> would unmount and
+  // restart every time the Director changes screens. A module-level singleton
+  // keeps one continuous playback across all of them.
+  useEffect(()=>{setBgTrack(screen);},[screen]);
 
   // ─── THE FRANCO SHOW STATE ─────────────────────────────────────────────────
   const [francoQIdx,setFrancoQIdx]=useState(null);
@@ -135,6 +192,38 @@ function App(){
   const [confUnlocked,setConfUnlocked]=useState(null);
 
   const [screen,setScreen]=useState("menu");
+
+  // Swap the looping track whenever the screen category changes.
+  useEffect(()=>{
+    const el=musicRef.current;
+    if(!el)return;
+    const track=trackForScreen(screen);
+    if(el.dataset.track!==track){
+      el.dataset.track=track;
+      el.src=track;
+      el.loop=true;
+      if(!musicMuted)el.play().catch(()=>{});
+    }
+  },[screen]);
+
+  // Apply mute state, and try to resume if unmuted.
+  useEffect(()=>{
+    const el=musicRef.current;
+    if(!el)return;
+    el.muted=musicMuted;
+    if(!musicMuted)el.play().catch(()=>{});
+  },[musicMuted]);
+
+  // Browsers block autoplay until the first user gesture — retry once that happens.
+  useEffect(()=>{
+    const unlock=()=>{
+      const el=musicRef.current;
+      if(el&&el.paused&&!musicMuted)el.play().catch(()=>{});
+    };
+    document.addEventListener("click",unlock);
+    document.addEventListener("keydown",unlock);
+    return()=>{document.removeEventListener("click",unlock);document.removeEventListener("keydown",unlock);};
+  },[musicMuted]);
   const [nameInput,setNameInput]=useState("");
   const [directorName,setDirectorName]=useState("");
   const [gameOver,setGameOver]=useState(null);
@@ -176,7 +265,7 @@ function App(){
   const [prEvent,setPrEvent]=useState(null);
   const [augustaInput,setAugustaInput]=useState("");
   const prEventRef=useRef(null);prEventRef.current=prEvent;
-  const pendingPressRef=useRef(null); // {outcome:"win"|"loss",threatName} queued by the last major mission
+  const prQueueRef=useRef([]); // FIFO queue of pending PR events — {kind:"augusta",outcome,threatName} | {kind:"george_prospect"} — each waits for the current one to resolve or time out before showing
   const lastPressTickRef=useRef(0);
   const warned30Ref=useRef(new Set());
   // ── TEAM BONDING PANEL ──
@@ -217,6 +306,9 @@ function App(){
   const romRef=useRef(rom);romRef.current=rom;
   const disRef=useRef(dis);disRef.current=dis;
   const winTierRef=useRef(winTier);winTierRef.current=winTier;
+  const aerosSentRef=useRef(aerosSent);aerosSentRef.current=aerosSent;
+  const hotUnlockedRef=useRef(hotUnlocked);hotUnlockedRef.current=hotUnlocked;
+  const silphanaProspectReadyRef=useRef(silphanaProspectReady);silphanaProspectReadyRef.current=silphanaProspectReady;
   const tqRef=useRef(threatQueue);tqRef.current=threatQueue;
   const johnOffRef=useRef(johnOffworldTimer);johnOffRef.current=johnOffworldTimer;
   const achievementsRef=useRef(achievements);achievementsRef.current=achievements;
@@ -225,6 +317,27 @@ function App(){
   function saveAndUpdateOwned(a){setOwnedShop(a);saveOwned(a);}
   function saveAndUpdateCodex(a){setCodexUnlocked(a);saveCodex(a);}
   function saveAndUpdateHotUnlocked(a){setHotUnlocked(a);saveHotUnlocked(a);}
+  function forwardAerosToGeorge(){
+    if(aerosSent)return;
+    setAerosSent(true);saveAerosSent(true);
+  }
+  function unlockSilphana(){
+    if(hotUnlocked.includes("Silphana"))return;
+    const nh=[...hotUnlocked,"Silphana"];
+    saveAndUpdateHotUnlocked(nh);
+    setSilphanaProspectReady(false);saveSilphanaProspectReady(false);
+    unlockAchievement("something_to_believe_in");
+    // If a game is already in progress, add her to the live roster too.
+    setHeroes(prev=>{
+      if(prev.some(h=>h.title==="Silphana"))return prev;
+      const base=VILLAIN_DEFS.find(v=>v.title==="Silphana");
+      if(!base)return prev;
+      const{maxHP}=effStats({...base,status:"ready"},romRef.current,disRef.current);
+      return[...prev,{...base,currentHP:maxHP,status:"ready",xp:0,levelUpFlash:false,speechBubble:null,
+        romancePartner:null,redeemed:true,gameLocked:false,
+        romanceStatus:"Dating Deputy Director George Nichols",romanceLocked:true}];
+    });
+  }
   function saveAndUpdateTeam(t){setTeam(t);saveTeam(t);}
 
   // ─── COVERT OPERATIONS ──────────────────────────────────────────────────
@@ -495,7 +608,7 @@ function App(){
   }
 
   function buildInitHeroes(){
-    return ALL_HERO_DEFS.map(h=>{
+    const base=ALL_HERO_DEFS.map(h=>{
       const isShopLocked=h.shopLocked&&!ownedShop.includes(h.title);
       const isHotLocked=h.hotLocked&&!hotUnlocked.includes(h.title);
       const isGameLocked=h.gameLocked||isHotLocked;
@@ -503,6 +616,18 @@ function App(){
       const{maxHP}=effStats({...h,status:"ready"},{},{});
       return{...h,currentHP:maxHP,status,regenTimer:0,xp:0,levelUpFlash:false,speechBubble:null,romancePartner:null};
     });
+    // Silphana's redemption is a one-time story arc, not a per-run John dice roll — once
+    // completed via Heroes of Tomorrow she's a permanent hero on every future roster.
+    if(hotUnlocked.includes("Silphana")){
+      const sBase=VILLAIN_DEFS.find(v=>v.title==="Silphana");
+      if(sBase){
+        const{maxHP}=effStats({...sBase,status:"ready"},{},{});
+        base.push({...sBase,currentHP:maxHP,status:"ready",regenTimer:0,xp:0,levelUpFlash:false,speechBubble:null,
+          romancePartner:null,redeemed:true,gameLocked:false,
+          romanceStatus:"Dating Deputy Director George Nichols",romanceLocked:true});
+      }
+    }
+    return base;
   }
 
   function startGame(tier=0){
@@ -512,7 +637,8 @@ function App(){
     const ih=buildInitHeroes();
     setHeroes(ih);
     const ownedVillainTitles=SHOP_VILLAIN_TITLES.filter(t=>ownedShop.includes("v_"+t));
-    const baseVillains=VILLAIN_DEFS.filter(v=>!v.shopVillain||ownedVillainTitles.includes(v.title));
+    const silphanaDone=hotUnlocked.includes("Silphana");
+    const baseVillains=VILLAIN_DEFS.filter(v=>(!v.shopVillain||ownedVillainTitles.includes(v.title))&&!(v.title==="Silphana"&&silphanaDone));
     setVillains(baseVillains.map(v=>({...v,defeated:false,redeemed:false})));
     const shuffled=shuffle(ALL_THREATS);
     setThreats(shuffled.slice(0,4).map(t=>({...t,timer:t.maxTimer})));
@@ -531,7 +657,7 @@ function App(){
     setThreatPanelOpen(true);
     setMapZoom(1);setMapPan({x:0,y:0});
     setPrEvent(null);setAugustaInput("");setBondPick([]);
-    pendingPressRef.current=null;lastPressTickRef.current=0;warned30Ref.current=new Set();
+    prQueueRef.current=[];lastPressTickRef.current=0;warned30Ref.current=new Set();
     setWinTier(tier);setLog(`Welcome, Director ${n}. WSPA Command online.`);setLogTime("00:00");
     tick.current=0;
     setScreen("game");
@@ -555,7 +681,7 @@ function App(){
     setDirectorName(n);
     const ih=buildInitHeroes();
     setHeroes(ih);
-    setVillains(VILLAIN_DEFS.map(v=>({...v,defeated:false,redeemed:false})));
+    setVillains(VILLAIN_DEFS.filter(v=>!(v.title==="Silphana"&&hotUnlocked.includes("Silphana"))).map(v=>({...v,defeated:false,redeemed:false})));
     setThreats([]);setThreatQueue([]);
     setDepMap({});setRom({});setDis({});setModal(null);setDepModal(null);setPicked([]);
     setScore(0);setSelThreat(null);setGameOver(null);setGameOverReason("");
@@ -566,7 +692,7 @@ function App(){
     setHeroPanelOpen(true);setThreatPanelOpen(true);
     setMapZoom(1);setMapPan({x:0,y:0});
     setPrEvent(null);setAugustaInput("");setBondPick([]);
-    pendingPressRef.current=null;lastPressTickRef.current=0;warned30Ref.current=new Set();
+    prQueueRef.current=[];lastPressTickRef.current=0;warned30Ref.current=new Set();
     tick.current=0;setLogTime("00:00");
     setLog(`Welcome, Director ${n}. Deputy Director Nichols is walking you through the basics.`);
     t1SpawnedRef.current=false;t2SpawnedRef.current=false;t3SpawnedRef.current=false;
@@ -880,11 +1006,19 @@ function App(){
 
       // ── PUBLIC RELATIONS PANEL: cadence for Cassonik tips / Franco / Augusta ──
       if(!prEventRef.current&&!prEventQueuedThisTick){
-        if(pendingPressRef.current&&t-lastPressTickRef.current>=600){
-          const p=pendingPressRef.current;pendingPressRef.current=null;lastPressTickRef.current=t;
-          setPrEvent({type:"augusta",speaker:"augusta",outcome:p.outcome,threatName:p.threatName,
-            text:`Director ${directorName}, what do you have to say about your ${p.outcome==="win"?"win":"loss"} against ${p.threatName}?`,
-            deadlineTick:t+120});
+        if(prQueueRef.current.length>0){
+          // Drain the FIFO queue first — a queued Augusta/George item always takes priority
+          // over the random Franco/Cassonik cadence, and waits its turn instead of getting lost.
+          const item=prQueueRef.current.shift();
+          lastPressTickRef.current=t;
+          if(item.kind==="augusta"){
+            setPrEvent({type:"augusta",speaker:"augusta",outcome:item.outcome,threatName:item.threatName,
+              text:`Director ${directorName}, what do you have to say about your ${item.outcome==="win"?"win":"loss"} against ${item.threatName}?`,
+              deadlineTick:t+120});
+          } else if(item.kind==="george_prospect"){
+            setPrEvent({type:"george_prospect",speaker:"nichols",
+              text:"When you have time, check out our new prospect back at HQ!",firedAt:t});
+          }
         } else if(t-lastPressTickRef.current>=300&&Math.random()<0.06){
           lastPressTickRef.current=t;
           fireFrancoEvent();
@@ -895,6 +1029,8 @@ function App(){
         pushHeadline(AUGUSTA_NO_COMMENT_HEADLINE);
         setPrEvent(null);setAugustaInput("");
       } else if(["tip","nichols30","johnsave","suicide"].includes(prEventRef.current.type)&&t-(prEventRef.current.firedAt||t)>=8){
+        setPrEvent(null);
+      } else if(prEventRef.current.type==="george_prospect"&&t-(prEventRef.current.firedAt||t)>=20){
         setPrEvent(null);
       }
 
@@ -1344,13 +1480,19 @@ function App(){
         }
         if(threat.villainId)setVillains(prev=>prev.map(v=>v.id===threat.villainId?{...v,defeated:true}:v));
         if(threat.isTeamUp&&threat.villainId2)setVillains(prev=>prev.map(v=>v.id===threat.villainId2?{...v,defeated:true}:v));
+        // ── Silphana's story arc: once the AEROS log has been forwarded to George, the NEXT
+        // time she's defeated as a threat (not redeemed by John) queues her HOT prospect ──
+        if(threat.villainId===103&&aerosSentRef.current&&!hotUnlockedRef.current.includes("Silphana")&&!silphanaProspectReadyRef.current){
+          setSilphanaProspectReady(true);saveSilphanaProspectReady(true);
+          prQueueRef.current.push({kind:"george_prospect"});
+        }
         setThreats(prev=>prev.filter(t=>t.id!==threat.id));
         setScore(s=>s+pts);
       }
       setDepMap(prev=>{const n={...prev};delete n[threat.id];return n;});
       // ── FACE THE PRESS: a clear win or loss against a high-priority threat or supervillain queues Augusta ──
       if((threat.priority==="red"||threat.priority==="purple"||threat.villainId)&&!threat.tutorialGuaranteed){
-        pendingPressRef.current={outcome:outcome==="success"?"win":"loss",threatName:threat.name};
+        prQueueRef.current.push({kind:"augusta",outcome:outcome==="success"?"win":"loss",threatName:threat.name});
       }
       setModal({threat,heroes:assigned,outcome,narration,damages,anyKIA,turnedVillain,redeemedVillains,levelUps,xpEarned:pts,newRomMsg,newDisMsg,unlockMsg});
       setLog(`Debrief: ${threat.name} — ${outcome.toUpperCase()}${anyKIA?" ⚠ HERO LOST":""}${turnedVillain?` 🔴 ${turnedVillain.title} ROGUE`:""}${levelUps.length?" ⭐ LVL UP":""}${newRomMsg?" 💕":""}`);
@@ -1852,6 +1994,15 @@ function App(){
 
   // ── HEROES OF TOMORROW ──
   if(screen==="hot"){
+    const SILPHANA_STEPS=[
+      {speaker:"george",text:"Director, I was able to find another prospect for WSPA. I think you're going to like her."},
+      {speaker:"silphana",text:"I've done a lot of damage, but you never gave up on me. It's time to set things straight. Let's go save the world. The real way. And George?"},
+      {speaker:"george",text:"Yeah?"},
+      {speaker:"silphana",text:"Thanks… For everything. You were right. About everything. And… do you think we could get drinks after work today?"},
+      {speaker:"george",text:"Nothing would make me happier."},
+      {speaker:"silphana",text:"Nice. It's a date then..."}
+    ];
+    const silphanaShowing=silphanaProspectReady&&!hotUnlocked.includes("Silphana");
     const candidates=HOT_LOCK_TITLES.map(t=>ALL_HERO_DEFS.find(h=>h.title===t)).filter(Boolean);
     const remaining=candidates.filter(h=>!hotUnlocked.includes(h.title));
     const monologues={
@@ -1859,29 +2010,38 @@ function App(){
       "Skull Crusher":"I… I'd shake your hand but I haven't quite mastered not crushing it. I'm sorry. And I'm sorry about the plane. I shake my legs when I get nervous. I know I was born with a rare ability, and I have the chance to do real good. I just need your help. We'll do this together?",
       "The Dragon of the Daimyo":"Hi! You're the new director! It's so nice to meet you! Are we friends on social media? We are now! You don't have many followers do you? That's okay! Say cheese! Oh, you weren't smiling. That's fine. Are you okay with being in my new TV show? It's about me! All my friends are going to be in it as I save the world again! My parents are going to be so proud of me! Come on! Let's go!"
     };
-    const picked=hotPickedHero?candidates.find(h=>h.title===hotPickedHero):null;
-    const allDone=remaining.length===0;
+    const isSilphana=hotPickedHero==="Silphana";
+    const picked=hotPickedHero&&!isSilphana?candidates.find(h=>h.title===hotPickedHero):null;
+    const allDone=remaining.length===0&&!silphanaShowing;
+    const silphanaPortraitObj=VILLAIN_DEFS.find(v=>v.title==="Silphana");
+    const curStep=isSilphana?SILPHANA_STEPS[silphanaStep-1]:null;
+    const dispTitle=isSilphana?(curStep?.speaker==="george"?"George Nichols":"Silphana"):picked?picked.title:"George Nichols";
+    const dispPortrait=isSilphana?(curStep?.speaker==="george"?TUTORIAL_CHARACTERS.nichols.portrait:silphanaPortraitObj?.portrait):picked?picked.portrait:TUTORIAL_CHARACTERS.nichols.portrait;
     return React.createElement("div",{className:"scene-screen",style:{backgroundImage:"url(portraits/WSPAHQ.jpg)"}},
-      React.createElement("button",{className:"mbtn scene-back-btn",onClick:()=>{setScreen("hq");setHotPickedHero(null);}},"← BACK"),
+      React.createElement("button",{className:"mbtn scene-back-btn",onClick:()=>{setScreen("hq");setHotPickedHero(null);setSilphanaStep(0);}},"← BACK"),
       React.createElement("div",{className:"scene-title"},"HEROES OF TOMORROW"),
       !allDone&&React.createElement("div",{className:"scene-columns",style:{gridTemplateColumns:"1fr"}},
         React.createElement("div",{className:"scene-side-list",style:{maxWidth:320}},
           React.createElement("div",{className:"scene-side-title"},"CANDIDATES"),
-          remaining.map(h=>React.createElement("div",{key:h.id,className:"scene-rank-row hq-file-card",style:{cursor:"pointer",marginBottom:6},onClick:()=>setHotPickedHero(h.title)},h.title))
+          remaining.map(h=>React.createElement("div",{key:h.id,className:"scene-rank-row hq-file-card",style:{cursor:"pointer",marginBottom:6},onClick:()=>setHotPickedHero(h.title)},h.title)),
+          silphanaShowing&&React.createElement("div",{key:"silphana",className:"scene-rank-row hq-file-card",style:{cursor:"pointer",marginBottom:6},onClick:()=>{setHotPickedHero("Silphana");setSilphanaStep(1);}},"Silphana")
         )
       ),
       React.createElement("div",{className:"tutorial-box",style:{position:"absolute"}},
         React.createElement("div",{className:"tutorial-portrait-slot"},
-          React.createElement("img",{src:picked?picked.portrait:TUTORIAL_CHARACTERS.nichols.portrait,alt:picked?picked.title:"George Nichols",onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}),
-          React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:"none"}},picked?picked.title.split(" ").map(w=>w[0]).join("").slice(0,3):"GN")
+          React.createElement("img",{src:dispPortrait,alt:dispTitle,onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}),
+          React.createElement("div",{className:"tutorial-portrait-fallback",style:{display:"none"}},dispTitle.split(" ").map(w=>w[0]).join("").slice(0,3))
         ),
         React.createElement("div",{className:"tutorial-copy"},
-          React.createElement("div",{className:"tutorial-speaker-name"},picked?picked.title.toUpperCase():"GEORGE NICHOLS"),
+          React.createElement("div",{className:"tutorial-speaker-name"},dispTitle.toUpperCase()),
           React.createElement("div",{className:"tutorial-text"},
             allDone?"We're looking for more prospects, Director.":
+            isSilphana?(curStep?curStep.text:""):
             picked?monologues[picked.title]:
-            "Hey Director. These are the three heroes that the analysts believe will inspire the next generation. Which do you want to chat with first?"
+            "Hey Director. These are the heroes that the analysts believe will inspire the next generation. Which do you want to chat with first?"
           ),
+          isSilphana&&silphanaStep<SILPHANA_STEPS.length&&React.createElement("button",{className:"tutorial-btn",onClick:()=>setSilphanaStep(s=>s+1)},"CONTINUE ▶"),
+          isSilphana&&silphanaStep>=SILPHANA_STEPS.length&&React.createElement("button",{className:"tutorial-btn",onClick:()=>{unlockSilphana();setHotPickedHero(null);setSilphanaStep(0);}},"◈ WELCOME THEM TO THE ROSTER"),
           picked&&React.createElement("button",{className:"tutorial-btn",onClick:()=>{unlockHotHero(picked.title);setHotPickedHero(null);}},"◈ WELCOME THEM TO THE ROSTER"),
           allDone&&React.createElement("button",{className:"tutorial-btn",onClick:()=>setScreen("hq")},"◈ RETURN TO HQ")
         )
@@ -1919,7 +2079,7 @@ function App(){
           React.createElement("div",{style:{fontSize:12,color:"var(--text3)",marginBottom:16}},"World Security & Protection Agency"),
           React.createElement("div",{style:{fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:6,fontFamily:"var(--font-head)"}},"KNOWN ACCESS CODES"),
           React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}},
-            ["KRONOS","TYPHON","MANIAC","SILPHANA","LEVIATHAN","JOHN","WSPA"].map(p=>React.createElement("div",{key:p,style:{fontSize:11,color:"var(--text2)",border:"1px solid var(--text3)",borderRadius:4,padding:"4px 10px"}},p))
+            ["KRONOS","TYPHON","MANIAC","SILPHANA","LEVIATHAN","JOHN","AEROS","WSPA"].map(p=>React.createElement("div",{key:p,style:{fontSize:11,color:"var(--text2)",border:"1px solid var(--text3)",borderRadius:4,padding:"4px 10px"}},p))
           ),
           React.createElement("div",{style:{fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:10,fontFamily:"var(--font-head)"}},"CURRENT ORGANIZATIONAL CHART"),
           React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:14,marginBottom:24}},
@@ -1945,6 +2105,34 @@ function App(){
           React.createElement("div",{style:{display:"flex",gap:20,flexWrap:"wrap"}},
             React.createElement("img",{src:"portraits/George_Nichols.jpg",alt:"George Nichols",style:{width:180,borderRadius:4,border:"1px solid var(--text3)",display:"block"}}),
             React.createElement("div",{style:{fontSize:13,color:"var(--text2)",lineHeight:1.8,flex:"1 1 300px"}},WSPA_NICHOLS_BRIEFING)
+          )
+        )
+      );
+    }
+
+    // ── AEROS: recovered logs, own layout with the "Forward to George" reveal ──
+    if(confUnlocked==="AEROS"){
+      const aeros=CONFIDENTIAL_BRIEFINGS.AEROS;
+      return React.createElement("div",{className:"full-panel",style:{background:"#000"}},
+        React.createElement("div",{className:"full-panel-header"},
+          React.createElement("div",{className:"full-panel-title"},aeros.heading),
+          React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>{setScreen("hq");setConfUnlocked(null);setConfPassInput("");}},"← EXIT")
+        ),
+        React.createElement("div",{className:"full-panel-body"},
+          React.createElement("div",{style:{display:"flex",gap:20,flexWrap:"wrap"}},
+            React.createElement("div",{style:{flex:"1 1 280px"}},
+              React.createElement("img",{src:aeros.portrait,alt:"Alexandria Aeros",style:{width:"100%",maxWidth:300,borderRadius:4,border:"1px solid var(--red)",display:"block",marginBottom:12}})
+            ),
+            React.createElement("div",{style:{flex:"2 1 400px"}},
+              aeros.logs.map((log,i)=>React.createElement("div",{key:i,style:{fontSize:12,color:"var(--text2)",lineHeight:1.7,whiteSpace:"pre-line",marginBottom:16,borderLeft:"2px solid var(--red)",paddingLeft:10}},log)),
+              !aerosSent?React.createElement("button",{className:"mbtn red",onClick:forwardAerosToGeorge},"▶ FORWARD TO GEORGE"):
+              React.createElement("div",{style:{marginTop:10,display:"flex",gap:14,alignItems:"flex-start"}},
+                React.createElement("img",{src:"portraits/George_Nichols.jpg",alt:"George Nichols",onError:e=>{e.target.style.display="none";},style:{width:70,borderRadius:4,border:"1px solid var(--text3)"}}),
+                React.createElement("div",null,
+                  aeros.georgeResponse.map((line,i)=>React.createElement("div",{key:i,style:{fontSize:13,color:"var(--gold)",fontStyle:"italic",marginBottom:6}},`"${line}"`))
+                )
+              )
+            )
           )
         )
       );
@@ -2164,37 +2352,45 @@ function App(){
             })():React.createElement("div",{className:"pr-idle"},"◈ PUBLIC RELATIONS — awaiting updates from the field.")
           ),
           // ── TEAM BONDING ──
-          React.createElement("div",{className:"bonding-section"},
-            React.createElement("div",{className:"panel-header",style:{margin:"0 0 6px"}},"◈ TEAM BONDING"),
-            React.createElement("div",{className:"bonding-active-list"},
-              heroes.filter(h=>h.status==="bonding").length===0&&React.createElement("div",{style:{fontSize:9,color:"var(--text3)",fontStyle:"italic"}},"No heroes currently bonding."),
-              (()=>{
-                const seen=new Set();const pairs=[];
-                heroes.forEach(h=>{
-                  if(h.status==="bonding"&&!seen.has(h.id)&&h.bondPartner!=null){
-                    const partner=heroes.find(x=>x.id===h.bondPartner);
-                    if(partner){seen.add(h.id);seen.add(partner.id);pairs.push([h,partner]);}
-                  }
-                });
-                return pairs.map(([a,b])=>{
-                  const remaining=Math.max(0,BOND_DURATION-(tick.current-(a.bondStartTick||0)));
-                  return React.createElement("div",{key:a.id+"-"+b.id,className:"bonding-pair-card"},
-                    `${a.title} & ${b.title} — ${remaining}s`
-                  );
-                });
-              })()
-            ),
-            React.createElement("div",{className:"bonding-picker"},
-              React.createElement("div",{style:{fontSize:9,color:"var(--text3)",marginBottom:4}},"Select 2 heroes to send:"),
-              React.createElement("div",{className:"bonding-hero-chips"},
-                heroes.filter(canDeploy).map(h=>React.createElement("button",{key:h.id,
-                  className:"bonding-chip"+(bondPick.includes(h.id)?" sel":""),
-                  onClick:()=>setBondPick(prev=>prev.includes(h.id)?prev.filter(x=>x!==h.id):prev.length<2?[...prev,h.id]:prev)
-                },h.title))
+          (()=>{
+            const bondCandidates=heroes.filter(canDeploy);
+            const mid=Math.ceil(bondCandidates.length/2);
+            const leftHeroes=bondCandidates.slice(0,mid);
+            const rightHeroes=bondCandidates.slice(mid);
+            const seen=new Set();const pairs=[];
+            heroes.forEach(h=>{
+              if(h.status==="bonding"&&!seen.has(h.id)&&h.bondPartner!=null){
+                const partner=heroes.find(x=>x.id===h.bondPartner);
+                if(partner){seen.add(h.id);seen.add(partner.id);pairs.push([h,partner]);}
+              }
+            });
+            const heroRow=(h)=>React.createElement("button",{key:h.id,
+              className:"bonding-row"+(bondPick.includes(h.id)?" sel":""),
+              onClick:()=>setBondPick(prev=>prev.includes(h.id)?prev.filter(x=>x!==h.id):prev.length<2?[...prev,h.id]:prev)
+            },h.title);
+            const pickedNames=bondPick.map(id=>heroes.find(h=>h.id===id)?.title).filter(Boolean);
+            return React.createElement("div",{className:"bonding-section"},
+              React.createElement("div",{className:"panel-header",style:{margin:"0 0 6px"}},"◈ TEAM BONDING"),
+              React.createElement("div",{className:"bonding-grid"},
+                React.createElement("div",{className:"bonding-side-col"},leftHeroes.map(heroRow)),
+                React.createElement("div",{className:"bonding-status-col"},
+                  pairs.length===0?
+                    React.createElement("div",{className:"bonding-status-msg"},"No heroes currently bonding.")
+                  :pairs.map(([a,b])=>{
+                    const remaining=Math.max(0,BOND_DURATION-(tick.current-(a.bondStartTick||0)));
+                    return React.createElement("div",{key:a.id+"-"+b.id,className:"bonding-pair-card"},`${a.title} & ${b.title} — ${remaining}s`);
+                  }),
+                  React.createElement("div",{className:"bonding-status-msg",style:{marginTop:6}},
+                    pickedNames.length===0?"Select 2 heroes to send.":
+                    pickedNames.length===1?`${pickedNames[0]} selected — pick 1 more.`:
+                    `${pickedNames[0]} & ${pickedNames[1]} ready to bond.`
+                  )
+                ),
+                React.createElement("div",{className:"bonding-side-col"},rightHeroes.map(heroRow))
               ),
-              React.createElement("button",{className:"deploy-btn",disabled:bondPick.length!==2,onClick:()=>startBonding(bondPick[0],bondPick[1])},"🤝 SEND TO BONDING")
-            )
-          )
+              React.createElement("button",{className:"deploy-btn bonding-send-btn",disabled:bondPick.length!==2,onClick:()=>startBonding(bondPick[0],bondPick[1])},"🤝 SEND TO BONDING")
+            );
+          })()
         )
       ),
       // THREATS + HOSPITAL PANEL
