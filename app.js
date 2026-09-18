@@ -170,6 +170,7 @@ function App(){
   const [hotUnlocked,setHotUnlocked]=useState(loadHotUnlocked);
   const [team,setTeam]=useState(loadTeam);
   const [achievements,setAchievements]=useState(loadAchievements);
+  const [endings,setEndings]=useState(loadEndings);
   // ─── SILPHANA REDEMPTION ARC ────────────────────────────────────────────────
   const [aerosSent,setAerosSent]=useState(loadAerosSent);
   const [silphanaProspectReady,setSilphanaProspectReady]=useState(loadSilphanaProspectReady);
@@ -279,6 +280,7 @@ function App(){
   const tqRef=useRef(threatQueue);tqRef.current=threatQueue;
   const johnOffRef=useRef(johnOffworldTimer);johnOffRef.current=johnOffworldTimer;
   const achievementsRef=useRef(achievements);achievementsRef.current=achievements;
+  const endingsRef=useRef(endings);endingsRef.current=endings;
 
   function saveAndUpdateBank(n){setBank(n);saveBank(n);}
   function saveAndUpdateOwned(a){setOwnedShop(a);saveOwned(a);}
@@ -413,6 +415,15 @@ function App(){
     saveAchievements(updated);
     const def=ACHIEVEMENT_DEFS.find(a=>a.key===key);
     if(def)setLog(`🏆 ACHIEVEMENT UNLOCKED: ${def.title}`);
+  }
+  function unlockEnding(key){
+    if(endingsRef.current.includes(key))return;
+    const updated=[...endingsRef.current,key];
+    endingsRef.current=updated;
+    setEndings(updated);
+    saveEndings(updated);
+    const def=ENDING_DEFS.find(e=>e.key===key);
+    if(def)setLog(`◈ ENDING UNLOCKED: ${def.title}`);
   }
 
   function tryConfPass(){
@@ -716,17 +727,23 @@ function App(){
     if(tutorialStep==="yellowstone3"){unlockAchievement("watch_mine");exitTutorial();return;}
   }
   function tutorialHighlightFor(step){
-    if(step==="heroes")return"heroes";
-    if(step==="threats")return"threats";
-    if(step==="hospital")return"hospital";
-    if(step==="yellowstone1")return"threats";
+    if(step==="heroes")return["heroes","pr"];
+    if(step==="threats"){
+      // Before the first threat spawns we're only pointing at the Threats card + PR.
+      // Once "As I told you..." fires (threat spawned), the map lights up too.
+      if(!t1SpawnedRef.current)return["threats","pr"];
+      return["threats","map","pr"];
+    }
+    if(step==="hospital")return["hospital","pr"];
+    if(step==="bonding_mention")return["bonding","pr"];
+    if(step==="yellowstone1"||step==="yellowstone2"||step==="yellowstone3")return["threats","map","pr"];
     return"none";
   }
   function tSec(name){
     if(!tutorialActive||!tutorialStep)return"";
     const hl=tutorialHighlightFor(tutorialStep);
     if(hl==="none")return"";
-    return hl===name?" tutorial-spotlight":" tutorial-dim";
+    return hl.includes(name)?" tutorial-spotlight":" tutorial-dim";
   }
   function getTutorialDialogue(){
     switch(tutorialStep){
@@ -737,7 +754,7 @@ function App(){
         return{speaker:"nichols",text:"As I told you, it's never quiet for long. Go ahead and click on the threat, Deploy Heroes, and then click on a hero to deploy. This band of villains is pretty harmless, so you can send just about anyone... Then click deploy....",showBtn:false};
       case"mission1_success":return{speaker:"nichols",text:"Great, see? No problem. You're already getting the hang of this.",showBtn:true};
       case"hospital":return{speaker:"nichols",text:"This is the hospital unit, specifically designed to get heroes back into the field faster. Go ahead and add the heroes you deployed.",showBtn:false};
-      case"bonding_mention":return{speaker:"nichols",text:"One more thing — see that Team Bonding section under the map? Send two heroes there to smooth over bad blood, or help them grow closer. It takes a minute, but it's worth it.",showBtn:true};
+      case"bonding_mention":return{speaker:"nichols",text:"One more thing — see that Team Bonding section next to the map? Send two heroes there to smooth over bad blood, or help them grow closer. It takes a minute, but it's worth it.",showBtn:true};
       case"threat2":return{speaker:"nichols",text:"This one's not a threat, even if public speaking can feel like it. Go ahead and pick a hero to speak at the assembly. You'll of course be expected to speak as well...",showBtn:false};
       case"final1":return{speaker:"nichols",text:"You're ready director! Let's go save the world!",showBtn:true};
       case"final2":return{speaker:"cassonik",text:"Aren't you forgetting something Deputy Director?",showBtn:true};
@@ -753,6 +770,15 @@ function App(){
   function handleWin(){
     unlockAchievement(TIER_ACHIEVEMENTS[winTierRef.current]);
     recordHighScore(directorName,scoreRef.current);setHighScores(loadHighScores());
+    // ── Endings: victory conditions (more than one can unlock on the same win) ──
+    if(hotUnlockedRef.current.includes("Silphana"))unlockEnding("good_ending");
+    const isAlive=h=>h&&h.status!=="kia"&&h.status!=="rogue";
+    const heroesNow=hRef.current;
+    const shamrock=heroesNow.find(h=>h.title==="Captain Shamrock");
+    const sakura=heroesNow.find(h=>h.title==="The Dragon of the Daimyo"); // Sakura Kitsune
+    const skullCrusher=heroesNow.find(h=>h.title==="Skull Crusher");
+    if(isAlive(shamrock)&&isAlive(sakura)&&isAlive(skullCrusher))unlockEnding("next_generation");
+    if(winTierRef.current>=2)unlockEnding("modern_age"); // reached the 1000-pt Legendary tier
     setGameOver("win");setScreen("gameover");
   }
 
@@ -919,7 +945,13 @@ function App(){
           });
           setHeroes(p=>p.map(h=>h.isJohn?{...h,speechBubble:"Seemed like you could use a little help!"}:h));
         }
-        if(gameEnd){recordHighScore(directorName,scoreRef.current);setHighScores(loadHighScores());setGameOver("lose");setGameOverReason(gameEnd.name+" reached Priority ONE with no response.");setScreen("gameover");}
+        if(gameEnd){
+          recordHighScore(directorName,scoreRef.current);setHighScores(loadHighScores());
+          if(gameEnd.isRogueCouncil)unlockEnding("civil_war");
+          else if(gameEnd.villainId!=null)unlockEnding("acts_of_evil");
+          else unlockEnding("times_up");
+          setGameOver("lose");setGameOverReason(gameEnd.name+" reached Priority ONE with no response.");setScreen("gameover");
+        }
       }
 
       // ── TEAM BONDING: resolve pairs whose timer has elapsed ──
@@ -1605,6 +1637,7 @@ function App(){
       {key:"franco",label:"FRANCO.MOV",desc:"The Franco Show — roster rankings & Q&A"},
       {key:"hot",label:"PROSPECTS.SYS",desc:"Heroes of Tomorrow — meet new recruits"},
       {key:"achievements",label:"ACHIEVEMENTS.SYS",desc:`Director milestones (${achievements.length}/${ACHIEVEMENT_DEFS.length})`},
+      {key:"endings",label:"ENDINGS.SYS",desc:`Recorded outcomes of your command (${endings.length}/${ENDING_DEFS.length})`},
       {key:"covops_intro",label:"COVERT-OPS.SYS",desc:"Decode incoming threat reports against the clock"},
       {key:"confidential",label:"CONFIDENTIAL",desc:"⚠ RESTRICTED ACCESS"}
     ];
@@ -1789,6 +1822,31 @@ function App(){
           )
         );
       })
+    )
+  );
+
+  // ── ENDINGS ──
+  if(screen==="endings")return React.createElement("div",{className:"full-panel"},
+    React.createElement("div",{className:"full-panel-header"},
+      React.createElement("div",{className:"full-panel-title"},`◈ ENDINGS (${endings.length}/${ENDING_DEFS.length})`),
+      React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>setScreen("hq")},"← BACK")
+    ),
+    React.createElement("div",{className:"full-panel-body"},
+      React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:14}},"Each ending is locked until you actually win or lose the game under the conditions that unlock it."),
+      ["loss","win"].map(kind=>React.createElement(React.Fragment,{key:kind},
+        React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--text3)",letterSpacing:1,margin:"10px 0 6px"}},kind==="loss"?"DEFEAT ENDINGS":"VICTORY ENDINGS"),
+        ENDING_DEFS.filter(e=>e.kind===kind).map(e=>{
+          const done=endings.includes(e.key);
+          return React.createElement("div",{key:e.key,className:"hq-file-card",style:{cursor:"default",alignItems:"flex-start",gap:12}},
+            done?React.createElement("img",{src:e.portrait,alt:e.title,style:{width:70,borderRadius:4,border:"1px solid var(--border)",flexShrink:0},onError:ev=>{ev.target.style.display="none";}}):
+              React.createElement("div",{className:"hq-file-icon",style:{color:"var(--text3)"}},"▢"),
+            React.createElement("div",{className:"hq-file-info"},
+              React.createElement("div",{className:"hq-file-label",style:{color:done?"var(--gold)":"var(--text2)"}},done?e.title:"??? — LOCKED"),
+              React.createElement("div",{className:"hq-file-desc"},done?e.text:e.trigger)
+            )
+          );
+        })
+      ))
     )
   );
 
@@ -2133,7 +2191,11 @@ function App(){
           hotUnlocked.includes("Silphana")&&aeros.epilogue&&React.createElement("div",{style:{marginTop:24,paddingTop:18,borderTop:"1px solid rgba(51,255,136,.3)"}},
             React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"#33ff88",letterSpacing:2,marginBottom:12}},"⟡ ONE LAST MESSAGE"),
             React.createElement("div",{style:{display:"flex",gap:14,alignItems:"flex-start",flexWrap:"wrap"}},
-              React.createElement("img",{src:aeros.epilogue.portrait,alt:"Lex",onError:e=>{e.target.style.display="none";},style:{width:90,borderRadius:4,border:"1px solid #33ff88"}}),
+              React.createElement("div",{style:{width:90,flexShrink:0}},
+                React.createElement("img",{src:aeros.epilogue.portrait,alt:"Lex",style:{width:90,borderRadius:4,border:"1px solid #33ff88",display:"block"},
+                  onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}),
+                React.createElement("div",{style:{display:"none",width:90,minHeight:90,border:"1px dashed #33ff88",borderRadius:4,alignItems:"center",justifyContent:"center",textAlign:"center",fontSize:8,color:"#33ff88",padding:4}},`Image not found: ${aeros.epilogue.portrait}`)
+              ),
               React.createElement("div",{style:{flex:"1 1 260px"}},
                 aeros.epilogue.lines.map((line,i)=>React.createElement("div",{key:i,style:{fontSize:13,color:"#33ff88",fontStyle:"italic",lineHeight:1.6,marginBottom:8,textShadow:"0 0 10px rgba(51,255,136,.25)"}},line))
               )
@@ -2172,7 +2234,11 @@ function App(){
         briefing.epilogue&&hotUnlocked.includes("Silphana")&&React.createElement("div",{style:{marginTop:24,paddingTop:18,borderTop:"1px solid rgba(51,255,136,.3)"}},
           React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"#33ff88",letterSpacing:2,marginBottom:12}},"⟡ ONE LAST MESSAGE"),
           React.createElement("div",{style:{display:"flex",gap:14,alignItems:"flex-start",flexWrap:"wrap"}},
-            React.createElement("img",{src:briefing.epilogue.portrait,alt:"Lex",onError:e=>{e.target.style.display="none";},style:{width:90,borderRadius:4,border:"1px solid #33ff88"}}),
+            React.createElement("div",{style:{width:90,flexShrink:0}},
+              React.createElement("img",{src:briefing.epilogue.portrait,alt:"Lex",style:{width:90,borderRadius:4,border:"1px solid #33ff88",display:"block"},
+                onError:e=>{e.target.style.display="none";e.target.nextSibling.style.display="flex";}}),
+              React.createElement("div",{style:{display:"none",width:90,minHeight:90,border:"1px dashed #33ff88",borderRadius:4,alignItems:"center",justifyContent:"center",textAlign:"center",fontSize:8,color:"#33ff88",padding:4}},`Image not found: ${briefing.epilogue.portrait}`)
+            ),
             React.createElement("div",{style:{flex:"1 1 260px"}},
               briefing.epilogue.lines.map((line,i)=>React.createElement("div",{key:i,style:{fontSize:13,color:"#33ff88",fontStyle:"italic",lineHeight:1.6,marginBottom:8,textShadow:"0 0 10px rgba(51,255,136,.25)"}},line))
             )
@@ -2320,7 +2386,7 @@ function App(){
           onClick:()=>setBondPick(prev=>prev.includes(h.id)?prev.filter(x=>x!==h.id):prev.length<2?[...prev,h.id]:prev)
         },h.title);
         const pickedNames=bondPick.map(id=>heroes.find(h=>h.id===id)?.title).filter(Boolean);
-        return React.createElement("div",{className:"team-bonding-col"},
+        return React.createElement("div",{className:"team-bonding-col"+tSec("bonding")},
           React.createElement("div",{className:"panel-header"},"◈ TEAM BONDING"),
           // Two independently-scrolling hero lists, side by side
           React.createElement("div",{className:"bonding-lists-row"},
@@ -2356,7 +2422,7 @@ function App(){
         )
       ),
       // ── HIGH SCORES COLUMN (attached to Active Threats, right of the map) ──
-      React.createElement("div",{className:"highscore-col"},
+      React.createElement("div",{className:"highscore-col"+tSec("leaderboard")},
         React.createElement("div",{className:"panel-header"},"◈ TOP RUNS"),
         React.createElement("div",{className:"highscore-list"},
           highScores.length===0?
@@ -2435,7 +2501,7 @@ function App(){
         )
       ),
       // ── PUBLIC RELATIONS: full-width row along the bottom of the app ──
-      React.createElement("div",{className:"pr-section"},
+      React.createElement("div",{className:"pr-section"+tSec("pr")},
         (tutorialActive&&tutorialStep&&getTutorialDialogue())?(()=>{
           const dlg=getTutorialDialogue();
           const speaker=TUTORIAL_CHARACTERS[dlg.speaker];
