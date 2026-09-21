@@ -1215,19 +1215,30 @@ function App(){
         const cands=[];
         if(threat.villainId){const v=vRef.current.find(x=>x.id===threat.villainId);if(v&&v.redeemable&&!v.redeemed&&v.id!==102)cands.push(v);}
         if(threat.isTeamUp&&threat.villainId2){const v2=vRef.current.find(x=>x.id===threat.villainId2);if(v2&&v2.redeemable&&!v2.redeemed&&v2.id!==102)cands.push(v2);}
+        const doRedeem=villain=>{
+          redeemedVillains.push(villain);
+          unlockAchievement("something_to_believe_in");
+          // Mark redeemed in villain list
+          setVillains(prev=>prev.map(v=>v.id===villain.id?{...v,redeemed:true}:v));
+          // Add or update hero roster
+          const{maxHP:rdMaxHP}=effStats(villain,romRef.current,disRef.current);
+          setHeroes(hp=>{
+            const already=hp.find(x=>x.id===villain.id);
+            if(already)return hp.map(x=>x.id===villain.id?{...x,status:"resting",gameLocked:false,redeemed:true,currentHP:rdMaxHP}:x);
+            return[...hp,{...villain,currentHP:rdMaxHP,status:"resting",gameLocked:false,redeemed:true,xp:0,speechBubble:null,defeated:false}];
+          });
+        };
         cands.forEach(villain=>{
           if(Math.random()<0.2){
-            redeemedVillains.push(villain);
-            unlockAchievement("something_to_believe_in");
-            // Mark redeemed in villain list
-            setVillains(prev=>prev.map(v=>v.id===villain.id?{...v,redeemed:true}:v));
-            // Add or update hero roster
-            const{maxHP:rdMaxHP}=effStats(villain,romRef.current,disRef.current);
-            setHeroes(hp=>{
-              const already=hp.find(x=>x.id===villain.id);
-              if(already)return hp.map(x=>x.id===villain.id?{...x,status:"resting",gameLocked:false,redeemed:true,currentHP:rdMaxHP}:x);
-              return[...hp,{...villain,currentHP:rdMaxHP,status:"resting",gameLocked:false,redeemed:true,xp:0,speechBubble:null,defeated:false}];
-            });
+            doRedeem(villain);
+            // Linked redemption: The Vicountess ⇄ Dr. Stinkenstein — redeeming one redeems the other.
+            const partnerTitle=LINKED_REDEMPTION_PAIRS[villain.title];
+            if(partnerTitle){
+              const partner=vRef.current.find(v=>v.title===partnerTitle);
+              if(partner&&!partner.redeemed&&!partner.defeated&&!redeemedVillains.some(v=>v.id===partner.id)){
+                doRedeem(partner);
+              }
+            }
           }
         });
       }
@@ -2133,7 +2144,7 @@ function App(){
           React.createElement("div",{style:{fontSize:12,color:"var(--text3)",marginBottom:16}},"World Security & Protection Agency"),
           React.createElement("div",{style:{fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:6,fontFamily:"var(--font-head)"}},"KNOWN ACCESS CODES"),
           React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}},
-            ["KRONOS","TYPHON","MANIAC","SILPHANA","LEVIATHAN","JOHN","AEROS","WSPA"].map(p=>React.createElement("div",{key:p,style:{fontSize:11,color:"var(--text2)",border:"1px solid var(--text3)",borderRadius:4,padding:"4px 10px"}},p))
+            ["KRONOS","TYPHON","MANIAC","SILPHANA","LEVIATHAN","JOHN","AEROS","LEGENDS","WSPA"].map(p=>React.createElement("div",{key:p,style:{fontSize:11,color:"var(--text2)",border:"1px solid var(--text3)",borderRadius:4,padding:"4px 10px"}},p))
           ),
           React.createElement("div",{style:{fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:10,fontFamily:"var(--font-head)"}},"CURRENT ORGANIZATIONAL CHART"),
           React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:14,marginBottom:24}},
@@ -2201,6 +2212,49 @@ function App(){
               )
             )
           )
+        )
+      );
+    }
+
+    // ── LEGENDS: retired-hero archive by era (own layout) ──
+    if(confUnlocked==="LEGENDS"){
+      const legends=CONFIDENTIAL_BRIEFINGS.LEGENDS;
+      const eraCard=l=>React.createElement("div",{key:l.title,style:{display:"flex",gap:10,alignItems:"flex-start",border:"1px solid var(--text3)",borderRadius:4,padding:"8px 12px",marginBottom:8,background:"rgba(255,255,255,.03)"}},
+        l.portrait&&React.createElement("img",{src:l.portrait,alt:l.title,style:{width:56,height:56,objectFit:"cover",borderRadius:4,border:"1px solid var(--text3)",flexShrink:0,display:"block"},onError:e=>{e.target.style.display="none";}}),
+        React.createElement("div",{style:{flex:1,minWidth:0}},
+          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6}},
+            React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--text)"}},l.title),
+            React.createElement("div",{style:{fontSize:10,color:"var(--red)",fontStyle:"italic"}},l.status)
+          ),
+          l.realName&&React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginTop:2}},l.realName),
+          l.basePower!=null&&React.createElement("div",{style:{fontSize:11,color:"var(--gold)",marginTop:2}},`Power Level: ${l.basePower}`),
+          l.abilities&&React.createElement("div",{style:{fontSize:11,color:"var(--text2)",marginTop:4,lineHeight:1.5}},l.abilities)
+        )
+      );
+      const simpleRow=(t,s)=>React.createElement("div",{key:t,className:"scene-rank-row",style:{display:"flex",justifyContent:"space-between",gap:10}},
+        React.createElement("span",null,t),React.createElement("span",{style:{color:"var(--text3)",fontStyle:"italic",fontSize:10}},s)
+      );
+      return React.createElement("div",{className:"full-panel",style:{background:"#000"}},
+        React.createElement("div",{className:"full-panel-header"},
+          React.createElement("div",{className:"full-panel-title"},legends.heading),
+          React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>{setScreen("hq");setConfUnlocked(null);setConfPassInput("");}},"← EXIT")
+        ),
+        React.createElement("div",{className:"full-panel-body"},
+          React.createElement("div",{style:{fontSize:13,color:"var(--text2)",lineHeight:1.8,marginBottom:10}},legends.desc),
+          React.createElement("div",{style:{fontSize:12,color:"var(--red)",fontStyle:"italic",marginBottom:20,lineHeight:1.6}},legends.quote),
+
+          React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--gold)",letterSpacing:1,marginBottom:8}},"MODERN AGE HEROES — DECEASED / RETIRED / MIA"),
+          React.createElement("div",{style:{marginBottom:22}},MODERN_AGE_LEGENDS.map(l=>simpleRow(l.title,l.status))),
+
+          React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--gold)",letterSpacing:1,marginBottom:8}},"SILVER AGE"),
+          React.createElement("div",{style:{marginBottom:10}},SILVER_AGE_DEFS.map(eraCard)),
+          React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:6}},`Still active heroes who also served in the Silver Age: ${SILVER_AGE_CROSSOVER.join(", ")}.`),
+          React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:22}},`Silver Age losses with few records: ${SILVER_AGE_LOST_RECORDS.join(", ")}.`),
+
+          React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--gold)",letterSpacing:1,marginBottom:8}},"GOLDEN AGE"),
+          React.createElement("div",{style:{marginBottom:10}},GOLDEN_AGE_DEFS.map(eraCard)),
+          React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:6}},`Still active heroes who also served in the Golden Age: ${GOLDEN_AGE_CROSSOVER.join(", ")}.`),
+          React.createElement("div",{style:{fontSize:11,color:"var(--text3)"}},`Golden Age losses with few records: ${GOLDEN_AGE_LOST_RECORDS.join(", ")}.`)
         )
       );
     }
