@@ -157,7 +157,7 @@ const CONFIDENTIAL_BRIEFINGS={
   LEGENDS:{
     heading:"⚠ CONFIDENTIAL — WSPA LEGENDS ARCHIVE",
     desc:"An archive of the no-longer-active roster, broken out by the age they served. Modern Age losses are logged here for institutional memory. Silver and Golden Age files are being retained in full pending a possible reactivation initiative — for now, only status, real name, power level, and abilities are cleared for viewing.",
-    quote:"\"Every generation thinks they invented heroism. They didn't. Half of what we know about fighting Titanaboa-class threats, we only know because someone wrote it down eighty years ago and someone else bothered to read it.\" — George Nichols",
+    quote:"\"We all owe a debt to the heroes of yesterday. They fought threats since before any of us were born, they held the line. They got us here. At some point we started keeping records, and it's been our way of saying thank you. In the early days, there were a lot of superheroes. WSPA, or rather, the EDF, was young and unknown. Heroes were doing their best, but usually found themselves on the backfoot entering unknown territory. Most heroes, especially in the golden age, didn't make it very long. It's no accident that the ones who did all knew each other well. The flashier and more lone wolf types only really started to have staying power in the silver age.\" — George Nichols",
     excludeTitles:[]
   }
 };
