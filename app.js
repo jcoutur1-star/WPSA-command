@@ -2319,7 +2319,8 @@ function App(){
           ),
           l.realName&&React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginTop:2}},l.realName),
           l.basePower!=null&&React.createElement("div",{style:{fontSize:11,color:"var(--gold)",marginTop:2}},`Power Level: ${l.basePower}`),
-          l.abilities&&React.createElement("div",{style:{fontSize:11,color:"var(--text2)",marginTop:4,lineHeight:1.5}},l.abilities)
+          l.abilities&&React.createElement("div",{style:{fontSize:11,color:"var(--text2)",marginTop:4,lineHeight:1.5}},l.abilities),
+          l.backstory&&React.createElement("div",{style:{fontSize:11,color:"var(--gold)",fontStyle:"italic",marginTop:8,lineHeight:1.6,borderTop:"1px solid rgba(255,255,255,.08)",paddingTop:8}},l.backstory)
         )
       );
       const simpleRow=(t,s)=>React.createElement("div",{key:t,className:"scene-rank-row",style:{display:"flex",justifyContent:"space-between",gap:10}},
