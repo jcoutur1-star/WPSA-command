@@ -192,6 +192,8 @@ function App(){
   useEffect(()=>{setBgTrack(screen);},[screen]);
   const [nameInput,setNameInput]=useState("");
   const [directorName,setDirectorName]=useState("");
+  const [ageMode,setAgeMode]=useState(loadAgeMode); // "modern" | "golden" | "silver" — home-screen era dial
+  function chooseAgeMode(v){setAgeMode(v);saveAgeMode(v);}
   const [gameOver,setGameOver]=useState(null);
   const [gameOverReason,setGameOverReason]=useState("");
   const [winTier,setWinTier]=useState(0); // 0=Easy(250) 1=Normal(500) 2=Legendary(1000)
@@ -230,6 +232,7 @@ function App(){
   // ── PUBLIC RELATIONS PANEL (Cassonik tips / Franco Q&A / Augusta's Face the Press) ──
   const [prEvent,setPrEvent]=useState(null);
   const [augustaInput,setAugustaInput]=useState("");
+  const [francoRankPicks,setFrancoRankPicks]=useState([]); // in-order hero picks for Franco's "Top 5" question
   const prEventRef=useRef(null);prEventRef.current=prEvent;
   const prQueueRef=useRef([]); // Normal-priority FIFO queue: {kind:"augusta",outcome,threatName} — waits for the current PR event to resolve, and for Augusta's own cooldown, before showing
   const prUrgentQueueRef=useRef([]); // Urgent-priority FIFO queue: {kind:"nichols30"|"johnsave"|"suicide"|"george_prospect",...} — preempts an interruptible PR event on screen (tip/augusta/franco) and always drains before the normal queue
@@ -501,6 +504,8 @@ function App(){
     const villainPool=vRef.current.filter(v=>!v.defeated&&!v.redeemed);
     const types=["blame","fight","job","lifeline"];
     if(villainPool.length>=4)types.push("afraid");
+    if(villainPool.length>=3)types.push("crush");
+    if(alive.length>=5)types.push("top5");
     const type=types[Math.floor(Math.random()*types.length)];
     if(type==="blame"){
       const[a,b]=shuffled;
@@ -526,6 +531,16 @@ function App(){
       setPrEvent({type:"franco",speaker:"franco",francoType:"lifeline",meta:{},
         text:"Your life is on the line with 3 seconds left on the clock. Who are you deploying?",
         options:four.map(h=>h.title)});
+    } else if(type==="crush"){
+      const three=[...villainPool].sort(()=>Math.random()-0.5).slice(0,3);
+      setPrEvent({type:"franco",speaker:"franco",francoType:"crush",meta:{},
+        text:"Which supervillain would you most want to redeem?",
+        options:three.map(v=>v.title)});
+    } else if(type==="top5"){
+      setFrancoRankPicks([]);
+      setPrEvent({type:"franco",speaker:"franco",francoType:"top5",meta:{},
+        text:"Director, who are your top 5 right now?",
+        options:shuffled.map(h=>h.title)});
     }
   }
   function handleFrancoChoice(choice){
@@ -537,6 +552,53 @@ function App(){
     else if(ev.francoType==="afraid")headline=`[The Franco Show] WSPA director is shivering their timbers at the thought of ${choice}.`;
     else if(ev.francoType==="job")headline=choice==="Hard work"?"[The Franco Show] Hard work? Yeah right! Why WSPA Director doesn't understand the meaning of luck.":"[The Franco Show] Luck? I sure hope not. WSPA director says they got lucky. Where's our luck?";
     else if(ev.francoType==="lifeline")headline=`[The Franco Show] WSPA Director says GOAT candidate is ${choice}.`;
+    else if(ev.francoType==="crush")headline=`[The Franco Show] WSPA Director has a crush on ${choice}.`;
+    if(headline)pushHeadline(headline);
+    setPrEvent(null);
+  }
+  // "Top 5" is picked one rank at a time (1st..5th) before it can be submitted.
+  function handleFrancoTop5Pick(choice){
+    setFrancoRankPicks(prev=>prev.includes(choice)||prev.length>=5?prev:[...prev,choice]);
+  }
+  function handleFrancoTop5Submit(){
+    const ev=prEventRef.current;
+    if(!ev||ev.type!=="franco"||ev.francoType!=="top5"||francoRankPicks.length<5)return;
+    const ordinals=["1st","2nd","3rd","4th","5th"];
+    const ordered=francoRankPicks.map((title,i)=>`${ordinals[i]}: ${title}`).join(", ");
+    pushHeadline(`[The Franco Show] WSPA Director gives top 5 (${ordered}). Can you believe that?`);
+    setFrancoRankPicks([]);
+    setPrEvent(null);
+  }
+
+  // ── AUGUSTA SPIN: periodic multiple-choice PR events (separate from her win/loss "Face the Press") ──
+  function fireAugustaMCEvent(){
+    const alive=hRef.current.filter(h=>!["kia","gameLocked","shopLocked"].includes(h.status));
+    if(alive.length<1)return;
+    const types=["approval"];
+    if(alive.length>=2)types.push("stepped_up");
+    const type=types[Math.floor(Math.random()*types.length)];
+    if(type==="approval"){
+      setPrEvent({type:"augusta_mc",speaker:"augusta",augustaType:"approval",meta:{},
+        text:"Director, your approval ratings are low. What do you have to say to worried citizens?",
+        options:["Everything's fine.","Everybody panic!"]});
+    } else if(type==="stepped_up"){
+      const shuffled=[...alive].sort(()=>Math.random()-0.5);
+      setPrEvent({type:"augusta_mc",speaker:"augusta",augustaType:"stepped_up",meta:{pool:shuffled.map(h=>h.title)},
+        text:"Director, which hero has really stepped up for you?",
+        options:shuffled.slice(0,Math.min(5,shuffled.length)).map(h=>h.title)});
+    }
+  }
+  function handleAugustaMCChoice(choice){
+    const ev=prEventRef.current;
+    if(!ev||ev.type!=="augusta_mc")return;
+    let headline=null;
+    if(ev.augustaType==="approval"){
+      headline=`[Augusta Spin] ${choice} Really? And I thought I was a bad public speaker!`;
+    } else if(ev.augustaType==="stepped_up"){
+      const pool=(ev.meta.pool||[]).filter(n=>n!==choice);
+      const other=pool.length?pool[Math.floor(Math.random()*pool.length)]:choice;
+      headline=`[Augusta Spin] ${choice} is the golden child of this particular director. I personally think ${other} deserves it more.`;
+    }
     if(headline)pushHeadline(headline);
     setPrEvent(null);
   }
@@ -558,9 +620,10 @@ function App(){
   // (not requeued) and the urgent event takes the front of the urgent line instead.
   function queueUrgentPr(item){
     const cur=prEventRef.current;
-    if(cur&&["tip","augusta","franco"].includes(cur.type)){
+    if(cur&&["tip","augusta","augusta_mc","franco"].includes(cur.type)){
       setPrEvent(null);
       if(cur.type==="augusta")setAugustaInput("");
+      if(cur.type==="franco"&&cur.francoType==="top5")setFrancoRankPicks([]);
     }
     prUrgentQueueRef.current.push(item);
   }
@@ -596,8 +659,31 @@ function App(){
     const nc=[...codexUnlocked,id];saveAndUpdateCodex(nc);
   }
 
-  function buildInitHeroes(){
-    const base=ALL_HERO_DEFS.map(h=>{
+  // Returns the raw hero-def pool for the currently selected era. Golden/Silver Age Director
+  // mode is a first pass: it swaps in that era's roster, but story systems built around
+  // Modern-age characters (John, Aeros, Silphana, Nichols, the tutorial, several achievements)
+  // are not yet guaranteed safe here — they still reference Modern-only titles directly.
+  function eraHeroPool(era=ageMode){
+    if(era==="golden")return[...GOLDEN_AGE_DEFS,IRON_LEGEND_DEF];
+    if(era==="silver")return[...SILVER_AGE_DEFS,IRON_LEGEND_DEF,...ALL_HERO_DEFS.filter(h=>SILVER_AGE_CROSSOVER.includes(h.title))];
+    return ALL_HERO_DEFS;
+  }
+  function eraVillainPool(era=ageMode){
+    if(era==="golden")return[...GOLDEN_AGE_VILLAIN_DEFS,...VILLAIN_DEFS.filter(v=>SHARED_AGE_VILLAINS.includes(v.title))];
+    if(era==="silver")return[...SILVER_AGE_VILLAIN_DEFS,...VILLAIN_DEFS.filter(v=>SHARED_AGE_VILLAINS.includes(v.title))];
+    return VILLAIN_DEFS;
+  }
+  function eraThreatPool(era=ageMode){
+    const reusable=ALL_THREATS.filter(t=>t.isKaiju||t.type==="disaster"); // kaiju & natural-disaster threats reused across every era
+    if(era==="golden")return[...GOLDEN_AGE_THREATS,...reusable];
+    if(era==="silver")return[...SILVER_AGE_THREATS,...reusable];
+    return ALL_THREATS;
+  }
+  // forceEra lets callers (like the tutorial, which is written around Modern-age
+  // characters) opt out of whatever era is set on the home screen dial.
+  function buildInitHeroes(forceEra){
+    const era=forceEra||ageMode;
+    const base=eraHeroPool(era).map(h=>{
       const isShopLocked=h.shopLocked&&!ownedShop.includes(h.title);
       const isHotLocked=h.hotLocked&&!hotUnlocked.includes(h.title);
       const isGameLocked=h.gameLocked||isHotLocked;
@@ -607,7 +693,8 @@ function App(){
     });
     // Silphana's redemption is a one-time story arc, not a per-run John dice roll — once
     // completed via Heroes of Tomorrow she's a permanent hero on every future roster.
-    if(hotUnlocked.includes("Silphana")){
+    // Modern-age story arc only — doesn't apply to Golden/Silver Age Director mode.
+    if(era==="modern"&&hotUnlocked.includes("Silphana")){
       const sBase=VILLAIN_DEFS.find(v=>v.title==="Silphana");
       if(sBase){
         const{maxHP}=effStats({...sBase,status:"ready"},{},{});
@@ -626,10 +713,10 @@ function App(){
     const ih=buildInitHeroes();
     setHeroes(ih);
     const ownedVillainTitles=SHOP_VILLAIN_TITLES.filter(t=>ownedShop.includes("v_"+t));
-    const silphanaDone=hotUnlocked.includes("Silphana");
-    const baseVillains=VILLAIN_DEFS.filter(v=>(!v.shopVillain||ownedVillainTitles.includes(v.title))&&!(v.title==="Silphana"&&silphanaDone));
+    const silphanaDone=ageMode==="modern"&&hotUnlocked.includes("Silphana");
+    const baseVillains=eraVillainPool().filter(v=>(!v.shopVillain||ownedVillainTitles.includes(v.title))&&!(v.title==="Silphana"&&silphanaDone));
     setVillains(baseVillains.map(v=>({...v,defeated:false,redeemed:false})));
-    const shuffled=shuffle(ALL_THREATS);
+    const shuffled=shuffle(eraThreatPool());
     setThreats(shuffled.slice(0,4).map(t=>({...t,timer:t.maxTimer})));
     setThreatQueue(shuffled.slice(4));
     setDepMap({});setRom({});setDis({13:[50]});setModal(null);setDepModal(null);setPicked([]);
@@ -645,7 +732,7 @@ function App(){
     setHeroPanelOpen(true);
     setThreatPanelOpen(true);
     setMapZoom(1);setMapPan({x:0,y:0});
-    setPrEvent(null);setAugustaInput("");setBondPick([]);
+    setPrEvent(null);setAugustaInput("");setBondPick([]);setFrancoRankPicks([]);
     prQueueRef.current=[];prUrgentQueueRef.current=[];lastPressTickRef.current=0;lastAugustaTickRef.current=0;warned30Ref.current=new Set();
     setWinTier(tier);setLog(`Welcome, Director ${n}. WSPA Command online.`);setLogTime("00:00");
     tick.current=0;
@@ -670,7 +757,7 @@ function App(){
   function startTutorial(){
     const n=directorName||nameInput.trim()||"Director";
     setDirectorName(n);
-    const ih=buildInitHeroes();
+    const ih=buildInitHeroes("modern"); // tutorial is always Modern age, regardless of the Director Era dial
     setHeroes(ih);
     setVillains(VILLAIN_DEFS.filter(v=>!(v.title==="Silphana"&&hotUnlocked.includes("Silphana"))).map(v=>({...v,defeated:false,redeemed:false})));
     setThreats([]);setThreatQueue([]);
@@ -682,7 +769,7 @@ function App(){
     setHospitalIds([]);
     setHeroPanelOpen(true);setThreatPanelOpen(true);
     setMapZoom(1);setMapPan({x:0,y:0});
-    setPrEvent(null);setAugustaInput("");setBondPick([]);
+    setPrEvent(null);setAugustaInput("");setBondPick([]);setFrancoRankPicks([]);
     prQueueRef.current=[];prUrgentQueueRef.current=[];lastPressTickRef.current=0;lastAugustaTickRef.current=0;warned30Ref.current=new Set();
     tick.current=0;setLogTime("00:00");
     setLog(`Welcome, Director ${n}. Deputy Director Nichols is walking you through the basics.`);
@@ -1031,8 +1118,8 @@ function App(){
             setPrEvent({type:"george_prospect",speaker:"nichols",
               text:"When you have time, check out our new prospect back at HQ!",firedAt:t});
           }
-        } else if(prQueueRef.current.length>0&&t-lastAugustaTickRef.current>=300){
-          // Normal lane: Augusta only fires once her own 5-minute cooldown has elapsed.
+        } else if(prQueueRef.current.length>0&&t-lastAugustaTickRef.current>=180){
+          // Normal lane: Augusta only fires once her own 3-minute cooldown has elapsed.
           // If she's still cooling down, we fall through to Franco's cadence / tips below instead
           // of blocking on her — she just keeps waiting at the front of this queue.
           const item=prQueueRef.current.shift();
@@ -1040,8 +1127,12 @@ function App(){
           setPrEvent({type:"augusta",speaker:"augusta",outcome:item.outcome,threatName:item.threatName,
             text:`Director ${directorName}, what do you have to say about your ${item.outcome==="win"?"win":"loss"} against ${item.threatName}?`,
             deadlineTick:t+120});
-        } else if(t-lastPressTickRef.current>=300&&Math.random()<0.06){
-          // Franco has his own independent 5-minute cooldown — no longer shares a timer with Augusta.
+        } else if(prQueueRef.current.length===0&&t-lastAugustaTickRef.current>=180&&Math.random()<0.06){
+          // No win/loss queued up — Augusta still has her own multiple-choice Q&A on the same 3-minute cooldown.
+          lastAugustaTickRef.current=t;
+          fireAugustaMCEvent();
+        } else if(t-lastPressTickRef.current>=180&&Math.random()<0.06){
+          // Franco has his own independent 3-minute cooldown — no longer shares a timer with Augusta.
           lastPressTickRef.current=t;
           fireFrancoEvent();
         } else if(t%50===0&&Math.random()<0.6){
@@ -2234,12 +2325,39 @@ function App(){
       const simpleRow=(t,s)=>React.createElement("div",{key:t,className:"scene-rank-row",style:{display:"flex",justifyContent:"space-between",gap:10}},
         React.createElement("span",null,t),React.createElement("span",{style:{color:"var(--text3)",fontStyle:"italic",fontSize:10}},s)
       );
+      const villainCard=v=>React.createElement("div",{key:v.title,style:{display:"flex",gap:10,alignItems:"flex-start",border:"1px solid var(--red)",borderRadius:4,padding:"8px 12px",marginBottom:8,background:"rgba(255,0,0,.05)"}},
+        v.portrait&&React.createElement("img",{src:v.portrait,alt:v.title,style:{width:56,height:56,objectFit:"cover",borderRadius:4,border:"1px solid var(--text3)",flexShrink:0,display:"block"},onError:e=>{e.target.style.display="none";}}),
+        React.createElement("div",{style:{flex:1,minWidth:0}},
+          React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--red)"}},v.title),
+          v.realName&&React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginTop:2}},v.realName),
+          v.basePower!=null&&React.createElement("div",{style:{fontSize:11,color:"var(--gold)",marginTop:2}},`Power Level: ${v.basePower}`),
+          v.abilities&&React.createElement("div",{style:{fontSize:11,color:"var(--text2)",marginTop:4,lineHeight:1.5}},v.abilities)
+        )
+      );
+      const threatRow=t=>React.createElement("div",{key:t.id,className:"scene-rank-row",style:{display:"flex",flexDirection:"column",gap:2,padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,.06)"}},
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",gap:10}},
+          React.createElement("span",{style:{color:"var(--text)"}},t.name),
+          React.createElement("span",{style:{color:"var(--text3)",fontStyle:"italic",fontSize:10}},t.loc)
+        ),
+        React.createElement("div",{style:{fontSize:10,color:"var(--text3)"}},t.desc)
+      );
       return React.createElement("div",{className:"full-panel",style:{background:"#000"}},
         React.createElement("div",{className:"full-panel-header"},
           React.createElement("div",{className:"full-panel-title"},legends.heading),
           React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>{setScreen("hq");setConfUnlocked(null);setConfPassInput("");}},"← EXIT")
         ),
         React.createElement("div",{className:"full-panel-body"},
+          React.createElement("div",{style:{border:"1px solid var(--gold)",borderRadius:4,padding:"10px 12px",marginBottom:18,background:"rgba(255,215,0,.05)"}},
+            React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--gold)",letterSpacing:1,marginBottom:6}},"DIRECTOR ERA — ACTIVE MISSION ROSTER"),
+            React.createElement("div",{style:{fontSize:10,color:"var(--text3)",marginBottom:8}},"Controls which era's heroes, villains, and threats populate BEGIN COMMAND. Does not affect the tutorial or anything else in Headquarters."),
+            React.createElement("div",{style:{display:"flex",gap:6}},
+              [["modern","MODERN"],["golden","GOLDEN"],["silver","SILVER"]].map(([v,label])=>
+                React.createElement("button",{key:v,className:"mbtn"+(ageMode===v?" purple":""),style:{padding:"5px 14px",fontSize:11},onClick:()=>chooseAgeMode(v)},label)
+              )
+            ),
+            ageMode!=="modern"&&React.createElement("div",{style:{fontSize:9,color:"var(--gold)",marginTop:8}},
+              `Your next BEGIN COMMAND run will deploy as Director of the ${ageMode==="golden"?"Golden":"Silver"} Age.`)
+          ),
           React.createElement("div",{style:{fontSize:13,color:"var(--text2)",lineHeight:1.8,marginBottom:10}},legends.desc),
           React.createElement("div",{style:{fontSize:12,color:"var(--red)",fontStyle:"italic",marginBottom:20,lineHeight:1.6}},legends.quote),
 
@@ -2247,14 +2365,26 @@ function App(){
           React.createElement("div",{style:{marginBottom:22}},MODERN_AGE_LEGENDS.map(l=>simpleRow(l.title,l.status))),
 
           React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--gold)",letterSpacing:1,marginBottom:8}},"SILVER AGE"),
-          React.createElement("div",{style:{marginBottom:10}},SILVER_AGE_DEFS.map(eraCard)),
+          React.createElement("div",{style:{marginBottom:10}},[...SILVER_AGE_DEFS,IRON_LEGEND_DEF].map(eraCard)),
           React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:6}},`Still active heroes who also served in the Silver Age: ${SILVER_AGE_CROSSOVER.join(", ")}.`),
-          React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:22}},`Silver Age losses with few records: ${SILVER_AGE_LOST_RECORDS.join(", ")}.`),
+          React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:16}},`Silver Age losses with few records: ${SILVER_AGE_LOST_RECORDS.join(", ")}.`),
+          React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--red)",letterSpacing:1,marginBottom:8}},"SILVER AGE SUPERVILLAINS"),
+          React.createElement("div",{style:{marginBottom:6}},SILVER_AGE_VILLAIN_DEFS.map(villainCard)),
+          React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:22}},`Also active in this era: ${SHARED_AGE_VILLAINS.join(", ")}.`),
 
           React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--gold)",letterSpacing:1,marginBottom:8}},"GOLDEN AGE"),
-          React.createElement("div",{style:{marginBottom:10}},GOLDEN_AGE_DEFS.map(eraCard)),
+          React.createElement("div",{style:{marginBottom:10}},[...GOLDEN_AGE_DEFS,IRON_LEGEND_DEF].map(eraCard)),
           React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:6}},`Still active heroes who also served in the Golden Age: ${GOLDEN_AGE_CROSSOVER.join(", ")}.`),
-          React.createElement("div",{style:{fontSize:11,color:"var(--text3)"}},`Golden Age losses with few records: ${GOLDEN_AGE_LOST_RECORDS.join(", ")}.`)
+          React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:16}},`Golden Age losses with few records: ${GOLDEN_AGE_LOST_RECORDS.join(", ")}.`),
+          React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:11,color:"var(--red)",letterSpacing:1,marginBottom:8}},"GOLDEN AGE SUPERVILLAINS"),
+          React.createElement("div",{style:{marginBottom:6}},GOLDEN_AGE_VILLAIN_DEFS.map(villainCard)),
+          React.createElement("div",{style:{fontSize:11,color:"var(--text3)",marginBottom:22}},`Also active in this era: ${SHARED_AGE_VILLAINS.join(", ")}.`),
+
+          React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--gold)",letterSpacing:1,marginBottom:8}},"SILVER AGE THREATS"),
+          React.createElement("div",{style:{marginBottom:22}},SILVER_AGE_THREATS.map(threatRow)),
+
+          React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--gold)",letterSpacing:1,marginBottom:8}},"GOLDEN AGE THREATS"),
+          React.createElement("div",null,GOLDEN_AGE_THREATS.map(threatRow))
         )
       );
     }
@@ -2589,8 +2719,18 @@ function App(){
               React.createElement("div",{className:"pr-speaker-name"},spk.name),
               React.createElement("div",{className:"pr-commentary"},prEvent.text),
               React.createElement("div",{className:"pr-controls"},
-                prEvent.type==="franco"?
+                prEvent.type==="franco"&&prEvent.francoType==="top5"?
+                  React.createElement(React.Fragment,null,
+                    React.createElement("div",{className:"pr-timer-note"},
+                      francoRankPicks.length?`Picked: ${francoRankPicks.map((p,i)=>`${i+1}. ${p}`).join(" · ")}`:"Pick your top 5, in order."),
+                    prEvent.options.filter(o=>!francoRankPicks.includes(o)).map((opt,i)=>
+                      React.createElement("button",{key:i,className:"pr-option-btn",onClick:()=>handleFrancoTop5Pick(opt)},opt)),
+                    francoRankPicks.length>=5?React.createElement("button",{className:"pr-option-btn purple",onClick:handleFrancoTop5Submit},"SUBMIT ▶"):null
+                  )
+                :prEvent.type==="franco"?
                   prEvent.options.map((opt,i)=>React.createElement("button",{key:i,className:"pr-option-btn",onClick:()=>handleFrancoChoice(opt)},opt))
+                :prEvent.type==="augusta_mc"?
+                  prEvent.options.map((opt,i)=>React.createElement("button",{key:i,className:"pr-option-btn",onClick:()=>handleAugustaMCChoice(opt)},opt))
                 :prEvent.type==="augusta"?
                   React.createElement(React.Fragment,null,
                     React.createElement("input",{className:"pr-text-input",maxLength:100,placeholder:"Type your response... (100 chars)",value:augustaInput,
