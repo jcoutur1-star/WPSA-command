@@ -3,8 +3,31 @@ function sc(v,m){const p=v/m;return p>0.6?"#33ff88":p>0.3?"#ffaa00":"#ff3333";}
 function clsColor(cls){return cls==="tank"?"#4488ff":cls==="support"?"#44ff88":"#ff8844";}
 function threatColor(t){return P_COLORS[t.priority]||"#ffaa00";}
 
+// ── CAREER BONUS SYSTEM ──────────────────────────────────────────────────────
+// A hero's listed base power/HP already includes whatever rank they START at.
+//   Beginner start:     intermediate bonus at Inter., veteran bonus at Veteran
+//   Intermediate start: no intermediate bonus; veteran bonus on reaching Veteran
+//   Veteran start:      no bonus at all (already factored into their listed rating)
+let _startCareerByTitle=null;
+function startCareerOf(hero){
+  if(hero.startCareer)return hero.startCareer;
+  if(!_startCareerByTitle){
+    _startCareerByTitle={};
+    const pools=[ALL_HERO_DEFS,VILLAIN_DEFS,SILVER_AGE_DEFS,GOLDEN_AGE_DEFS,SILVER_AGE_VILLAIN_DEFS,GOLDEN_AGE_VILLAIN_DEFS,[IRON_LEGEND_DEF]];
+    pools.forEach(p=>p.forEach(d=>{_startCareerByTitle[d.title]=d.career;}));
+  }
+  return _startCareerByTitle[hero.title]||hero.career;
+}
+function careerMult(hero){
+  const start=startCareerOf(hero);
+  if(start==="veteran")return 1;
+  if(hero.career==="veteran")return CAREER.veteran.mult;
+  if(hero.career==="intermediate"&&start==="beginner")return CAREER.intermediate.mult;
+  return 1;
+}
+
 function effStats(hero,rom,dis){
-  const m=CAREER[hero.career]?.mult||1;
+  const m=careerMult(hero);
   let power=hero.basePower*m;
   if(hero._corvairBuff)power+=0.5;
   if(hero._ironsideAura)power+=0.3;
@@ -115,6 +138,8 @@ function heroSpecialsAdjustment(heroes,threat,rom,dis){
   if(threat.isOcean&&heroes.some(h=>h.title==="Hydrothylre"))adj+=34;
   if(threat.isOcean&&heroes.some(h=>h.title==="Hydrotheppilies"))adj+=34;
   if(heroes.some(h=>h.title==="Captain Shamrock"))adj+=10;
+  // Seraph — Celestial Aura: +5% Mission Success
+  if(heroes.some(h=>h.title==="Seraph"))adj+=5;
   if(threat.type==="kaiju")adj+=0.8;
   if(threat.type==="mystic"&&heroes.some(h=>["Seraph","Morgana","The Crimson Knight"].includes(h.title)))adj+=1.2;
   if(threat.type==="tech"&&heroes.some(h=>["Adrenaline Junkie","Dr. Voidance"].includes(h.title)))adj+=1;
@@ -148,7 +173,7 @@ function rollMission(heroes,threat,rom,dis){
     const affected=rogueMembers.map(r=>r.title);
     // Build Resistance Score (R)
     let R=rogueMembers.reduce((sum,r)=>{
-      const m=CAREER[r.career]?.mult||1;
+      const m=careerMult(r);
       let p=r.basePower*m;
       // Conviction bonus: rogue member whose affiliate is also rogue
       if((r.affiliates||[]).some(aff=>affected.includes(aff)))p*=1.15;
@@ -161,7 +186,7 @@ function rollMission(heroes,threat,rom,dis){
     if(johnInRogue)return Math.random()<0.01?"success":"failure";
     // Build Suppression Score (S)
     const S=heroes.reduce((sum,h)=>{
-      const m=CAREER[h.career]?.mult||1;
+      const m=careerMult(h);
       let p=h.basePower*m;
       // Relationship penalty: deployed hero has a rogue member in their affiliates
       if((h.affiliates||[]).some(aff=>affected.includes(aff)))p*=0.75;
@@ -284,7 +309,7 @@ function calcDmgRaw(outcome,hero,threat,allDeployed){
 
   // ── The Phi Am: ×1.2 damage to heroes below 50% health ──
   if(threat&&threat.phiAmEffect){
-    const m=CAREER[hero.career]?.mult||1;
+    const m=careerMult(hero);
     const approxMaxHP=Math.round(hero.baseHP*m)+(hero.mechaBonus||0);
     const base=outcome==="success"?[5,18]:outcome==="partial"?[15,28]:[28,45];
     const raw=Math.floor(Math.random()*(base[1]-base[0])+base[0]);
@@ -324,9 +349,21 @@ function calcDmgRaw(outcome,hero,threat,allDeployed){
 // about damage is untouched; this is a flat multiplier applied on top of
 // whatever calcDmgRaw already computed.
 function calcDmg(outcome,hero,threat,allDeployed){
-  const result=calcDmgRaw(outcome,hero,threat,allDeployed);
+  let result=calcDmgRaw(outcome,hero,threat,allDeployed);
   if(result==null||typeof result.health!=="number")return result;
   const allHeroes=allDeployed||[hero];
+  // ── Generic threat modifiers (set as flags on the threat in data.js) ──
+  if(threat&&!threat.leavesAt1HP&&!threat.typhonEffect){
+    let h=result.health;
+    // Multipliers
+    if(threat.dmgMultVsFemale&&hero.isFemale)h*=threat.dmgMultVsFemale;
+    if(threat.dmgMultVsMale&&hero.isMale)h*=threat.dmgMultVsMale;
+    if(threat.dmgMultVsTank&&hero.cls==="tank")h*=threat.dmgMultVsTank;
+    // Flat bonuses
+    if(threat.bonusDmgTitles&&threat.bonusDmgTitles.includes(hero.title))h+=threat.bonusDmgAmount||0;
+    if(threat.extraPerHeroOver4)h+=Math.max(0,allHeroes.length-4)*threat.extraPerHeroOver4;
+    result={...result,health:Math.round(h)};
+  }
   const classesPresent=new Set(allHeroes.map(h=>h.cls));
   const protectedClass=(hero.cls==="cannon"&&classesPresent.has("tank"))||
                         (hero.cls==="support"&&classesPresent.has("cannon"))||
@@ -355,7 +392,7 @@ function computeMissionSuccessPercent(heroes,threat,rom,dis){
     const rogueMembers=threat.rogueMembers||[];
     const affected=rogueMembers.map(r=>r.title);
     let R=rogueMembers.reduce((sum,r)=>{
-      const m=CAREER[r.career]?.mult||1;
+      const m=careerMult(r);
       let p=r.basePower*m;
       if((r.affiliates||[]).some(aff=>affected.includes(aff)))p*=1.15;
       return sum+p;
@@ -364,7 +401,7 @@ function computeMissionSuccessPercent(heroes,threat,rom,dis){
     if(johnInRogue)R*=3.5;
     if(johnInRogue)return 1; // flat 1% success roll, no partial outcome
     const S=heroes.reduce((sum,h)=>{
-      const m=CAREER[h.career]?.mult||1;
+      const m=careerMult(h);
       let p=h.basePower*m;
       if((h.affiliates||[]).some(aff=>affected.includes(aff)))p*=0.75;
       return sum+p;
