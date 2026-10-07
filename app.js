@@ -1224,7 +1224,8 @@ function App(){
       const decorated={...h,_icebergBonus:iceBonus,_conductorBonus:conductorBonus};
       const{maxHP}=effStats(decorated,romRef.current,disRef.current);
       const bubble=Math.random()<0.55?getRandQuip(h,romRef.current,disRef.current,true):null;
-      return{...h,status:"deployed",_icebergBonus:iceBonus,_conductorBonus:conductorBonus,currentHP:Math.min(maxHP,h.currentHP),speechBubble:bubble};
+      // Anchor's special: remember whether he was at 100% health when sent out
+      return{...h,status:"deployed",_icebergBonus:iceBonus,_conductorBonus:conductorBonus,currentHP:Math.min(maxHP,h.currentHP),_deployedFull:h.currentHP>=maxHP,speechBubble:bubble};
     }));
     setDepMap(prev=>({...prev,[threat.id]:picked}));
     setLog(`⚡ ${assigned.map(h=>h.title).join(" & ")} deployed to ${threat.loc}...`);
@@ -1335,6 +1336,8 @@ function App(){
       }
 
       const pts=outcome!=="failure"?(outcome==="success"?threat.reward:Math.floor(threat.reward/2)):0;
+      // XP is divided among the team when more than 5 heroes are deployed (score is unaffected)
+      const xpEach=assigned.length>5?pts/assigned.length:pts;
       const allSnap=hRef.current;
       let johnShouldTurn=false;
       const veteranEvents=[];
@@ -1355,6 +1358,8 @@ function App(){
         if(gummyP&&h.title!=="The Gummy Bear")nHP=Math.max(0,h.currentHP-Math.floor(d.health/2));
         const shamrock=assigned.find(x=>x.title==="Captain Shamrock");
         if(nHP===0&&shamrock&&h.id!==shamrock.id)nHP=1;
+        // The Anchor: if he deployed at 100% health, he cannot be killed — left at 1 HP instead
+        if(nHP===0&&h.title==="The Anchor"&&h._deployedFull)nHP=1;
         if(nHP===0){
           anyKIA=true;
           const isSui=isSuicide(h,allSnap,picked);
@@ -1470,7 +1475,7 @@ function App(){
           return{...h,currentHP:0,status:"kia",_icebergBonus:false,_conductorBonus:false,speechBubble:null};
         }
         const st=nHP<(h.functionalAt||0)?"exhausted":nHP<maxHP?"resting":"ready";
-        const thresh=xpToLevel(h);const nXP=(h.xp||0)+pts;
+        const thresh=xpToLevel(h);const nXP=(h.xp||0)+xpEach;
         let nc=h.career;let didLv=false;
         if(nXP>=thresh&&CAREER[h.career]?.next){nc=CAREER[h.career].next;didLv=true;levelUps.push({title:h.title,to:nc});
           // Collect veteran events instead of calling nested setHeroes
@@ -1618,7 +1623,7 @@ function App(){
       if((threat.priority==="red"||threat.priority==="purple"||threat.villainId)&&!threat.tutorialGuaranteed){
         prQueueRef.current.push({kind:"augusta",outcome:outcome==="success"?"win":"loss",threatName:threat.name});
       }
-      setModal({threat,heroes:assigned,outcome,narration,damages,anyKIA,turnedVillain,redeemedVillains,levelUps,xpEarned:pts,newRomMsg,newDisMsg,unlockMsg});
+      setModal({threat,heroes:assigned,outcome,narration,damages,anyKIA,turnedVillain,redeemedVillains,levelUps,xpEarned:Math.round(xpEach*10)/10,newRomMsg,newDisMsg,unlockMsg});
       setLog(`Debrief: ${threat.name} — ${outcome.toUpperCase()}${anyKIA?" ⚠ HERO LOST":""}${turnedVillain?` 🔴 ${turnedVillain.title} ROGUE`:""}${levelUps.length?" ⭐ LVL UP":""}${newRomMsg?" 💕":""}`);
       // ── Generate news headline ──
       {
@@ -2235,7 +2240,7 @@ function App(){
           React.createElement("div",{style:{fontSize:12,color:"var(--text3)",marginBottom:16}},"World Security & Protection Agency"),
           React.createElement("div",{style:{fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:6,fontFamily:"var(--font-head)"}},"KNOWN ACCESS CODES"),
           React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}},
-            ["KRONOS","TYPHON","MANIAC","SILPHANA","LEVIATHAN","JOHN","TCK","AEROS","LEGENDS","WSPA"].map(p=>React.createElement("div",{key:p,style:{fontSize:11,color:"var(--text2)",border:"1px solid var(--text3)",borderRadius:4,padding:"4px 10px"}},p))
+            ["KRONOS","TYPHON","MANIAC","SILPHANA","LEVIATHAN","JOHN","TCK","AEROS","LEGENDS","ALI","HOT","WSPA"].map(p=>React.createElement("div",{key:p,style:{fontSize:11,color:"var(--text2)",border:"1px solid var(--text3)",borderRadius:4,padding:"4px 10px"}},p))
           ),
           React.createElement("div",{style:{fontSize:11,color:"var(--text3)",letterSpacing:1,marginBottom:10,fontFamily:"var(--font-head)"}},"CURRENT ORGANIZATIONAL CHART"),
           React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:14,marginBottom:24}},
@@ -2391,6 +2396,22 @@ function App(){
     }
 
     // ── KRONOS / TYPHON / MANIAC: shared briefing layout ──
+    // ── LETTER-STYLE BRIEFINGS (ALI / HOT): plain text, no roster list ──
+    if(CONFIDENTIAL_BRIEFINGS[confUnlocked].isLetter){
+      const letter=CONFIDENTIAL_BRIEFINGS[confUnlocked];
+      return React.createElement("div",{className:"full-panel",style:{background:"#000"}},
+        React.createElement("div",{className:"full-panel-header"},
+          React.createElement("div",{className:"full-panel-title"},letter.heading),
+          React.createElement("button",{className:"mbtn",style:{padding:"4px 12px"},onClick:()=>{setScreen("hq");setConfUnlocked(null);setConfPassInput("");}},"← EXIT")
+        ),
+        React.createElement("div",{className:"full-panel-body"},
+          React.createElement("div",{style:{maxWidth:680,margin:"0 auto",padding:"10px 6px"}},
+            letter.paragraphs.map((p,i)=>React.createElement("div",{key:i,style:{fontSize:14,color:"var(--text2)",lineHeight:1.9,marginBottom:16,whiteSpace:"pre-line"}},p)),
+            letter.signature&&React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--gold)",letterSpacing:1,marginTop:20,textAlign:"right"}},letter.signature)
+          )
+        )
+      );
+    }
     const briefing=CONFIDENTIAL_BRIEFINGS[confUnlocked];
     const heroList=ALL_HERO_DEFS.filter(h=>!h.isJohn&&!briefing.excludeTitles.includes(h.title)).sort((a,b)=>b.basePower-a.basePower);
     return React.createElement("div",{className:"full-panel",style:{background:"#000"}},
@@ -2524,7 +2545,7 @@ function App(){
                 !isShopL&&!isGameL&&h.status!=="kia"&&h.status!=="rogue"&&CAREER[h.career]?.next&&React.createElement("div",{className:"xp-row"},
                   React.createElement("div",{className:"xp-label"},"XP"),
                   React.createElement("div",{className:"xp-bar-track"},React.createElement("div",{className:"xp-bar-fill",style:{width:`${xpPct}%`}})),
-                  React.createElement("span",{style:{fontSize:7,color:"var(--gold)",marginLeft:3}},`${h.xp||0}/${thresh}`)
+                  React.createElement("span",{style:{fontSize:7,color:"var(--gold)",marginLeft:3}},`${Math.round((h.xp||0)*10)/10}/${thresh}`)
                 ),
                 isShopL&&React.createElement("div",{style:{fontSize:8,color:"var(--gold)",marginTop:3}},`Unlock in Shop for ${SHOP_PRICE} pts`)
               ),
