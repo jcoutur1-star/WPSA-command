@@ -248,6 +248,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-si
 .pr-timer-note{width:100%;font-size:8px;color:var(--text3)}
 .tutorial-dim{opacity:.14;filter:grayscale(65%);pointer-events:none;transition:opacity .35s,filter .35s}
 .tutorial-spotlight{position:relative;z-index:6;box-shadow:0 0 0 2px var(--accent),0 0 26px rgba(0,212,255,.4);transition:box-shadow .35s}
+/* The scrolling roster clips outer glows, so highlight it from the inside */
+.heroes-panel.tutorial-spotlight{box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 34px rgba(0,212,255,.35)}
+.heroes-panel.tutorial-spotlight .hero-card{border-color:var(--accent)}
 .tutorial-box{
   position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
   z-index:150;max-width:640px;width:calc(100% - 32px);
