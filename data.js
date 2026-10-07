@@ -169,6 +169,7 @@ const CONFIDENTIAL_BRIEFINGS={
   ALI:{
     heading:"⚠ CONFIDENTIAL — A LETTER FOR MY REPLACEMENT",
     isLetter:true,
+    portrait:"portraits/Alinote.png",
     paragraphs:[
 `To my replacement.`,
 `Sometimes we need to learn things several times before they stick. Sometimes they never do. I don’t have superpowers, and very likely neither do you. So what does that make of us? It would seem that the obvious answer is the same thing that a superhero would say.`,
