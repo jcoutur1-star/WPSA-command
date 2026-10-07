@@ -2406,6 +2406,7 @@ function App(){
         ),
         React.createElement("div",{className:"full-panel-body"},
           React.createElement("div",{style:{maxWidth:680,margin:"0 auto",padding:"10px 6px"}},
+            letter.portrait&&React.createElement("img",{src:letter.portrait,alt:"Director Abbas Ali",style:{display:"block",width:"100%",maxWidth:220,height:"auto",margin:"0 auto 22px",borderRadius:4,border:"1px solid var(--border2)"},onError:ev=>{ev.target.style.display="none";}}),
             letter.paragraphs.map((p,i)=>React.createElement("div",{key:i,style:{fontSize:14,color:"var(--text2)",lineHeight:1.9,marginBottom:16,whiteSpace:"pre-line"}},p)),
             letter.signature&&React.createElement("div",{style:{fontFamily:"var(--font-head)",fontSize:12,color:"var(--gold)",letterSpacing:1,marginTop:20,textAlign:"right"}},letter.signature)
           )
